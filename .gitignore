@@ -1,0 +1,117 @@
+##############################
+# Core env and secrets
+##############################
+.env
+.env.*
+!env.example
+
+# SSL/certificates and private keys
+ssl/
+*.key
+*.crt
+*.pem
+*.csr
+*.p12
+*.pfx
+*.rnd
+
+##############################
+# Logs and diagnostics
+##############################
+logs/**
+*.log
+nginx/logs/**
+nginx_logs/**
+!logs/.gitkeep
+!nginx/logs/.gitkeep
+
+##############################
+# Docker data/volumes (bind mounts)
+##############################
+data/
+volumes/
+postgres_data/
+redis_data/
+qdrant_data/
+ollama_data/
+n8n_data/
+pihole_data/
+pihole_dnsmasq/
+wireguard_config/
+
+##############################
+# Backups and archives
+##############################
+backups/**
+*.backup
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.sql
+*.dump
+
+##############################
+# Temp and cache
+##############################
+*.tmp
+*.temp
+.cache/
+cache/
+tmp/
+temp/
+
+##############################
+# IDE/editor/system artifacts
+##############################
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+##############################
+# Language eco (potential future use)
+##############################
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+##############################
+# Runtime/system sockets/locks
+##############################
+*.pid
+*.lock
+*.sock
+
+##############################
+# Nginx (ignore sensitive or generated)
+##############################
+nginx/ssl/
+nginx/logs/**
+
+##############################
+# Misc
+##############################
+.dockerignore
