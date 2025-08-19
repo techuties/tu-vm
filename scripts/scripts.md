@@ -28,10 +28,6 @@ This folder contains operational scripts to manage the AI Platform lifecycle. Ea
   - `docker compose down`, prune containers/images/volumes/networks/system
   - Deletes temp files; preserves most recent backups
 
-### Removed scripts
-- setup.sh: Redundant with start/update scripts (TLS generation, checks already handled). Functionality consolidated.
-- mobile-backup.sh: Superseded by automated backups in `update.sh`. For custom backups, use `docker exec pg_dump` and archive volumes as needed.
-
 ---
 
 ### Usage quick reference
