@@ -1,9 +1,3 @@
-## License
-
-This repository is provided as-is under MIT license. Review third‑party images’ licenses (Ollama, Qdrant, n8n, etc.) before production use.
-
----
-
 ## Governance
 
 This project is managed and maintained by [techuties.com](https://www.techuties.com) and is part of the Bastilities ecosystem. For enterprise support, integrations, and roadmap discussions, please reach out via Techuties.
