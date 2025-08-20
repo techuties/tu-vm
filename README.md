@@ -1,280 +1,3 @@
-## AI Platform Stack (Docker)
-
-> Managed by [techuties.com](https://www.techuties.com), part of the Bastilities ecosystem.
-
-This repository provisions a compact, production-style AI platform using Docker Compose. It brings together:
-
-- PostgreSQL (persistent DB)
-- Redis (fast cache)
-- Qdrant (vector DB)
-- Ollama (local models runtime)
-- Open WebUI (chat UI)
-- n8n (workflow automation)
-- Pi-hole (DNS/ad-blocking for the stack)
-- Nginx (reverse proxy and TLS)
-- WireGuard (secure remote access)
-
-The stack is optimized for a single host (e.g., Ubuntu Server/VM) and includes safe start/update scripts that manage DNS dependencies and system updates automatically.
-
-### Key Benefits
-
-- **All‑in‑one AI stack**: Databases, models, UI, workflows, cache, and proxy in one Compose project
-- **Foolproof startup/update**: Scripts handle DNS ordering (Pi‑hole vs systemd‑resolved) and apt updates
-- **Isolation**: Dedicated Docker network with assigned service IPs and Nginx front door
-- **Security**: WireGuard, Pi‑hole filtering, reverse proxy TLS, minimal ports exposed
-- **Local‑first**: Ollama models run locally; Qdrant stores your vectors
-
-### When to Use
-
-- Personal/SMB AI hub on a single VM/host
-- Edge or lab environments with limited/controlled internet
-- Teams who want local LLM access (Ollama) with a friendly UI and automations (n8n)
-
-### Not a Fit
-
-- Multi‑tenant production with Kubernetes & horizontal scaling
-- Strict zero‑downtime deployment requirements
-
----
-
-## Architecture Overview
-
-- Compose file: `docker-compose.yml`
-- Reverse proxy: `nginx/`
-- DNS (Pi‑hole) custom config: `pihole/`
-- TLS assets: `ssl/` (auto‑generated self‑signed if none present)
-- Helper scripts: `scripts/`
-- Logs and backups: `logs/`, `backups/` (git‑ignored)
-
-Service access (defaults):
-
-- Open WebUI: `https://tu.local/`
-- n8n: `https://ai.tu.local/`
-- Pi‑hole Admin: `http://tu.local:8081/`
-- Qdrant: `http://localhost:6333`
-- Ollama API: `http://localhost:11434`
-
-Open ports (host): 80/tcp, 443/tcp, 53/tcp+udp, 5678/tcp, 11434/tcp, 6333/tcp, 8081/tcp, 51820/udp
-
----
-
-## Prerequisites
-
-- Ubuntu Server 22.04+ (or comparable Linux with systemd)
-- Docker Engine and Docker Compose plugin
-- Host DNS must allow Pi‑hole to bind to port 53 (the scripts handle this)
-
-Update Ubuntu first
-'''bash
-sudo apt update && sudo apt upgrade -y
-'''
-
-Install SSH Server (Recommendet):
-Eases the copy & paste process.
-'''bash
-sudi apt install openssh-server
-ip address
-# find your IP'/24' address
-'''
-Now connect via Terminal or Shell from the Host
-'''bash
-ssh ubuntuLogin@IP
-'''
-Accept the SSH Fingerprint and enter the ubuntuUsers password
-
-
-Install Docker (example for Ubuntu):
-
-```bash
-sudo apt-get install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt-get update -y
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-sudo usermod -aG docker $USER
-# Log out/in or: newgrp docker
-```
-
----
-
-## Installation & First Start
-
-1) Clone and enter the project directory
-
-```bash
-git clone https://github.com/techuties/tu-vm.git
-ls # You should see a folder tu-vm
-cd tu-vm # enter the folder
-```
-
-2) Copy environment template and adjust
-
-```bash
-sudo nano env.example  # Edit file
-
-cp env.example .env # Copy file and rename to .env
-```
-
-Key fields to review in `.env`:
-
-- `HOST_IP` (e.g., your VM IP) -> through '''bash ip address'''
-'''bash
-# Host Configuration
-HOST_IP=10.211.55.12  # Insert the IP of the running ubuntu server (In Terminal: ip address)
-'''
-- Secrets for n8n, WebUI, DB, etc.
-'''bash
-# Database Configuration
-POSTGRES_PASSWORD=techuties_pstgres   # Generate a Password, if complex than in between ' '
-# Redis Configuration
-REDIS_PASSWORD=techuties_redis  # Generate a Password, if complex than in between ' '
-# n8n Configuration
-N8N_PASSWORD=techuties_master_key
-N8N_ENCRYPTION_KEY='1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b'
-# Open WebUI Configuration
-WEBUI_SECRET_KEY=SwitzerlandWebUI2024
-WEBUI_JWT_SECRET_KEY=JwTSwitzerland2024
-'''
-
-3) Ensure local hostnames resolve from your workstation (optional but recommended)
-
-Add entries to your workstation `/etc/hosts` (or local DNS):
-
-```
-<HOST_IP> tu.local ai.tu.local
-```
-
-4) Start the stack safely
-
-```bash
-./scripts/start.sh
-```
-
-The script will:
-
-- Generate self‑signed TLS certs if missing
-- Ensure DNS/port 53 is free for Pi‑hole
-- Start services in dependency order (Pi‑hole → DBs → AI → proxy)
-- Verify health and print access URLs
-
----
-
-## DNS Considerations (Pi‑hole vs systemd‑resolved)
-
-Ubuntu’s systemd‑resolved often binds to 127.0.0.53:53, which conflicts with Pi‑hole. The provided scripts handle the handoff automatically:
-
-- Startup: free port 53 → start Pi‑hole first
-- Update: temporarily use host DNS (systemd‑resolved with Cloudflare/Quad9), then return to Pi‑hole
-
-You normally do not need to manage this manually.
-
----
-
-## Updating the Stack
-
-Use the foolproof updater:
-
-```bash
-./scripts/update.sh
-```
-
-What it does:
-
-- Verifies system requirements
-- Enables host DNS for downloads (Cloudflare 1.1.1.1, Quad9 9.9.9.9)
-- Backs up configs and DB dump (`backups/`)
-- Stops app services, stops Pi‑hole
-- Runs `apt-get update && apt-get upgrade`
-- Pulls latest container images
-- Stops host DNS, then starts Pi‑hole and the rest in order
-- Verifies health; logs to `logs/update_*.log`
-
-If anything fails, tail the most recent log file for full diagnostics.
-
-```bash
-ls -1 logs/update_*.log | tail -n1
-tail -f logs/update_YYYYmmdd_HHMMSS.log
-```
-
-### Update script (how it works)
-
-- Entry point: `./scripts/update.sh`
-- Writes a detailed run log to `logs/update_YYYYmmdd_HHMMSS.log`
-- Uses non‑Google DNS resolvers (Cloudflare 1.1.1.1, Quad9 9.9.9.9)
-
-Flow:
-
-1) Pre‑checks: disk space, Docker/Compose availability
-2) Prepare DNS: start Ubuntu host DNS (systemd‑resolved) so updates can resolve while Pi‑hole is down
-3) Backup: timestamped archive of configs and a DB dump in `backups/`
-4) Stop services: stop app services first, then Pi‑hole (to free port 53)
-5) OS updates: `apt-get update && apt-get upgrade`
-6) Images: `docker compose pull` with retries and logging
-7) DNS handoff back: stop host DNS, verify port 53 is free
-8) Start services in order: Pi‑hole → databases → AI services → WireGuard/Nginx
-9) Health checks: HTTP checks and container health; prints access URLs
-
-Notes:
-
-- If the systemd stub 127.0.0.53 is not listening, the script temporarily writes a static `/etc/resolv.conf` (Cloudflare/Quad9) to guarantee DNS during updates.
-- All diagnostics (systemd status, `resolvectl status`, `ss -tlnp :53`, `/etc/resolv.conf`) are logged for troubleshooting.
-- Re‑run the script safely any time; it is idempotent and will retry pulls/health checks.
-
----
-
-## Configuration Notes
-
-- Nginx: `nginx/conf.d/default.conf` proxies to fixed container IPs on the internal Docker network for resilience against DNS timing.
-- Pi‑hole: custom dnsmasq snippets can go under `pihole/` (mounted into the container).
-- Data: volumes are defined under `volumes:` in Compose and are git‑ignored to protect secrets/state.
-
----
-
-## Backups & Logs
-
-- Backups: `backups/` contain timestamped archives made by the updater
-- Logs: `logs/` holds update logs and diagnostics
-- Both are ignored by Git; keep your own off‑host backups for disaster recovery
-
----
-
-## Troubleshooting
-
-### Pi‑hole fails to start (port 53 already in use)
-
-- Run: `sudo ss -tulnp | grep :53`
-- Ensure systemd‑resolved is not grabbing port 53.
-- Re-run `./scripts/start.sh` to enforce the proper handoff.
-
-### Local hostnames don’t resolve
-
-- Add `tu.local` and `ai.tu.local` to your workstation `/etc/hosts`, or configure your LAN DNS to resolve them to the host IP.
-
-### Service is unhealthy
-
-- Check: `docker compose ps` and `docker compose logs <service>`
-- Re-run update to refresh images and configs: `./scripts/update.sh`
-
----
-
-## Security
-
-- Self‑signed TLS certs are generated by default. For public use, replace with trusted certs (mount into `ssl/`).
-- Change default credentials/secrets in `.env`.
-- Expose only required ports.
-
----
-
-## Uninstallation / Cleanup
-
-```bash
-docker compose down -v
-sudo rm -rf backups logs postgres_data redis_data qdrant_data ollama_data n8n_data pihole_data pihole_dnsmasq wireguard_config nginx_logs
-```
-
----
-
 ## License
 
 This repository is provided as-is under MIT license. Review third‑party images’ licenses (Ollama, Qdrant, n8n, etc.) before production use.
@@ -327,20 +50,40 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 ## 🛠️ Installation
 
 ### Quick Start (Recommended)
+1. update Ubuntu server and isntall updates
+   '''bash
+   sudo apt update && sudo apt upgrade -y
+   '''
 
-1. **Clone the repository:**
+2. Install SSH Server (Recommendet):
+   Eases the copy & paste process.
+   '''bash
+   sudi apt install openssh-server
+   ip address
+   '''
+   -> find your IP'/24' address
+   Now connect via Terminal or Shell from the Host
+   '''bash
+   ssh ubuntuLogin@IP
+   '''
+   Accept the SSH Fingerprint and enter the ubuntuUsers password
+
+
+   Install Docker (example for Ubuntu):
+
+3. **Clone the repository:**
    ```bash
    git clone <repository-url>
    cd docker
    ```
 
-2. **Run the automated setup:**
+4. **Run the automated setup:**
    ```bash
    chmod +x scripts/setup.sh
    ./scripts/setup.sh
    ```
 
-3. **Start the platform:**
+5. **Start the platform:**
    ```bash
    chmod +x scripts/start.sh
    ./scripts/start.sh
