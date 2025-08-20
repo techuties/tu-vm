@@ -171,7 +171,7 @@ services:
       N8N_HOST: ai.tu.local
       N8N_PORT: 5678
       N8N_PROTOCOL: https
-      WEBHOOK_URL: http://ai_n8n:5678
+      WEBHOOK_URL: http://ai.${DOMAIN}:5678
       GENERIC_TIMEZONE: Europe/Zurich
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b}
       # PostgreSQL Database Configuration

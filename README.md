@@ -1,7 +1,3 @@
-## Governance
-
-This project is managed and maintained by [TechUties](https://www.techuties.com). For enterprise support, integrations, and roadmap discussions, please reach out via Techuties.
-
 # 🤖 AI Platform - Professional Docker Setup
 
 A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments.
@@ -482,6 +478,39 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Ollama team for local AI model support
 - Pi-hole team for network security
 - Docker community for containerization tools
+
+---
+
+## Governance
+
+This project is managed and maintained by [TechUties](https://www.techuties.com).
+
+## Why Open Source
+
+- **Transparency and auditability**: Review DNS handoff, update flow, and security posture end‑to‑end — essential for AI/data workflows.
+- **Vendor neutrality and portability**: No lock‑in; runs the same on any hypervisor/host with Docker + Compose.
+- **Community‑driven quality**: Issues/PRs/integrations raise the baseline for everyone.
+- **Education and reproducibility**: A living reference for teams operating private AI safely and repeatably.
+
+## Project Values
+
+- **Privacy‑first**: Local models (Ollama) and self‑hosted UI/workflows; minimal telemetry — control data flows, reduce risk.
+- **Security by default**: Nginx TLS, Pi‑hole DNS, optional WireGuard, least‑privilege containers — shrink attack surface from day one.
+- **Sovereignty and independence**: Your VM, your network, your keys — compliance, resilience, freedom to adapt.
+- **Traceability and accountability**: Update logs, health checks, explicit DNS handoff — operations you can observe and audit.
+- **Composability**: Swappable services via Docker Compose — tailor the stack without replatforming.
+- **Performance and stewardship**: Sensible limits and start order — reliability on modest VMs; prevent cascading failures.
+- **Accessibility and clarity**: Foolproof scripts + step‑by‑step README — reduce toil; make secure ops repeatable.
+- **Ethical and sustainable AI**: Local‑first options and open governance — align outcomes with organizational values.
+
+## Roadmap (Aspirational)
+
+- **Security baselines**: CIS‑aligned notes, SBOMs, image provenance.
+- **Identity & policy**: SSO (OIDC), policy‑as‑code for access/updates.
+- **Backups & DR**: Built‑in restore guides and verified DR runbooks.
+- **Observability**: Optional minimal Prometheus/Loki/Grafana bundle.
+- **Compliance helpers**: Mappings (e.g., ISO 27001 controls) to accelerate audits.
+
 
 ---
 
