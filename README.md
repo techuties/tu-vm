@@ -1,6 +1,6 @@
 ## Governance
 
-This project is managed and maintained by [techuties.com](https://www.techuties.com) and is part of the Bastilities ecosystem. For enterprise support, integrations, and roadmap discussions, please reach out via Techuties.
+This project is managed and maintained by [TechUties](https://www.techuties.com). For enterprise support, integrations, and roadmap discussions, please reach out via Techuties.
 
 # 🤖 AI Platform - Professional Docker Setup
 
