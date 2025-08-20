@@ -41,76 +41,75 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 - **Ports**: 80, 443, 5678, 8081, 5353, 51820 (UDP)
 - **Domain**: Optional (tu.local for local development)
 
-## 🛠️ Installation
+## 🛠️ Installation (Fresh Ubuntu Server)
 
-### Quick Start (Recommended)
-1. update Ubuntu server and isntall updates
-   '''bash
-   sudo apt update && sudo apt upgrade -y
-   '''
+### 1) Update OS and install Docker
+```bash
+sudo apt-get update -y && sudo apt-get upgrade -y
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update -y
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+# log out/in or: newgrp docker
+```
 
-2. Install SSH Server (Recommendet):
-   Eases the copy & paste process.
-   '''bash
-   sudi apt install openssh-server
-   ip address
-   '''
-   -> find your IP'/24' address
-   Now connect via Terminal or Shell from the Host
-   '''bash
-   ssh ubuntuLogin@IP
-   '''
-   Accept the SSH Fingerprint and enter the ubuntuUsers password
+### 2) Get the code
+```bash
+git clone https://github.com/techuties/tu-vm.git
+cd tu-vm
+```
 
+### 3) Configure environment
+```bash
+cp env.example .env
+```
+Edit `.env` minimally:
+- POSTGRES_PASSWORD, REDIS_PASSWORD
+- HOST_IP (server IP), DOMAIN (e.g., tu.local)
+- Optional secrets for n8n/Open WebUI
 
-   Install Docker (example for Ubuntu):
+### 4) (Optional) Workstation hostname mapping
+Add to your workstation `/etc/hosts`:
+```
+<HOST_IP> tu.local ai.tu.local
+```
 
-3. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd docker
-   ```
+### 5) Start the platform (safe sequence)
+```bash
+./scripts/start.sh
+```
+The script frees port 53 for Pi‑hole, generates self‑signed TLS if missing, and starts services in dependency order.
 
-4. **Run the automated setup:**
-   ```bash
-   chmod +x scripts/setup.sh
-   ./scripts/setup.sh
-   ```
+### 6) Verify access
+```bash
+curl -k https://tu.local/health     # Open WebUI
+curl -k https://ai.tu.local/health  # n8n
+```
+If you didn’t add hostnames, browse to the server IP on 443 and set Host header accordingly.
 
-5. **Start the platform:**
-   ```bash
-   chmod +x scripts/start.sh
-   ./scripts/start.sh
-   ```
+---
 
-### Manual Installation
+## 🖥️ macOS and Windows Hosts
 
-1. **Install Docker and Docker Compose:**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt update
-   sudo apt install docker.io docker-compose
-   sudo usermod -aG docker $USER
-   ```
+This stack runs fine on macOS (Docker Desktop) and Windows (Docker Desktop / WSL2). The only difference is DNS handling: Pi‑hole cannot reliably bind host port 53 on those platforms. Use the provided override and keep DNS inside the Docker network.
 
-2. **Configure environment:**
-   ```bash
-   cp env.example .env
-   # Edit .env with your preferences
-   ```
+### Start with mac/win override
+```bash
+docker compose -f docker-compose.yml -f docker-compose.mac-win.yml up -d
+```
 
-3. **Generate SSL certificates:**
-   ```bash
-   mkdir -p ssl
-   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-     -keyout ssl/nginx.key -out ssl/nginx.crt \
-     -subj "/C=CH/ST=Zurich/L=Zurich/O=AI Platform/CN=tu.local"
-   ```
+Notes:
+- Pi‑hole still serves DNS for containers via Docker’s internal DNS. You don’t need to expose 53 on the host.
+- Access services via:
+  - Open WebUI: https://localhost (accept self‑signed cert)
+  - n8n: https://localhost (use Host header ai.tu.local if needed)
+  - Pi‑hole Admin: http://localhost:8081/
+- The Linux‑specific DNS handoff in `./scripts/start.sh` is skipped automatically on macOS/Windows.
 
-4. **Start services:**
-   ```bash
-   docker compose up -d
-   ```
+For Windows WSL2 users, you can run this project from WSL and access it from Windows via localhost; DNS port 53 exposure is still discouraged.
 
 ## 🌐 Access URLs
 

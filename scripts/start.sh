@@ -31,6 +31,12 @@ info() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $1${NC}"
 }
 
+# OS detection
+HOST_OS="$(uname -s 2>/dev/null || echo Unknown)"
+is_linux()   { [[ "$HOST_OS" == "Linux" ]]; }
+is_darwin()  { [[ "$HOST_OS" == "Darwin" ]]; }
+is_windows() { [[ "$HOST_OS" =~ MINGW|MSYS|CYGWIN ]]; }
+
 # Show usage
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -398,10 +404,16 @@ main() {
     
     check_root
     
-    # Fix DNS and port conflicts before starting services
-    fix_dns_and_ports
-    fix_container_resolution
-    fix_hostname_entries
+    # Fix DNS and port conflicts before starting services (Linux only)
+    if is_linux; then
+        fix_dns_and_ports
+        fix_container_resolution
+        fix_hostname_entries
+    else
+        warn "Non-Linux host detected ($HOST_OS). Skipping host DNS adjustments."
+        warn "If Pi-hole port 53 conflicts on your host, use the mac/win override file to avoid exposing 53."
+        warn "Start command example: docker compose -f docker-compose.yml -f docker-compose.mac-win.yml up -d"
+    fi
     
     generate_ssl_certificates
     
