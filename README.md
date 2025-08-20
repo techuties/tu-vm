@@ -64,10 +64,28 @@ Open ports (host): 80/tcp, 443/tcp, 53/tcp+udp, 5678/tcp, 11434/tcp, 6333/tcp, 8
 - Docker Engine and Docker Compose plugin
 - Host DNS must allow Pi‑hole to bind to port 53 (the scripts handle this)
 
+Update Ubuntu first
+'''bash
+sudo apt update && sudo apt upgrade -y
+'''
+
+Install SSH Server (Recommendet):
+Eases the copy & paste process.
+'''bash
+sudi apt install openssh-server
+ip address
+# find your IP'/24' address
+'''
+Now connect via Terminal or Shell from the Host
+'''bash
+ssh ubuntuLogin@IP
+'''
+Accept the SSH Fingerprint and enter the ubuntuUsers password
+
+
 Install Docker (example for Ubuntu):
 
 ```bash
-sudo apt-get update -y
 sudo apt-get install -y ca-certificates curl gnupg
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -85,21 +103,39 @@ sudo usermod -aG docker $USER
 1) Clone and enter the project directory
 
 ```bash
-git clone <this-repo-url> ai-platform
-cd ai-platform
+git clone https://github.com/techuties/tu-vm.git
+ls # You should see a folder tu-vm
+cd tu-vm # enter the folder
 ```
 
 2) Copy environment template and adjust
 
 ```bash
-cp env.example .env
+sudo nano env.example  # Edit file
+
+cp env.example .env # Copy file and rename to .env
 ```
 
 Key fields to review in `.env`:
 
-- `HOST_IP` (e.g., your VM IP)
-- `DOMAIN` (e.g., `tu.local`)
+- `HOST_IP` (e.g., your VM IP) -> through '''bash ip address'''
+'''bash
+# Host Configuration
+HOST_IP=10.211.55.12  # Insert the IP of the running ubuntu server (In Terminal: ip address)
+'''
 - Secrets for n8n, WebUI, DB, etc.
+'''bash
+# Database Configuration
+POSTGRES_PASSWORD=techuties_pstgres   # Generate a Password, if complex than in between ' '
+# Redis Configuration
+REDIS_PASSWORD=techuties_redis  # Generate a Password, if complex than in between ' '
+# n8n Configuration
+N8N_PASSWORD=techuties_master_key
+N8N_ENCRYPTION_KEY='1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b'
+# Open WebUI Configuration
+WEBUI_SECRET_KEY=SwitzerlandWebUI2024
+WEBUI_JWT_SECRET_KEY=JwTSwitzerland2024
+'''
 
 3) Ensure local hostnames resolve from your workstation (optional but recommended)
 
