@@ -1,4 +1,4 @@
-# 🤖 AI Platform - Professional Docker Setup
+# TechUties AI Platform - All In One self hosted Ai Workflow stack
 
 A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments.
 
@@ -27,7 +27,9 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 ## 📋 Prerequisites
 
 ### System Requirements
-- **OS**: Ubuntu Server 22.04+ (latest LTS recommended) inside a VM on your host machine
+- **Host OS**: Windows or MacOS
+- **VM Software**: Parallels Desktop, VirtualBox, ...
+- **VM OS**: Ubuntu Server 22.04+ (latest LTS recommended) inside a VM on your host machine
 - **RAM**: Minimum 4GB, Recommended 8GB+
 - **Storage**: 20GB+ free space
 - **Docker**: Version 20.10+
@@ -67,6 +69,7 @@ cd tu-vm
 
 ### 3) Configure environment
 ```bash
+sudo nano env.example
 cp env.example .env
 ```
 Edit `.env` minimally:
@@ -74,13 +77,12 @@ Edit `.env` minimally:
 - HOST_IP (server IP), DOMAIN (e.g., tu.local)
 - Optional secrets for n8n/Open WebUI
 
-### 4) (Optional) Workstation hostname mapping
-Add to your workstation `/etc/hosts`:
+### 4) Workstation hostname mapping (Required)
+Map your VM IP to local hostnames on your workstation. Use spaces (no commas):
 ```
-Linux: sudo nano /etc/hosts
-
-<HOST_IP> tu.local ai.tu.local
+<VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local
 ```
+Where `<VM_IP>` is the VM address from step 4.1. After saving, flush DNS (macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, Windows: `ipconfig /flushdns`).
 
 ### 4.1) Find your VM IP (inside the Ubuntu VM)
 Use one of the following to get the VM's LAN IP (not 127.0.0.1):
@@ -104,8 +106,9 @@ The script frees port 53 for Pi‑hole, generates self‑signed TLS if missing, 
 
 ### 6) Verify access
 ```bash
-curl -k https://tu.local/health     # Open WebUI
-curl -k https://ai.tu.local/health  # n8n
+curl -k https://tu.local/health      # Landing page health
+curl -k https://oweb.tu.local/health # Open WebUI health
+curl -k https://n8n.tu.local/health  # n8n health
 ```
 If you didn’t add hostnames, browse to the server IP on 443 and set Host header accordingly.
 
@@ -127,17 +130,20 @@ Recommended VM setup:
    - Windows: `C:\\Windows\\System32\\drivers\\etc\\hosts`
    - Map to the VM IP:
    ```
-   <VM_IP> tu.local ai.tu.local
+   <VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local
    ```
 
 No special Docker overrides are needed on the host. Run all commands inside the Ubuntu VM and follow the Linux instructions above.
 
 ## 🌐 Access URLs
 
-### Main Services
-- **Open WebUI**: https://tu.local (served via Nginx; container port 8080 is not published on the host)
-- **n8n Workflows**: https://ai.tu.local (or http://localhost:5678 or http://<ubuntuIP-address>:5678)
-- **Pi-hole Admin**: http://localhost:8081/admin
+- ### Main Services
+- **Landing Page**: https://tu.local (links + status)
+- **Open WebUI**: https://oweb.tu.local (served via Nginx; container 8080 is internal)
+- **n8n Workflows**: https://n8n.tu.local (served via Nginx; 5678 direct mapping disabled)
+- **Ollama API**: http://localhost:11434 (host access enabled)
+- **WireGuard**: UDP 51820 (host)
+- **Pi-hole Admin**: http://localhost:8081/admin (host access enabled)
 
 ### Default Credentials
 - **Open WebUI**: No default login (first user creates admin)
@@ -150,7 +156,7 @@ Official docs:
 - Pi-hole: https://docs.pi-hole.net/
 
 ### Database Access
-- **PostgreSQL**: localhost:5432 (inside VM; from host use the VM IP)
+- **PostgreSQL**: localhost:5432 (inside VM only)
   - Database: ai_platform
   - User: ai_admin
   - Password: ai_password_2024
@@ -183,10 +189,11 @@ PIHOLE_PASSWORD=SwissPiHole2024!
 - **Database**: PostgreSQL with vector storage
 - **Authentication**: JWT-based with configurable secrets
 
-#### n8n
-- **Database**: PostgreSQL backend
-- **Authentication**: Basic auth enabled
-- **Webhooks**: HTTPS support with SSL
+#### n8n (First-time setup)
+- **Database**: PostgreSQL backend, schema `n8n` (created automatically by scripts)
+- **Authentication**: Basic auth enabled (env `N8N_USER`/`N8N_PASSWORD`)
+- **Onboarding**: On first run, the app creates its user/project in schema `n8n`.
+- **Webhooks**: HTTPS via Nginx; external URL: `https://n8n.${DOMAIN}/`
 
 #### Pi-hole
 - **DNS Port**: 53 (host), with Linux handoff from systemd‑resolved handled by scripts
@@ -433,7 +440,7 @@ Internal name resolution → Pi‑hole
 ```
 
 ### Custom AI Models
-1. Access Ollama (from within VM): http://localhost:11434 (from host: http://<VM_IP>:11434)
+1. Access Ollama (from within VM): http://localhost:11434 (host mapping disabled by default)
 2. Pull models: `ollama pull llama2:7b`
 3. Configure in Open WebUI
 
@@ -442,12 +449,12 @@ Official docs:
 - Qdrant: https://qdrant.tech/documentation/
 
 ### Custom Workflows
-1. Access n8n: https://ai.tu.local (from host, ensure hosts mapping to VM IP)
+1. Access n8n: https://n8n.tu.local (from host, ensure hosts mapping to VM IP)
 2. Create workflows with database nodes
 3. Use PostgreSQL for data storage
 
 ### DNS Configuration
-1. Access Pi-hole: http://localhost:8081/admin (from host: http://<VM_IP>:8081/admin)
+1. Access Pi-hole: http://localhost:8081/admin
 2. Add custom blocklists
 3. Configure upstream DNS servers
 

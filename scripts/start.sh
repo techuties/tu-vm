@@ -13,6 +13,14 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Initialize file logging
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+LOG_DIR="logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/start_${TIMESTAMP}.log"
+# Mirror all stdout/stderr to log file as well
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 # Logging function
 log() {
     echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
@@ -125,17 +133,35 @@ fix_hostname_entries() {
     log "Ensuring hostname entries are correct..."
     
     # Add missing hostname entries to /etc/hosts
-    if ! grep -q "ai.tu.local" /etc/hosts; then
-        log "Adding ai.tu.local to /etc/hosts..."
-        echo "10.211.55.12 ai.tu.local" | sudo tee -a /etc/hosts
-    fi
-    
     if ! grep -q "tu.local" /etc/hosts; then
         log "Adding tu.local to /etc/hosts..."
         echo "10.211.55.12 tu.local" | sudo tee -a /etc/hosts
     fi
+    if ! grep -q "n8n.tu.local" /etc/hosts; then
+        log "Adding n8n.tu.local to /etc/hosts..."
+        echo "10.211.55.12 n8n.tu.local" | sudo tee -a /etc/hosts
+    fi
+    if ! grep -q "oweb.tu.local" /etc/hosts; then
+        log "Adding oweb.tu.local to /etc/hosts..."
+        echo "10.211.55.12 oweb.tu.local" | sudo tee -a /etc/hosts
+    fi
+    if ! grep -q "pihole.tu.local" /etc/hosts; then
+        log "Adding pihole.tu.local to /etc/hosts..."
+        echo "10.211.55.12 pihole.tu.local" | sudo tee -a /etc/hosts
+    fi
     
     log "✓ Hostname entries verified"
+}
+
+# Ensure n8n schema exists in Postgres (idempotent)
+ensure_n8n_schema() {
+    log "Ensuring Postgres schema for n8n exists..."
+    # Create schema n8n if missing and grant to ai_admin
+    if docker compose exec -T postgres psql -U ai_admin -d ai_platform -v ON_ERROR_STOP=1 -c "CREATE SCHEMA IF NOT EXISTS n8n AUTHORIZATION ai_admin; GRANT ALL ON SCHEMA n8n TO ai_admin;" >/dev/null 2>&1; then
+        log "✓ Postgres schema 'n8n' is present"
+    else
+        warn "Could not ensure Postgres schema 'n8n' (will not block startup)"
+    fi
 }
 
 # Generate SSL certificates if they don't exist
@@ -219,6 +245,9 @@ start_services() {
     # Wait for databases to be ready
     log "Waiting for databases to be ready..."
     sleep 30
+
+    # Ensure required schemas exist
+    ensure_n8n_schema
     
     # Step 3: Start AI services
     log "Starting AI services..."
@@ -304,18 +333,18 @@ test_https_endpoints() {
     fi
     
     # Test n8n via HTTPS
-    if curl -k -f -s -m 10 -H "Host: ai.tu.local" "https://localhost:443" | grep -q "n8n.io"; then
-        log "✓ HTTPS ai.tu.local (n8n) works"
+    if curl -k -f -s -m 10 -H "Host: n8n.tu.local" "https://localhost:443/health" >/dev/null 2>&1; then
+        log "✓ HTTPS n8n.tu.local works"
     else
-        warn "✗ HTTPS ai.tu.local failed"
+        warn "✗ HTTPS n8n.tu.local failed"
     fi
     
     # Test Open WebUI via HTTPS (may take longer)
     sleep 10
-    if curl -k -f -s -m 10 -H "Host: tu.local" "https://localhost:443" >/dev/null 2>&1; then
-        log "✓ HTTPS tu.local (Open WebUI) works"
+    if curl -k -f -s -m 10 -H "Host: oweb.tu.local" "https://localhost:443/health" >/dev/null 2>&1; then
+        log "✓ HTTPS oweb.tu.local works"
     else
-        warn "✗ HTTPS tu.local failed (Open WebUI may still be starting)"
+        warn "✗ HTTPS oweb.tu.local failed (service may still be starting)"
     fi
 }
 
@@ -326,11 +355,11 @@ display_status() {
     
     echo ""
     log "=== Access URLs ==="
-    echo "n8n: https://ai.tu.local (or https://localhost:443 with Host: ai.tu.local)"
-    echo "Open WebUI: https://tu.local (or https://localhost:443 with Host: tu.local)"
-    echo "Pi-hole: http://localhost:8081/admin"
+    echo "Landing: https://tu.local (or https://localhost:443 with Host: tu.local)"
+    echo "Open WebUI: https://oweb.tu.local (or https://localhost:443 with Host: oweb.tu.local)"
+    echo "n8n: https://n8n.tu.local (or https://localhost:443 with Host: n8n.tu.local)"
+    echo "Pi-hole Admin: https://pihole.tu.local (proxied via Nginx)"
     echo "Ollama API: http://localhost:11434"
-    echo "Qdrant: http://localhost:6333"
     
     echo ""
     log "=== Next Steps ==="
@@ -359,10 +388,10 @@ show_status_only() {
     
     echo ""
     log "=== Access URLs ==="
-    echo "n8n: https://ai.tu.local"
-    echo "Open WebUI: https://tu.local"
-    echo "Pi-hole: http://localhost:8081/admin"
-    echo "DNS: 10.211.55.12:5353"
+    echo "Landing: https://tu.local"
+    echo "Open WebUI: https://oweb.tu.local"
+    echo "n8n: https://n8n.tu.local"
+    echo "Pi-hole: https://pihole.tu.local"
 }
 
 # Main execution
