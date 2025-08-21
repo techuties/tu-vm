@@ -80,7 +80,7 @@ Edit `.env` minimally:
 ### 4) Workstation hostname mapping (Required)
 Map your VM IP to local hostnames on your workstation. Use spaces (no commas):
 ```
-<VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local
+<VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local ollama.tu.local
 ```
 Where `<VM_IP>` is the VM address from step 4.1. After saving, flush DNS (macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, Windows: `ipconfig /flushdns`).
 
@@ -130,7 +130,7 @@ Recommended VM setup:
    - Windows: `C:\\Windows\\System32\\drivers\\etc\\hosts`
    - Map to the VM IP:
    ```
-   <VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local
+   <VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local ollama.tu.local
    ```
 
 No special Docker overrides are needed on the host. Run all commands inside the Ubuntu VM and follow the Linux instructions above.
@@ -138,12 +138,12 @@ No special Docker overrides are needed on the host. Run all commands inside the 
 ## 🌐 Access URLs
 
 - ### Main Services
-- **Landing Page**: https://tu.local (links + status)
-- **Open WebUI**: https://oweb.tu.local (served via Nginx; container 8080 is internal)
-- **n8n Workflows**: https://n8n.tu.local (served via Nginx; 5678 direct mapping disabled)
-- **Ollama API**: http://localhost:11434 (host access enabled)
+- **Landing Page**: https://tu.local (links + live status badges)
+- **Open WebUI**: https://oweb.tu.local (via Nginx; container 8080 is internal)
+- **n8n Workflows**: https://n8n.tu.local (via Nginx; 5678 is internal)
+- **Ollama API**: https://ollama.tu.local (TLS via Nginx; container 11434 is internal)
 - **WireGuard**: UDP 51820 (host)
-- **Pi-hole Admin**: http://localhost:8081/admin (host access enabled)
+- **Pi-hole Admin**: https://pihole.tu.local/admin (via Nginx; 8081 is localhost-only on VM)
 
 ### Default Credentials
 - **Open WebUI**: No default login (first user creates admin)
@@ -348,11 +348,11 @@ docker compose restart ollama open-webui
 
 #### Slow AI Responses
 ```bash
-# Check Ollama status
+# Check Ollama status (container logs)
 docker compose logs ollama
 
-# Verify model availability
-curl http://localhost:11434/api/tags
+# Verify model availability via Nginx (TLS)
+curl -k https://ollama.tu.local/api/tags
 ```
 
 ## 📈 Monitoring & Maintenance
@@ -435,14 +435,15 @@ docker compose up -d --force-recreate
   │  └─ ai_nginx (TLS/Reverse proxy)
   └─ Scripts: start.sh / update.sh (DNS handoff, backups, health)
 
-External access → Nginx (80/443) → Open WebUI/n8n
+External access → Nginx (80/443) → Open WebUI / n8n / Ollama / Pi-hole admin
 Internal name resolution → Pi‑hole
 ```
 
 ### Custom AI Models
-1. Access Ollama (from within VM): http://localhost:11434 (host mapping disabled by default)
-2. Pull models: `ollama pull llama2:7b`
-3. Configure in Open WebUI
+1. From your workstation: use `https://ollama.tu.local` (TLS via Nginx)
+2. From containers: use `http://ollama:11434` (internal Docker network)
+3. Pull models: `ollama pull llama2:7b`
+4. Configure in Open WebUI
 
 Official docs:
 - Ollama: https://ollama.com/docs
