@@ -14,9 +14,10 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 
 ### Security & Network
 - **Pi-hole** - DNS ad-blocking and network security
-- **VPN Client (optional)** - Host-level egress privacy (WireGuard/OpenVPN) with kill-switch
-- **Nginx** - Reverse proxy with SSL/TLS support
-- **Self-signed SSL certificates** - HTTPS encryption
+- **VPN Client (optional)** - Host-level egress privacy (WireGuard/OpenVPN) with kill-switch and optional transparent gateway for host/LAN
+- **Nginx** - Reverse proxy with SSL/TLS and security headers
+- **Helper API (internal)** - Upload VPN profiles + aggregate status for landing page
+- **Self-signed SSL certificates** - HTTPS encryption (use real certs if exposing beyond LAN)
 
 ### Mobile Optimizations
 - **Resource limits** - Battery-friendly resource management
@@ -50,7 +51,7 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 - **Docker Compose**: Version 2.0+
 
 ### Network Requirements
-- **Ports**: 80, 443, 5678, 8081, 5353
+- **Ports**: 80, 443 (public/LAN). 53 (DNS) if running Pi-hole for your LAN. Admin endpoints are proxied via 443; internal ports are not exposed.
 - **Domain**: Optional (tu.local as default)
 
 References:
@@ -126,6 +127,28 @@ curl -k https://n8n.tu.local/health  # n8n health
 ```
 If you didn’t add hostnames, browse to the server IP on 443 and set Host header accordingly.
 
+### 7) Optional: Enable VPN client and gateway mode
+1) Edit `.env` and set:
+```
+VPN_ENABLED=true
+GATEWAY_ENABLED=true
+VPN_TYPE=wireguard
+VPN_FAIL_MODE=closed
+```
+2) Place `.conf` in `wg-configs/` or `.ovpn` in `ovpn-configs/`
+3) Start via landing page or:
+```
+bash scripts/vpn-manager.sh start
+bash scripts/vpn-manager.sh rotate
+bash scripts/vpn-manager.sh status
+```
+4) Optional system services:
+```
+bash scripts/vpn-manager.sh systemd-install
+bash scripts/vpn-manager.sh systemd-install-webhook
+sudo systemctl enable --now tu-vpn.service tu-vpn-webhook.service
+```
+
 ---
 
 ## 🖥️ Running on macOS/Windows Hosts (via VM)
@@ -160,9 +183,9 @@ No special Docker overrides are needed on the host. Run all commands inside the 
 - **Pi-hole Admin**: https://pihole.tu.local/admin (via Nginx; 8081 is localhost-only on VM)
 
 ### Default Credentials
-- **Open WebUI**: No default login (first user creates admin)
-- **n8n**: admin / admin123
-- **Pi-hole**: No username / SwissPiHole2024!
+- **Open WebUI**: First user becomes admin
+- **n8n**: From `.env`
+- **Pi-hole**: From `.env`
 
 Official docs:
 - Open WebUI: https://docs.openwebui.com/
@@ -231,7 +254,7 @@ To customize, edit `.env` (for `POSTGRES_*`/`REDIS_PASSWORD`/secrets) or overrid
 - **Admin Port**: 8081
 - **Blocking**: Enabled by default
 
-## 📊 Management Scripts
+## 📊 Management & Helper
 
 ### What the scripts actually do (foolproof)
 
@@ -267,6 +290,7 @@ To customize, edit `.env` (for `POSTGRES_*`/`REDIS_PASSWORD`/secrets) or overrid
 |--------|---------|-------|
 | `scripts/start.sh` | Safe startup with DNS handoff and dependency order | `./scripts/start.sh` |
 | `scripts/update.sh` | OS + image updates with backups and logs | `./scripts/update.sh` |
+| `scripts/diagnostics.sh` | One-shot health/security checks | `./scripts/diagnostics.sh` |
 | `scripts/cleanup.sh` | Prune unused Docker artifacts and rotate backups | `./scripts/cleanup.sh` |
 
 See `scripts/scripts.md` for details on each script.
@@ -295,19 +319,19 @@ docker compose restart [service_name]
 docker compose ps
 ```
 
-## 🔒 Security Features
+## 🔒 Security Features & Hardening
 
 ### Network Security
 - **Pi-hole DNS**: Blocks ads and malicious domains
-- **WireGuard VPN**: Secure remote access
-- **SSL/TLS**: HTTPS encryption for all web services
-- **Firewall**: Containerized network isolation
+- **VPN client**: Egress privacy with kill‑switch; optional gateway for host/LAN routing
+- **SSL/TLS**: HTTPS for all web services via Nginx with security headers
+- **Firewall**: UFW allows only 80/443 and LAN DNS 53; webhook 9099 limited to Docker subnets
 
 ### Access Control
-- **Authentication**: Required for all admin interfaces
-- **Rate Limiting**: Protection against abuse
-- **Resource Limits**: Prevents resource exhaustion
-- **Health Monitoring**: Automatic service recovery
+- **Authentication**: Open WebUI, n8n, Pi-hole require auth
+- **Upload API**: Protected by `UPLOAD_API_KEY` (warns on default)
+- **Webhook**: Protected by `VPN_WEBHOOK_TOKEN` and host firewall
+- **Resource Limits & Health**: Prevent exhaustion and aid recovery
 
 ### Privacy
 - **Local Processing**: AI models run locally
@@ -512,40 +536,48 @@ Official docs:
 2. Add custom blocklists
 3. Configure upstream DNS servers
 
-## 🔐 Optional VPN Client (Host-Level)
+## 🔐 Optional VPN Client (Host‑Level) & Gateway
 
-This stack can route all outbound traffic through a VPN (egress privacy) using a host-level VPN client and a manager script. It does not expose remote access into your VM; it only creates a secure outbound tunnel.
+This stack routes outbound traffic through a VPN (egress privacy) using a host‑level client and a manager script. It does not expose remote access into your VM; it creates a secure outbound tunnel. Gateway mode can NAT host/LAN clients through the VPN.
 
 ### How it works
-- VPN configs: place provider `.conf` files in `wg-configs/` (WireGuard) or adapt for OpenVPN.
+- Place provider configs in `wg-configs/` (WireGuard `.conf`) or `ovpn-configs/` (OpenVPN `.ovpn`).
 - On start, the manager selects a random config, brings up the tunnel, applies a kill‑switch (fail‑closed by default), and verifies health.
-- If a config fails, it tries the next one. If all fail, it keeps WAN blocked (fail‑closed) or reverts (fail‑open) depending on `.env`.
-- All containers use the tunnel automatically because routing/NAT is handled on the host.
-
-### Enable
-1) Edit `.env`:
-```
-VPN_ENABLED=true
-VPN_FAIL_MODE=closed
-VPN_CONFIG_DIR=wg-configs
-VPN_HEALTH_URL=https://1.1.1.1
-```
-2) Put at least one `.conf` into `wg-configs/`.
-3) Start stack: `./scripts/start.sh`
+- If a config fails, it tries the next one; if all fail, behavior depends on `VPN_FAIL_MODE`.
+- All containers use the tunnel automatically (routing/NAT on host). If `GATEWAY_ENABLED=true`, host and LAN clients can route via the VM.
 
 ### Operate
 ```
 # Start/stop/rotate/status
-bash scripts/wg-manager.sh start
-bash scripts/wg-manager.sh rotate
-bash scripts/wg-manager.sh status
-bash scripts/wg-manager.sh stop
+bash scripts/vpn-manager.sh start
+bash scripts/vpn-manager.sh rotate
+bash scripts/vpn-manager.sh status
+bash scripts/vpn-manager.sh stop
+
+# Install services
+bash scripts/vpn-manager.sh systemd-install
+bash scripts/vpn-manager.sh systemd-install-webhook
+sudo systemctl enable --now tu-vpn.service tu-vpn-webhook.service
 ```
 
-### Notes
-- Kill‑switch prevents leaks when VPN is down (fail‑closed). LAN and service access remain available.
-- Use independent DNS upstreams (Cloudflare/Quad9) as configured.
-- If you prefer OpenVPN, you can adapt the manager script or install NetworkManager profiles; the host‑level model stays the same.
+### Upload & Rotate via Landing Page
+- Upload `.conf`/`.ovpn` profiles (Upload API key required)
+- Rotate button triggers a random switch (or re‑apply if only one profile)
+- Status shows type, interface, active config, external IP, local IP
+
+### Route your host through the VM’s VPN (quick reference)
+- Linux/macOS temporary routes:
+```
+sudo ip route add 0.0.0.0/1 via <VM_IP>
+sudo ip route add 128.0.0.0/1 via <VM_IP>
+```
+- Windows (persistent):
+```
+route -p ADD 0.0.0.0 MASK 128.0.0.0 <VM_IP> METRIC 5
+route -p ADD 128.0.0.0 MASK 128.0.0.0 <VM_IP> METRIC 5
+```
+
+Notes: Kill‑switch prevents leaks; LAN access remains. See landing page for live VPN status.
 
 Official docs:
 - Pi-hole DNS: https://docs.pi-hole.net/ftldns/configfile/

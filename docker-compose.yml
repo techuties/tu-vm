@@ -284,9 +284,13 @@ services:
       - ./nginx/html:/usr/share/nginx/html:ro
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
+      - ./wg-configs:/var/www/wg-configs:rw
+      - ./ovpn-configs:/var/www/ovpn-configs:rw
     networks:
       ai_network:
         ipv4_address: 172.20.0.18
+    depends_on:
+      - helper_index
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 60s
@@ -300,6 +304,34 @@ services:
         reservations:
           memory: 128M
           cpus: '0.1'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+
+  # Helper API for landing page (status + uploads)
+  helper_index:
+    image: python:3.11-alpine
+    container_name: ai_helper_index
+    restart: unless-stopped
+    command: sh -c "pip install --no-cache-dir flask requests && python -u /app/uploader.py"
+    volumes:
+      - ./helper:/app
+      - ./wg-configs:/data/wg-configs
+      - ./ovpn-configs:/data/ovpn-configs
+    environment:
+      - UPLOAD_API_KEY=${UPLOAD_API_KEY}
+      - HOST_IP=${HOST_IP}
+      - VPN_WEBHOOK_ADDR=${VPN_WEBHOOK_ADDR}
+      - VPN_WEBHOOK_PORT=${VPN_WEBHOOK_PORT}
+      - VPN_WEBHOOK_TOKEN=${VPN_WEBHOOK_TOKEN}
+      - GATEWAY_ENABLED=${GATEWAY_ENABLED}
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.19
+    extra_hosts:
+      - "host.docker.internal:172.20.0.1"
+    # no depends_on to avoid cycles with nginx
     dns:
       - 127.0.0.11
       - 172.20.0.16

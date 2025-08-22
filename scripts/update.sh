@@ -491,9 +491,16 @@ main() {
     wait_for_services
 
     # Optional: Start VPN client if enabled
+    if [[ -f ./.env ]]; then set -a; . ./.env; set +a; fi
     if [[ "${VPN_ENABLED:-false}" == "true" ]]; then
-        log "Starting VPN client (host-level)"
-        bash scripts/wg-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+        if [[ "${VPN_SYSTEMD_ENABLE:-false}" == "true" ]]; then
+            log "Ensuring systemd VPN manager is running..."
+            sudo systemctl restart tu-vpn.service || warn "Failed to restart VPN service"
+            sudo systemctl status --no-pager tu-vpn.service | sed -n '1,5p' || true
+        else
+            log "Starting VPN client (host-level) via vpn-manager"
+            bash scripts/vpn-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+        fi
     fi
     
     # Test services

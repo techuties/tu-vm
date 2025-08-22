@@ -11,7 +11,7 @@
   .hero { background: linear-gradient(135deg, rgba(0,200,150,0.15), rgba(59,130,246,0.12)); border:1px solid #163042; border-radius:16px; padding:32px; }
   h1 { margin:0 0 8px; font-size:32px; letter-spacing:.3px }
   p.lead { margin:0; color:var(--muted); }
-  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:28px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:12px; }
   .card { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px; transition: transform .1s ease, border-color .2s ease; position:relative }
   .card:hover { transform: translateY(-1px); border-color: #374151; }
   .card a { color:var(--fg); text-decoration:none; display:block }
@@ -29,6 +29,26 @@
   .err { background:#281215; color:#ff9aa7; border-color:#4d2228 }
   .warn { background:#2a2314; color:#ffdd8b; border-color:#4b3d1c }
   code { background:#101822; padding:2px 6px; border-radius:6px; border:1px solid #1f2a37 }
+  .upload { margin-top:24px; background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px }
+  .table { width:100%; border-collapse: collapse; margin-top: 10px }
+  .table th, .table td { border:1px solid #1f2937; padding:8px; text-align:left; font-size:13px }
+  .table th { background:#0b1017; color:#b9c6d2 }
+  .copy { cursor:pointer; padding:4px 8px; border:1px solid #1f2937; border-radius:6px; background:#0e1a26; color:#e6eef7 }
+  .row-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+  .row input[type="file"] { color:var(--muted) }
+  .row input[type="text"] { background:#0b1017; color:var(--fg); border:1px solid #1f2937; border-radius:8px; padding:8px 10px; min-width:260px }
+  .btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer }
+  .btn:hover { border-color:#374151 }
+  .section-title { margin:18px 0 8px; color:#b9c6d2; font-size:14px; text-transform:uppercase; letter-spacing:.08em }
+  .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px }
+  .chip { background:#0b1017; border:1px solid #1f2937; color:#cbd5e1; border-radius:999px; padding:6px 10px; font-size:12px }
+  .chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; position:relative; top:1px }
+  .dot-ok { background:#00c896 }
+  .dot-err { background:#ff6b6b }
+  .vpn-head { display:flex; align-items:center; gap:12px; margin-bottom:8px }
+  .muted { color:#9fb0c0; font-size:13px }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 </style>
 <script>
 async function probe(url, opts={}){
@@ -50,24 +70,83 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih] = await Promise.all([
-    probe('/health'),
+  const [land, oweb, n8n, pih, full] = await Promise.all([
+    Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
     probe('/status/pihole'),
+    fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
-  setBadge('badge-landing', land);
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
+  try{
+    const setChip = (id, ok) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      const dot = el.querySelector('.dot');
+      if(dot){ dot.className = 'dot ' + (ok?'dot-ok':'dot-err'); }
+      el.querySelector('.label').textContent = ok ? 'healthy' : 'down';
+    };
+    setChip('chip-ollama', !!full.ollama);
+    setChip('chip-db', !!full.postgres);
+    setChip('chip-redis', !!full.redis);
+    setChip('chip-qdrant', !!full.qdrant);
+    // VPN details
+    const out = full.vpn_output||'';
+    document.getElementById('vpn-output').textContent = out ? out : '';
+    document.getElementById('ext-ip').textContent = (full.vpn_ip||full.ip||'');
+    if(full.local_ip){ const lip=document.getElementById('local-ip'); if(lip) lip.textContent=full.local_ip; }
+    // prefer structured fields returned from backend
+    const vtype = (full.vpn_type||'').trim();
+    const vactive = (full.vpn_active||'').split('/').pop();
+    document.getElementById('vpn-type').textContent = vtype || 'unknown';
+    document.getElementById('vpn-active').textContent = vactive || '';
+    const vpnOk = !!full.vpn;
+    const dot = document.getElementById('vpn-dot'); if(dot){ dot.className = 'dot ' + (vpnOk?'dot-ok':'dot-err'); }
+    const gw = !!full.gateway; const gwEl=document.getElementById('vpn-gw'); if(gwEl){ gwEl.textContent = gw?'Gateway: On':'Gateway: Off'; gwEl.className = 'chip'; }
+    const keyWarn=document.getElementById('upload-key-warn'); if(keyWarn){ keyWarn.style.display = full.upload_key_default ? 'inline' : 'none'; }
+    const tsEl=document.getElementById('last-updated'); if(tsEl){ const d=new Date(); tsEl.textContent=d.toLocaleTimeString(); }
+  }catch(e){}
 }
 function startAutoRefresh(){
   refreshStatuses();
   setInterval(refreshStatuses, 15000);
 }
+
+async function b64(file){ const a = await file.arrayBuffer(); return btoa(String.fromCharCode(...new Uint8Array(a))); }
+function detectType(name){
+  const n = name.toLowerCase();
+  if(n.endsWith('.conf')) return 'wg';
+  if(n.endsWith('.ovpn')) return 'ovpn';
+  return null;
+}
+async function uploadFiles(){
+  const key = document.getElementById('upload-key').value.trim();
+  const files = document.getElementById('upload-input').files;
+  const log = document.getElementById('upload-log');
+  if(!files || files.length===0){ log.textContent='Select .conf or .ovpn files.'; return; }
+  for(const f of files){
+    const t = detectType(f.name);
+    if(!t){ log.textContent = `Skip ${f.name}: unsupported`; continue; }
+    const data = await b64(f);
+    const url = t==='wg' ? '/upload/wg' : '/upload/ovpn';
+    const res = await fetch(url, { method:'POST', headers:{ 'Authorization': 'Bearer '+key, 'Content-Type':'application/json' }, body: JSON.stringify({ name: f.name, data }) });
+    const j = await res.json().catch(()=>({ok:false}));
+    log.textContent = (j.ok? 'Uploaded: ' : 'Failed: ') + f.name;
+  }
+}
+async function rotateVPN(){
+  const key = document.getElementById('upload-key').value.trim();
+  const res = await fetch('/upload/vpn/rotate', { method:'POST', headers:{ 'Authorization':'Bearer '+key } });
+  const j = await res.json().catch(()=>({ok:false}));
+  document.getElementById('upload-log').textContent = j.ok ? 'Rotation triggered' : 'Rotation failed';
+}
 window.addEventListener('DOMContentLoaded',()=>{
   startAutoRefresh();
 });
+function setKeyVisibility(chk){ const inp=document.getElementById('upload-key'); inp.type = chk.checked?'text':'password'; }
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(e){} }
 </script>
 </head>
 <body>
@@ -75,17 +154,65 @@ window.addEventListener('DOMContentLoaded',()=>{
     <div class="hero">
       <h1>TechUties VM</h1>
       <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
+      <div class="section-title">Host Access</div>
       <div class="grid">
         <div class="card"><span id="badge-oweb" class="badge warn">checking…</span><a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a></div>
         <div class="card"><span id="badge-n8n" class="badge warn">checking…</span><a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a></div>
         <div class="card"><span id="badge-pihole" class="badge warn">checking…</span><a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a></div>
       </div>
-      <div class="status"><span id="badge-landing" class="badge warn">checking…</span></div>
+      <div class="section-title">VM Access</div>
+      <div class="chips">
+        <div id="chip-ollama" class="chip"><span class="dot dot-err"></span><code>ai_ollama:11434</code> · <span class="label">…</span></div>
+        <div id="chip-db" class="chip"><span class="dot dot-err"></span><code>ai_postgres:5432</code> · <span class="label">…</span></div>
+        <div id="chip-redis" class="chip"><span class="dot dot-err"></span><code>ai_redis:6379</code> · <span class="label">…</span></div>
+        <div id="chip-qdrant" class="chip"><span class="dot dot-err"></span><code>ai_qdrant:6333</code> · <span class="label">…</span></div>
+      </div>
+      <div class="status"><button class="btn" onclick="refreshStatuses()">Refresh</button> <span class="muted">Last updated: <span id="last-updated">–</span></span></div>
     </div>
 
     <div class="thanks">
       <h3>Contributors</h3>
       <p>Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer noopener">Sebastian Becker</a> for major contributions.</p>
+    </div>
+
+    <div class="upload">
+      <div class="vpn-head">
+        <div class="chip"><span id="vpn-dot" class="dot dot-err"></span>VPN <span class="label">status</span></div>
+        <div id="vpn-gw" class="chip">Gateway: Off</div>
+        <div class="muted">Type: <span id="vpn-type" class="mono">…</span></div>
+        <div class="muted">Active: <span id="vpn-active" class="mono">…</span></div>
+        <div class="muted">External IP: <code id="ext-ip">…</code></div>
+        <div class="muted">Local IP: <code id="local-ip">…</code></div>
+      </div>
+      <pre id="vpn-output" style="background:#0b1017;color:#9fb0c0;border:1px solid #1f2937;border-radius:8px;padding:8px;max-height:120px;overflow:auto">No status yet…</pre>
+      <div class="row">
+        <div class="row-inline" role="group" aria-label="Upload API key">
+          <input id="upload-key" type="password" placeholder="Upload API key" aria-label="Upload API key" />
+          <label class="muted"><input type="checkbox" onchange="setKeyVisibility(this)" /> show</label>
+          <span id="upload-key-warn" class="muted" style="display:none;color:#ff9aa7">Default key in use. Change in .env</span>
+        </div>
+        <input id="upload-input" type="file" multiple accept=".conf,.ovpn" style="display:none" onchange="document.getElementById('selected-files').textContent=[...this.files].map(f=>f.name).join(', ')||'No files selected'" />
+        <button class="btn" onclick="document.getElementById('upload-input').click()">Select files</button>
+        <button class="btn" onclick="uploadFiles()">Upload</button>
+        <button class="btn" onclick="rotateVPN()">Rotate</button>
+      </div>
+      <div id="selected-files" style="margin-top:6px; color:#9fb0c0; font-size:12px">No files selected</div>
+      <div id="upload-log" style="margin-top:8px; color:var(--muted); font-size:13px"></div>
+    </div>
+
+    <div class="upload">
+      <div class="section-title">VM Access (reference)</div>
+      <table class="table" aria-label="Internal endpoints">
+        <thead><tr><th>Service</th><th>Docker DNS</th><th>Port</th><th>Nginx Hostname</th><th>Purpose</th><th>Copy</th></tr></thead>
+        <tbody>
+          <tr><td>Open WebUI</td><td class="mono">open-webui</td><td>8080</td><td class="mono">oweb.tu.local</td><td>Web UI</td><td><button class="copy" onclick="copyText('https://oweb.tu.local')">URL</button></td></tr>
+          <tr><td>Ollama</td><td class="mono">ollama</td><td>11434</td><td class="mono">ollama.tu.local</td><td>AI API</td><td><button class="copy" onclick="copyText('https://ollama.tu.local')">Base URL</button></td></tr>
+          <tr><td>Postgres</td><td class="mono">postgres</td><td>5432</td><td class="mono">(internal)</td><td>SQL DB</td><td><button class="copy" onclick="copyText('postgresql://ai_admin:REDACTED@postgres:5432/ai_platform')">DSN</button></td></tr>
+          <tr><td>Redis</td><td class="mono">redis</td><td>6379</td><td class="mono">(internal)</td><td>Cache</td><td><button class="copy" onclick="copyText('redis://default:REDACTED@redis:6379')">URL</button></td></tr>
+          <tr><td>Qdrant</td><td class="mono">qdrant</td><td>6333</td><td class="mono">(internal)</td><td>Vector DB</td><td><button class="copy" onclick="copyText('http://qdrant:6333')">URL</button></td></tr>
+        </tbody>
+      </table>
+      <p class="muted" style="margin-top:8px">Docker DNS names are reachable from containers and the host. Prefer the .tu.local hostnames from browsers and external tools.</p>
     </div>
 
     <div class="footer">

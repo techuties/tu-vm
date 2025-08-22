@@ -39,6 +39,51 @@ info() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $1${NC}"
 }
 
+# Load .env early for functions that need HOST_IP and other vars
+if [[ -f ./.env ]]; then set -a; . ./.env; set +a; fi
+
+# Ensure VPN dependencies are installed when VPN is enabled
+ensure_vpn_dependencies() {
+    if [[ -f ./.env ]]; then set -a; . ./.env; set +a; fi
+    local vpn_enabled="${VPN_ENABLED:-false}"
+    local vpn_type="${VPN_TYPE:-wireguard}"
+
+    if [[ "$vpn_enabled" != "true" ]]; then
+        return 0
+    fi
+
+    if ! is_linux; then
+        warn "Non-Linux host detected; skipping VPN dependency installation"
+        return 0
+    fi
+
+    log "Ensuring VPN dependencies are installed (type: ${vpn_type})..."
+    sudo apt-get update -y >/dev/null 2>&1 || true
+
+    if [[ "$vpn_type" == "wireguard" ]]; then
+        if ! command -v wg >/dev/null 2>&1 || ! command -v wg-quick >/dev/null 2>&1; then
+            info "Installing wireguard and wireguard-tools..."
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y wireguard wireguard-tools >/dev/null 2>&1 || warn "Failed to install WireGuard tools; continuing"
+        fi
+        mkdir -p wg-configs
+        if [[ -z $(find wg-configs -maxdepth 1 -type f -name '*.conf' 2>/dev/null) ]]; then
+            warn "No WireGuard configs found in ./wg-configs. VPN will be skipped until configs are added."
+        fi
+    elif [[ "$vpn_type" == "openvpn" ]]; then
+        if ! command -v openvpn >/dev/null 2>&1; then
+            info "Installing openvpn..."
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openvpn >/dev/null 2>&1 || warn "Failed to install OpenVPN; continuing"
+        fi
+        mkdir -p ovpn-configs
+        if [[ -z $(find ovpn-configs -maxdepth 1 -type f -name '*.ovpn' 2>/dev/null) ]]; then
+            warn "No OpenVPN profiles found in ./ovpn-configs. VPN will be skipped until profiles are added."
+        fi
+    else
+        warn "Unknown VPN_TYPE: ${vpn_type}. Skipping VPN dependency installation."
+    fi
+}
+
+
 # OS detection
 HOST_OS="$(uname -s 2>/dev/null || echo Unknown)"
 is_linux()   { [[ "$HOST_OS" == "Linux" ]]; }
@@ -91,11 +136,11 @@ fix_dns_and_ports() {
         sleep 2
     fi
     
-    # Test DNS resolution with fallback DNS
-    log "Testing DNS resolution with fallback DNS..."
+    # Test DNS resolution with independent resolvers (Cloudflare/Quad9)
+    log "Testing DNS resolution with fallback DNS (Cloudflare/Quad9)..."
     local attempts=0
     while [ $attempts -lt 5 ]; do
-        if nslookup google.com 8.8.8.8 > /dev/null 2>&1; then
+        if nslookup example.com 1.1.1.1 > /dev/null 2>&1 || nslookup example.com 9.9.9.9 > /dev/null 2>&1; then
             log "✓ DNS resolution is working with fallback DNS"
             return 0
         fi
@@ -133,21 +178,26 @@ fix_hostname_entries() {
     log "Ensuring hostname entries are correct..."
     
     # Add missing hostname entries to /etc/hosts
-    if ! grep -q "tu.local" /etc/hosts; then
-        log "Adding tu.local to /etc/hosts..."
-        echo "10.211.55.12 tu.local" | sudo tee -a /etc/hosts
-    fi
-    if ! grep -q "n8n.tu.local" /etc/hosts; then
-        log "Adding n8n.tu.local to /etc/hosts..."
-        echo "10.211.55.12 n8n.tu.local" | sudo tee -a /etc/hosts
-    fi
-    if ! grep -q "oweb.tu.local" /etc/hosts; then
-        log "Adding oweb.tu.local to /etc/hosts..."
-        echo "10.211.55.12 oweb.tu.local" | sudo tee -a /etc/hosts
-    fi
-    if ! grep -q "pihole.tu.local" /etc/hosts; then
-        log "Adding pihole.tu.local to /etc/hosts..."
-        echo "10.211.55.12 pihole.tu.local" | sudo tee -a /etc/hosts
+    local vm_ip="${HOST_IP:-}"
+    if [[ -z "$vm_ip" ]]; then
+        warn "HOST_IP not set in .env; skipping /etc/hosts edits"
+    else
+        if ! grep -q "tu.local" /etc/hosts; then
+            log "Adding tu.local to /etc/hosts..."
+            echo "$vm_ip tu.local" | sudo tee -a /etc/hosts
+        fi
+        if ! grep -q "n8n.tu.local" /etc/hosts; then
+            log "Adding n8n.tu.local to /etc/hosts..."
+            echo "$vm_ip n8n.tu.local" | sudo tee -a /etc/hosts
+        fi
+        if ! grep -q "oweb.tu.local" /etc/hosts; then
+            log "Adding oweb.tu.local to /etc/hosts..."
+            echo "$vm_ip oweb.tu.local" | sudo tee -a /etc/hosts
+        fi
+        if ! grep -q "pihole.tu.local" /etc/hosts; then
+            log "Adding pihole.tu.local to /etc/hosts..."
+            echo "$vm_ip pihole.tu.local" | sudo tee -a /etc/hosts
+        fi
     fi
     
     log "✓ Hostname entries verified"
@@ -259,11 +309,36 @@ start_services() {
     
     log "✓ All services started in dependency order"
 
+    # Warn if Upload API key left as default
+    if [[ -n "${UPLOAD_API_KEY:-}" && "${UPLOAD_API_KEY}" == "change-me-upload-key" ]]; then
+        warn "UPLOAD_API_KEY is using the default value; set a strong key in .env"
+    fi
+    if [[ -n "${VPN_WEBHOOK_TOKEN:-}" && "${VPN_WEBHOOK_TOKEN}" == "change-me-strong-token" ]]; then
+        warn "VPN_WEBHOOK_TOKEN is using the default value; set a strong token in .env"
+    fi
+
     # Optional: Start VPN client if enabled
     if [[ "${VPN_ENABLED:-false}" == "true" ]]; then
-        log "Starting VPN client (host-level)"
-        bash scripts/wg-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+        # Install dependencies on first run to make it fool-proof
+        ensure_vpn_dependencies
+        if [[ "${VPN_SYSTEMD_ENABLE:-false}" == "true" ]]; then
+            log "Installing and enabling systemd unit for VPN manager..."
+            bash scripts/vpn-manager.sh systemd-install || warn "Failed to install systemd unit"
+            sudo systemctl enable --now tu-vpn.service || warn "Failed to start systemd VPN service"
+            sudo systemctl status --no-pager tu-vpn.service | sed -n '1,5p' || true
+        else
+            log "Starting VPN client (host-level) via vpn-manager"
+            bash scripts/vpn-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+        fi
     fi
+
+    # Remove orphaned old WireGuard container if present
+    if docker ps -a --format '{{.Names}}' | grep -q '^ai_wireguard$'; then
+        warn "Removing orphaned ai_wireguard container (no longer used)"
+        docker rm -f ai_wireguard >/dev/null 2>&1 || true
+    fi
+
+    # Proxy disabled/removed
 }
 
 # Restart existing services in dependency order (preserves data)
@@ -365,14 +440,14 @@ display_status() {
     echo "Open WebUI: https://oweb.tu.local (or https://localhost:443 with Host: oweb.tu.local)"
     echo "n8n: https://n8n.tu.local (or https://localhost:443 with Host: n8n.tu.local)"
     echo "Pi-hole Admin: https://pihole.tu.local (proxied via Nginx)"
-    echo "Ollama API: http://localhost:11434"
+    echo "Ollama API: https://ollama.tu.local"
     
     echo ""
     log "=== Next Steps ==="
-    echo "1. Add to /etc/hosts: 127.0.0.1 tu.local ai.tu.local"
+    echo "1. Add to /etc/hosts: <VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local ollama.tu.local"
     echo "2. Accept the self-signed certificate in your browser"
-    echo "3. Access n8n at https://ai.tu.local"
-    echo "4. Access Open WebUI at https://tu.local"
+    echo "3. Access n8n at https://n8n.tu.local"
+    echo "4. Access Open WebUI at https://oweb.tu.local"
     
     echo ""
     log "=== Troubleshooting ==="
