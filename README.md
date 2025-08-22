@@ -24,6 +24,20 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 - **Health checks** - Automatic service monitoring
 - **Foolproof scripts** - One-command setup and management
 
+### Data & Vector Features (Open WebUI and n8n)
+- **Open WebUI**
+  - Primary DB: PostgreSQL (stores users, chats, settings) via `DATABASE_URL`
+  - Vector DB: Qdrant (embeddings, retrieval) via `QDRANT_URL`
+  - Cache: Redis via `REDIS_URL`
+  - LLM backend: Ollama via `OLLAMA_BASE_URL`
+  - Access: only via Nginx at `https://oweb.tu.local` (container port 8080 is internal)
+  - Persistence: `postgres_data` and `qdrant_data` volumes
+- **n8n**
+  - Primary DB: PostgreSQL schema `n8n` (workflows, credentials, executions)
+  - Vector access: Workflows can call Qdrant directly using `QDRANT_URL` (HTTP API)
+  - Access: only via Nginx at `https://n8n.tu.local`
+  - Persistence: data stored in PostgreSQL; n8n home at `n8n_data` volume
+
 ## 📋 Prerequisites
 
 ### System Requirements
@@ -435,26 +449,52 @@ docker compose up -d --force-recreate
 ## 📚 Advanced Configuration
 ### Architecture Overview (High Level)
 
+```mermaid
+flowchart TD
+  subgraph Host[macOS/Windows Host]
+  end
+
+  Host -->|Hypervisor| VM[Ubuntu Server VM (tu-vm)]
+
+  subgraph VMNet[Docker bridge network (172.20.0.0/16)]
+    Pihole[ai_pihole\nDNS:53]\n:::svc
+    Postgres[ai_postgres\nPostgreSQL]\n:::db
+    Redis[ai_redis\nRedis]\n:::svc
+    Qdrant[ai_qdrant\nVector DB]\n:::db
+    Ollama[ai_ollama\nModels]\n:::svc
+    OpenWebUI[ai_openwebui\nChat UI]\n:::app
+    N8N[ai_n8n\nWorkflow]\n:::app
+    Wireguard[ai_wireguard\nVPN]\n:::svc
+    Nginx[ai_nginx\nTLS/Reverse proxy]\n:::edge
+  end
+
+  %% Data paths
+  OpenWebUI -->|DATABASE_URL| Postgres
+  OpenWebUI -->|QDRANT_URL| Qdrant
+  OpenWebUI -->|REDIS_URL| Redis
+  OpenWebUI -->|OLLAMA_BASE_URL| Ollama
+
+  N8N -->|DB (schema n8n)| Postgres
+  N8N -.->|HTTP API| Qdrant
+
+  %% External access
+  Client[(Browser)] -->|HTTPS 80/443| Nginx
+  Nginx -->|oweb.tu.local| OpenWebUI
+  Nginx -->|n8n.tu.local| N8N
+  Nginx -->|ollama.tu.local| Ollama
+  Nginx -->|pihole.tu.local| Pihole
+  Nginx -->|tu.local| OpenWebUI
+
+  classDef app fill:#0f151d,stroke:#1f2937,color:#e6eef7
+  classDef db fill:#0b1a13,stroke:#1f2937,color:#a7f3d0
+  classDef svc fill:#111827,stroke:#1f2937,color:#cbd5e1
+  classDef edge fill:#0b1020,stroke:#1f2937,color:#93c5fd
 ```
-[ macOS/Windows Host ]
-       │ (Hypervisor)
-       ▼
-[ Ubuntu Server VM (tu-vm) ]
-  ├─ Docker bridge network (172.20.0.0/16)
-  │  ├─ ai_pihole (DNS, 53) ← upstream: Cloudflare/Quad9
-  │  ├─ ai_postgres (DB)
-  │  ├─ ai_redis (cache)
-  │  ├─ ai_qdrant (vector DB)
-  │  ├─ ai_ollama (models)
-  │  ├─ ai_openwebui (chat UI)
-  │  ├─ ai_n8n (workflow)
-  │  ├─ ai_wireguard (VPN)
-  │  └─ ai_nginx (TLS/Reverse proxy)
-  └─ Scripts: start.sh / update.sh (DNS handoff, backups, health)
+
+Scripts: `start.sh` / `update.sh` (DNS handoff, backups, health)
 
 External access → Nginx (80/443) → Open WebUI / n8n / Ollama / Pi-hole admin
 Internal name resolution → Pi‑hole
-```
 
 ### Custom AI Models
 1. From your workstation: use `https://ollama.tu.local` (TLS via Nginx)
