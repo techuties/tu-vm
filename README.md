@@ -185,9 +185,26 @@ PIHOLE_PASSWORD=SwissPiHole2024!
 ### Service Configuration
 
 #### Open WebUI
-- **Model Management**: Access via web interface
-- **Database**: PostgreSQL with vector storage
-- **Authentication**: JWT-based with configurable secrets
+- **Primary database**: PostgreSQL via `DATABASE_URL` (talks to service `postgres`)
+- **Vector database**: Qdrant via `QDRANT_URL` (talks to service `qdrant`)
+- **Cache**: Redis via `REDIS_URL` (talks to service `redis`)
+- **LLM backend**: Ollama via `OLLAMA_BASE_URL` (talks to service `ollama`)
+- **Access**: `https://oweb.tu.local` through Nginx; container port 8080 is internal only
+- **Persistence**: Data is stored in Docker volumes (`postgres_data` and `qdrant_data`)
+- **Networking**: All services discover each other on `ai_network` using service names
+
+Configuration is set in Compose via environment variables (excerpt):
+
+```
+open-webui:
+  environment:
+    OLLAMA_BASE_URL: http://ollama:11434
+    DATABASE_URL: postgresql://${POSTGRES_USER:-ai_admin}:${POSTGRES_PASSWORD:-ai_password_2024}@postgres:5432/${POSTGRES_DB:-ai_platform}
+    QDRANT_URL: http://qdrant:6333
+    REDIS_URL: redis://default:${REDIS_PASSWORD:-redis_password_2024}@redis:6379
+```
+
+To customize, edit `.env` (for `POSTGRES_*`/`REDIS_PASSWORD`/secrets) or override the `open-webui` env vars, then run `docker compose up -d`.
 
 #### n8n (First-time setup)
 - **Database**: PostgreSQL backend, schema `n8n` (created automatically by scripts)
