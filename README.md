@@ -451,21 +451,18 @@ docker compose up -d --force-recreate
 
 ```mermaid
 flowchart TD
-  subgraph Host[macOS/Windows Host]
-  end
+  Host["macOS/Windows Host"] -->|Hypervisor| VM["Ubuntu Server VM (tu-vm)"]
 
-  Host -->|Hypervisor| VM[Ubuntu Server VM (tu-vm)]
-
-  subgraph VMNet[Docker bridge network (172.20.0.0/16)]
-    Pihole[ai_pihole\nDNS:53]\n:::svc
-    Postgres[ai_postgres\nPostgreSQL]\n:::db
-    Redis[ai_redis\nRedis]\n:::svc
-    Qdrant[ai_qdrant\nVector DB]\n:::db
-    Ollama[ai_ollama\nModels]\n:::svc
-    OpenWebUI[ai_openwebui\nChat UI]\n:::app
-    N8N[ai_n8n\nWorkflow]\n:::app
-    Wireguard[ai_wireguard\nVPN]\n:::svc
-    Nginx[ai_nginx\nTLS/Reverse proxy]\n:::edge
+  subgraph Docker_Network["Docker bridge network (172.20.0.0/16)"]
+    Nginx["ai_nginx<br/>TLS/Reverse proxy"]:::edge
+    OpenWebUI["ai_openwebui<br/>Chat UI"]:::app
+    N8N["ai_n8n<br/>Workflow"]:::app
+    Ollama["ai_ollama<br/>Models"]:::svc
+    Postgres["ai_postgres<br/>PostgreSQL"]:::db
+    Qdrant["ai_qdrant<br/>Vector DB"]:::db
+    Redis["ai_redis<br/>Redis"]:::svc
+    Pihole["ai_pihole<br/>DNS:53"]:::svc
+    Wireguard["ai_wireguard<br/>VPN"]:::svc
   end
 
   %% Data paths
@@ -483,7 +480,6 @@ flowchart TD
   Nginx -->|n8n.tu.local| N8N
   Nginx -->|ollama.tu.local| Ollama
   Nginx -->|pihole.tu.local| Pihole
-  Nginx -->|tu.local| OpenWebUI
 
   classDef app fill:#0f151d,stroke:#1f2937,color:#e6eef7
   classDef db fill:#0b1a13,stroke:#1f2937,color:#a7f3d0
