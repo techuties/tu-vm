@@ -268,47 +268,6 @@ services:
           cpus: '0.1'
 
 
-  # WireGuard VPN for Host Security
-  wireguard:
-    image: linuxserver/wireguard:latest
-    container_name: ai_wireguard
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    environment:
-      - SERVERURL=auto
-      - SERVERPORT=51820
-      - PEERS=1
-      - PEERDNS=auto
-      - INTERNAL_SUBNET=10.13.13.0
-      - ALLOWEDIPS=0.0.0.0/0
-      - PERSISTENTKEEPALIVE_PEERS=all
-      - LOG_CONFS=true
-    volumes:
-      - wireguard_config:/config
-      - /lib/modules:/lib/modules
-    ports:
-      - "51820:51820/udp"
-    networks:
-      ai_network:
-        ipv4_address: 172.20.0.17
-    healthcheck:
-      test: ["CMD", "ping", "-c", "1", "1.1.1.1"]
-      interval: 60s
-      timeout: 10s
-      retries: 2
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
-        reservations:
-          memory: 64M
-          cpus: '0.1'
-    dns:
-      - 127.0.0.11
-      - 172.20.0.16
 
 
   # Nginx Reverse Proxy (lightweight)
@@ -362,8 +321,6 @@ volumes:
   pihole_data:
     driver: local
   pihole_dnsmasq:
-    driver: local
-  wireguard_config:
     driver: local
 
 networks:

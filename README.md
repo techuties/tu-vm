@@ -14,7 +14,7 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 
 ### Security & Network
 - **Pi-hole** - DNS ad-blocking and network security
-- **WireGuard VPN** - Secure remote access
+- **VPN Client (optional)** - Host-level egress privacy (WireGuard/OpenVPN) with kill-switch
 - **Nginx** - Reverse proxy with SSL/TLS support
 - **Self-signed SSL certificates** - HTTPS encryption
 
@@ -50,7 +50,7 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 - **Docker Compose**: Version 2.0+
 
 ### Network Requirements
-- **Ports**: 80, 443, 5678, 8081, 5353, 51820 (UDP)
+- **Ports**: 80, 443, 5678, 8081, 5353
 - **Domain**: Optional (tu.local as default)
 
 References:
@@ -156,7 +156,7 @@ No special Docker overrides are needed on the host. Run all commands inside the 
 - **Open WebUI**: https://oweb.tu.local (via Nginx; container 8080 is internal)
 - **n8n Workflows**: https://n8n.tu.local (via Nginx; 5678 is internal)
 - **Ollama API**: https://ollama.tu.local (TLS via Nginx; container 11434 is internal)
-- **WireGuard**: UDP 51820 (host)
+
 - **Pi-hole Admin**: https://pihole.tu.local/admin (via Nginx; 8081 is localhost-only on VM)
 
 ### Default Credentials
@@ -462,7 +462,7 @@ flowchart TD
     Qdrant["ai_qdrant<br/>Vector DB"]:::db
     Redis["ai_redis<br/>Redis"]:::svc
     Pihole["ai_pihole<br/>DNS:53"]:::svc
-    Wireguard["ai_wireguard<br/>VPN"]:::svc
+    %% VPN client runs on host (egress privacy)
   end
 
   %% Data paths
@@ -511,6 +511,41 @@ Official docs:
 1. Access Pi-hole: http://localhost:8081/admin
 2. Add custom blocklists
 3. Configure upstream DNS servers
+
+## 🔐 Optional VPN Client (Host-Level)
+
+This stack can route all outbound traffic through a VPN (egress privacy) using a host-level VPN client and a manager script. It does not expose remote access into your VM; it only creates a secure outbound tunnel.
+
+### How it works
+- VPN configs: place provider `.conf` files in `wg-configs/` (WireGuard) or adapt for OpenVPN.
+- On start, the manager selects a random config, brings up the tunnel, applies a kill‑switch (fail‑closed by default), and verifies health.
+- If a config fails, it tries the next one. If all fail, it keeps WAN blocked (fail‑closed) or reverts (fail‑open) depending on `.env`.
+- All containers use the tunnel automatically because routing/NAT is handled on the host.
+
+### Enable
+1) Edit `.env`:
+```
+VPN_ENABLED=true
+VPN_FAIL_MODE=closed
+VPN_CONFIG_DIR=wg-configs
+VPN_HEALTH_URL=https://1.1.1.1
+```
+2) Put at least one `.conf` into `wg-configs/`.
+3) Start stack: `./scripts/start.sh`
+
+### Operate
+```
+# Start/stop/rotate/status
+bash scripts/wg-manager.sh start
+bash scripts/wg-manager.sh rotate
+bash scripts/wg-manager.sh status
+bash scripts/wg-manager.sh stop
+```
+
+### Notes
+- Kill‑switch prevents leaks when VPN is down (fail‑closed). LAN and service access remain available.
+- Use independent DNS upstreams (Cloudflare/Quad9) as configured.
+- If you prefer OpenVPN, you can adapt the manager script or install NetworkManager profiles; the host‑level model stays the same.
 
 Official docs:
 - Pi-hole DNS: https://docs.pi-hole.net/ftldns/configfile/

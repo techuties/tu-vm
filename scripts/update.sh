@@ -267,7 +267,7 @@ stop_services_safe() {
     log "Stopping services (except DNS) in dependency order..."
     
     # Stop services that depend on DNS first (keep Pi-hole up for now)
-    docker compose stop nginx open-webui n8n qdrant ollama postgres redis wireguard 2>/dev/null || true
+    docker compose stop nginx open-webui n8n qdrant ollama postgres redis 2>/dev/null || true
     
     log "✓ Core services stopped (Pi-hole still running for DNS during pre-update)"
 }
@@ -339,7 +339,7 @@ start_services_safe() {
     
     # Step 4: Start network services
     log "Starting network services..."
-    docker compose up -d wireguard nginx
+    docker compose up -d nginx
     
     log "✓ All services started in dependency order"
 }
@@ -489,6 +489,12 @@ main() {
     pull_images
     start_services_safe             # this will stop host DNS and start Pi-hole first
     wait_for_services
+
+    # Optional: Start VPN client if enabled
+    if [[ "${VPN_ENABLED:-false}" == "true" ]]; then
+        log "Starting VPN client (host-level)"
+        bash scripts/wg-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+    fi
     
     # Test services
     test_services

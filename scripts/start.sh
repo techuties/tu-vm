@@ -255,9 +255,15 @@ start_services() {
     
     # Step 4: Start network services
     log "Starting network services..."
-    docker compose up -d wireguard nginx
+    docker compose up -d nginx
     
     log "✓ All services started in dependency order"
+
+    # Optional: Start VPN client if enabled
+    if [[ "${VPN_ENABLED:-false}" == "true" ]]; then
+        log "Starting VPN client (host-level)"
+        bash scripts/wg-manager.sh start || warn "VPN failed to start; fail mode: ${VPN_FAIL_MODE:-closed}"
+    fi
 }
 
 # Restart existing services in dependency order (preserves data)
