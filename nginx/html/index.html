@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TechUties VM - Service Hub</title>
+<style>
+  :root { --bg:#0b0f14; --fg:#e6eef7; --muted:#94a3b8; --accent:#00c896; --accent2:#ff6fb1; --card:#0f151d; }
+  html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
+  .hero { background: linear-gradient(135deg, rgba(0,200,150,0.15), rgba(59,130,246,0.12)); border:1px solid #163042; border-radius:16px; padding:32px; }
+  h1 { margin:0 0 8px; font-size:32px; letter-spacing:.3px }
+  p.lead { margin:0; color:var(--muted); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:28px; }
+  .card { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px; transition: transform .1s ease, border-color .2s ease; position:relative }
+  .card:hover { transform: translateY(-1px); border-color: #374151; }
+  .card a { color:var(--fg); text-decoration:none; display:block }
+  .name { font-weight:600; margin-bottom:6px }
+  .url { color:var(--muted); font-size:13px }
+  .thanks { margin-top: 28px }
+  .thanks h3 { margin:0 0 8px; font-size:16px; color:#b9c6d2 }
+  .footer { margin-top:32px; color:var(--muted); font-size:14px }
+  .links a { color: var(--accent); text-decoration: none; }
+  .thanks a { color: var(--accent2); font-weight:600; text-decoration:none }
+  .thanks a:hover { text-decoration: underline }
+  .status { margin-top: 8px; font-size: 13px; color: var(--muted) }
+  .badge { position:absolute; top:12px; right:12px; font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid #1f2937 }
+  .ok { background:#0d1f17; color:#6fe0b8; border-color:#1b3a2d }
+  .err { background:#281215; color:#ff9aa7; border-color:#4d2228 }
+  .warn { background:#2a2314; color:#ffdd8b; border-color:#4b3d1c }
+  code { background:#101822; padding:2px 6px; border-radius:6px; border:1px solid #1f2a37 }
+</style>
+<script>
+async function probe(url, opts={}){
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, { method:'GET', ...opts });
+    const ms = Math.max(1, Math.round(performance.now()-t0));
+    return { ok:r.ok, status:r.status, ms };
+  } catch(e){
+    const ms = Math.max(1, Math.round(performance.now()-t0));
+    return { ok:false, status:0, ms };
+  }
+}
+function setBadge(id, res){
+  const b = document.getElementById(id);
+  if(!b) return;
+  const cls = res.ok ? 'badge ok' : 'badge err';
+  b.className = cls;
+  b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
+}
+async function refreshStatuses(){
+  const [land, oweb, n8n, pih] = await Promise.all([
+    probe('/health'),
+    probe('/status/oweb'),
+    probe('/status/n8n'),
+    probe('/status/pihole'),
+  ]);
+  setBadge('badge-landing', land);
+  setBadge('badge-oweb', oweb);
+  setBadge('badge-n8n', n8n);
+  setBadge('badge-pihole', pih);
+}
+function startAutoRefresh(){
+  refreshStatuses();
+  setInterval(refreshStatuses, 15000);
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  startAutoRefresh();
+});
+</script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>TechUties VM</h1>
+      <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
+      <div class="grid">
+        <div class="card"><span id="badge-oweb" class="badge warn">checking…</span><a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a></div>
+        <div class="card"><span id="badge-n8n" class="badge warn">checking…</span><a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a></div>
+        <div class="card"><span id="badge-pihole" class="badge warn">checking…</span><a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a></div>
+      </div>
+      <div class="status"><span id="badge-landing" class="badge warn">checking…</span></div>
+    </div>
+
+    <div class="thanks">
+      <h3>Contributors</h3>
+      <p>Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer noopener">Sebastian Becker</a> for major contributions.</p>
+    </div>
+
+    <div class="footer">
+      <div class="links">Resources: 
+        <a href="https://www.techuties.com" target="_blank" rel="noreferrer noopener">TechUties</a> · 
+        <a href="https://github.com/techuties/tu-vm" target="_blank" rel="noreferrer noopener">GitHub Repo</a>
+      </div>
+      <p>Thank you for using TechUties VM. <span role="img" aria-label="sparkles">✨</span></p>
+      <p>Tip: add <code>tu.local</code>, <code>oweb.tu.local</code>, <code>n8n.tu.local</code>, and <code>pihole.tu.local</code> to your hosts/DNS.</p>
+    </div>
+  </div>
+</body>
+</html>

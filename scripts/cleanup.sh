@@ -9,6 +9,13 @@ YELLOW="\033[1;33m"
 RED="\033[0;31m"
 NC="\033[0m"
 
+# Initialize file logging
+TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
+LOG_DIR="logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/cleanup_${TIMESTAMP}.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
 log() { echo -e "${GREEN}[$(date +%H:%M:%S)] $1${NC}"; }
 warn() { echo -e "${YELLOW}[$(date +%H:%M:%S)] WARNING: $1${NC}"; }
 
@@ -17,7 +24,6 @@ log "Starting comprehensive cleanup..."
 # Stop services
 log "Stopping services..."
 docker compose down 2>/dev/null || true
-docker compose -f  down 2>/dev/null || true
 
 # Prune Docker resources
 log "Pruning Docker resources..."

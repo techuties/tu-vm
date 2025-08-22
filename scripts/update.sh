@@ -205,17 +205,34 @@ fix_hostname_entries() {
     log "Ensuring hostname entries are correct..."
     
     # Add missing hostname entries to /etc/hosts
-    if ! grep -q "ai.tu.local" /etc/hosts; then
-        log "Adding ai.tu.local to /etc/hosts..."
-        echo "10.211.55.12 ai.tu.local" | sudo tee -a /etc/hosts
-    fi
-    
     if ! grep -q "tu.local" /etc/hosts; then
         log "Adding tu.local to /etc/hosts..."
         echo "10.211.55.12 tu.local" | sudo tee -a /etc/hosts
     fi
+    if ! grep -q "n8n.tu.local" /etc/hosts; then
+        log "Adding n8n.tu.local to /etc/hosts..."
+        echo "10.211.55.12 n8n.tu.local" | sudo tee -a /etc/hosts
+    fi
+    if ! grep -q "oweb.tu.local" /etc/hosts; then
+        log "Adding oweb.tu.local to /etc/hosts..."
+        echo "10.211.55.12 oweb.tu.local" | sudo tee -a /etc/hosts
+    fi
+    if ! grep -q "pihole.tu.local" /etc/hosts; then
+        log "Adding pihole.tu.local to /etc/hosts..."
+        echo "10.211.55.12 pihole.tu.local" | sudo tee -a /etc/hosts
+    fi
     
     log "✓ Hostname entries verified"
+}
+
+# Ensure n8n schema exists in Postgres (idempotent)
+ensure_n8n_schema() {
+    log "Ensuring Postgres schema for n8n exists..."
+    if docker compose exec -T postgres psql -U ai_admin -d ai_platform -v ON_ERROR_STOP=1 -c "CREATE SCHEMA IF NOT EXISTS n8n AUTHORIZATION ai_admin; GRANT ALL ON SCHEMA n8n TO ai_admin;" >/dev/null 2>&1; then
+        log "✓ Postgres schema 'n8n' is present"
+    else
+        warn "Could not ensure Postgres schema 'n8n' (continuing)"
+    fi
 }
 
 # Create comprehensive backup
@@ -312,6 +329,9 @@ start_services_safe() {
     # Wait for databases to be ready
     log "Waiting for databases to be ready..."
     sleep 30
+
+    # Ensure required schemas exist
+    ensure_n8n_schema
     
     # Step 3: Start AI services
     log "Starting AI services..."
@@ -330,7 +350,7 @@ wait_for_services() {
     sleep 60
     
     # Check service status
-    docker compose ps
+        docker compose ps
 }
 
 # Test service availability with comprehensive retries
@@ -342,11 +362,11 @@ test_services() {
     
     # Test HTTP/HTTPS endpoints with retries
     declare -A endpoints=(
-        ["https://tu.local/"]="Open WebUI"
-        ["https://ai.tu.local/"]="n8n"
-        ["http://tu.local:8081/admin/"]="Pi-hole"
-        ["http://tu.local:6333/health"]="Qdrant"
-        ["http://tu.local:11434/api/tags"]="Ollama"
+        ["https://tu.local/"]="Landing"
+        ["https://oweb.tu.local/"]="Open WebUI"
+        ["https://n8n.tu.local/"]="n8n"
+        ["https://pihole.tu.local/health"]="Pi-hole"
+        ["http://localhost:11434/api/tags"]="Ollama"
     )
     
     for url in "${!endpoints[@]}"; do
@@ -354,8 +374,8 @@ test_services() {
         local success=false
         
         while [ $attempts -lt $max_attempts ] && [ "$success" = false ]; do
-            if curl -k -f -s -m 10 "$url" > /dev/null; then
-                log "✓ ${endpoints[$url]} is accessible"
+        if curl -k -f -s -m 10 "$url" > /dev/null; then
+            log "✓ ${endpoints[$url]} is accessible"
                 success=true
             else
                 attempts=$((attempts + 1))
@@ -364,8 +384,8 @@ test_services() {
                     sleep 10
                 else
                     warn "✗ ${endpoints[$url]} is not accessible after $max_attempts attempts"
-                    all_healthy=false
-                fi
+            all_healthy=false
+        fi
             fi
         done
     done
@@ -428,10 +448,11 @@ show_update_summary() {
     echo -e "✓ Service availability tested with retries"
     echo
     echo -e "${CYAN}=== Access Information ===${NC}"
-    echo -e "Open WebUI (AI Chat): ${GREEN}https://tu.local/${NC}"
-    echo -e "n8n Workflows: ${GREEN}https://ai.tu.local/${NC}"
-    echo -e "Pi-hole (Ad Blocker): ${GREEN}http://tu.local:8081/${NC}"
-    echo -e "Qdrant Vector DB: ${GREEN}http://tu.local:6333${NC}"
+    echo -e "Landing: ${GREEN}https://tu.local/${NC}"
+    echo -e "Open WebUI (AI Chat): ${GREEN}https://oweb.tu.local/${NC}"
+    echo -e "n8n Workflows: ${GREEN}https://n8n.tu.local/${NC}"
+    echo -e "Pi-hole (Ad Blocker): ${GREEN}https://pihole.tu.local/${NC}"
+    echo -e "Ollama API: ${GREEN}http://localhost:11434${NC}"
     echo
     echo -e "${CYAN}=== Default Credentials ===${NC}"
     echo -e "n8n: admin / admin123"

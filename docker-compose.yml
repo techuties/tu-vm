@@ -70,8 +70,7 @@ services:
     image: qdrant/qdrant:latest
     container_name: ai_qdrant
     restart: unless-stopped
-    ports:
-      - "6333:6333"
+    # keep internal only; access via internal URLs or add an authenticated proxy if needed
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
@@ -97,8 +96,7 @@ services:
     image: ollama/ollama:latest
     container_name: ai_ollama
     restart: unless-stopped
-    ports:
-      - "11434:11434"
+    # ports removed to enforce Nginx-only access (ollama.tu.local)
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -168,20 +166,20 @@ services:
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin123}
-      N8N_HOST: ai.tu.local
+      N8N_HOST: n8n.${DOMAIN}
       N8N_PORT: 5678
       N8N_PROTOCOL: https
-      WEBHOOK_URL: http://ai.${DOMAIN}:5678
+      WEBHOOK_URL: https://n8n.${DOMAIN}/
       GENERIC_TIMEZONE: Europe/Zurich
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b}
       # PostgreSQL Database Configuration
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: 5432
-      DB_POSTGRESDB_DATABASE: n8n_db
-      DB_POSTGRESDB_USER: n8n_user
-      DB_POSTGRESDB_PASSWORD: n8n_password_2024
-      DB_POSTGRESDB_SCHEMA: public
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-ai_platform}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-ai_admin}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-ai_password_2024}
+      DB_POSTGRESDB_SCHEMA: n8n
       QDRANT_URL: http://qdrant:6333
       # Mobile optimizations
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
@@ -191,8 +189,7 @@ services:
       # Disable telemetry
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_TELEMETRY_ENABLED: "false"
-    ports:
-      - "5678:5678"
+    # Prefer access via Nginx (443). If you need direct host access, re-add 5678 mapping.
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
@@ -222,8 +219,8 @@ services:
     container_name: ai_pihole
     restart: unless-stopped
     dns:
-      - 8.8.8.8
       - 1.1.1.1
+      - 9.9.9.9
     ports:
       - "0.0.0.0:53:53/udp"
       - "0.0.0.0:53:53/tcp"
@@ -231,11 +228,11 @@ services:
     environment:
       TZ: 'Europe/Zurich'
       WEBPASSWORD: ${PIHOLE_PASSWORD:-'SwissPiHole2024!'}
-      PIHOLE_DNS_: '1.1.1.1;1.0.0.1'
+      PIHOLE_DNS_: '1.1.1.1;9.9.9.9'
       DNSMASQ_USER: pihole
       VIRTUAL_HOST: "pihole.tu.local"
       PROXY_LOCATION: "pihole"
-      ServerIP: "10.211.55.12"
+      ServerIP: "${HOST_IP}"
       DNSMASQ_LISTENING: all
       # Allow external queries
       DNSMASQ_INTERFACE: "eth0"
@@ -325,6 +322,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/html:/usr/share/nginx/html:ro
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
     networks:
