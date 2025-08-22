@@ -471,7 +471,7 @@ flowchart TD
   OpenWebUI -->|REDIS_URL| Redis
   OpenWebUI -->|OLLAMA_BASE_URL| Ollama
 
-  N8N -->|DB (schema n8n)| Postgres
+  N8N -->|DB schema n8n| Postgres
   N8N -.->|HTTP API| Qdrant
 
   %% External access
