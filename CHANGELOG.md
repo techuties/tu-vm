@@ -1,6 +1,6 @@
 # Changelog
 
-## SB/V0.1
+## SB update on 22.08.2025
 
 This release focuses on security-by-default, clearer onboarding, and a better operator experience. Key themes: HTTPS-only access via Nginx, a new landing page at `tu.local`, explicit DNS handoff for Pi‑hole, safer defaults for services, and improved scripts with logging and health checks.
 
