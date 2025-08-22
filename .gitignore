@@ -115,3 +115,8 @@ nginx/logs/**
 # Misc
 ##############################
 .dockerignore
+# VPN configs (sensitive)
+wg-configs/**
+ovpn-configs/**
+
+nginx/conf.d/backup/**
