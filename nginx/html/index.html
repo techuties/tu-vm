@@ -29,7 +29,10 @@
   .err { background:#281215; color:#ff9aa7; border-color:#4d2228 }
   .warn { background:#2a2314; color:#ffdd8b; border-color:#4b3d1c }
   code { background:#101822; padding:2px 6px; border-radius:6px; border:1px solid #1f2a37 }
-  .upload { margin-top:24px; background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px }
+  .upload { display:none }
+  /* Dashboard cards */
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
+  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
   .table { width:100%; border-collapse: collapse; margin-top: 10px }
   .table th, .table td { border:1px solid #1f2937; padding:8px; text-align:left; font-size:13px }
   .table th { background:#0b1017; color:#b9c6d2 }
@@ -49,6 +52,13 @@
   .vpn-head { display:flex; align-items:center; gap:12px; margin-bottom:8px }
   .muted { color:#9fb0c0; font-size:13px }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  
+  /* Dashboard cards */
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
+  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
+
+  
+  @media (max-width: 768px) { .grid { gap:12px } }
 </style>
 <script>
 async function probe(url, opts={}){
@@ -92,20 +102,14 @@ async function refreshStatuses(){
     setChip('chip-db', !!full.postgres);
     setChip('chip-redis', !!full.redis);
     setChip('chip-qdrant', !!full.qdrant);
-    // VPN details
-    const out = full.vpn_output||'';
-    document.getElementById('vpn-output').textContent = out ? out : '';
-    document.getElementById('ext-ip').textContent = (full.vpn_ip||full.ip||'');
-    if(full.local_ip){ const lip=document.getElementById('local-ip'); if(lip) lip.textContent=full.local_ip; }
-    // prefer structured fields returned from backend
-    const vtype = (full.vpn_type||'').trim();
-    const vactive = (full.vpn_active||'').split('/').pop();
-    document.getElementById('vpn-type').textContent = vtype || 'unknown';
-    document.getElementById('vpn-active').textContent = vactive || '';
-    const vpnOk = !!full.vpn;
-    const dot = document.getElementById('vpn-dot'); if(dot){ dot.className = 'dot ' + (vpnOk?'dot-ok':'dot-err'); }
-    const gw = !!full.gateway; const gwEl=document.getElementById('vpn-gw'); if(gwEl){ gwEl.textContent = gw?'Gateway: On':'Gateway: Off'; gwEl.className = 'chip'; }
-    const keyWarn=document.getElementById('upload-key-warn'); if(keyWarn){ keyWarn.style.display = full.upload_key_default ? 'inline' : 'none'; }
+    // Update KPIs
+    const ext = (full.external_ip||full.ip||'');
+    const vmip = full.vm_ip||'';
+    const k1=document.getElementById('kpi-ext'); if(k1) k1.textContent = ext || '—';
+    const k2=document.getElementById('kpi-vm'); if(k2) k2.textContent = vmip || '—';
+    const kcpu=document.getElementById('kpi-cpu'); if(kcpu) kcpu.textContent = (full.cpu_cores||'—');
+    const km=document.getElementById('kpi-mem'); if(km && full.memory_mb){ km.textContent = `${full.memory_mb.used}/${full.memory_mb.total} MB`; }
+    const kd=document.getElementById('kpi-disk'); if(kd && full.disk_mb){ kd.textContent = `${full.disk_mb.used}/${full.disk_mb.total} MB`; }
     const tsEl=document.getElementById('last-updated'); if(tsEl){ const d=new Date(); tsEl.textContent=d.toLocaleTimeString(); }
   }catch(e){}
 }
@@ -114,38 +118,9 @@ function startAutoRefresh(){
   setInterval(refreshStatuses, 15000);
 }
 
-async function b64(file){ const a = await file.arrayBuffer(); return btoa(String.fromCharCode(...new Uint8Array(a))); }
-function detectType(name){
-  const n = name.toLowerCase();
-  if(n.endsWith('.conf')) return 'wg';
-  if(n.endsWith('.ovpn')) return 'ovpn';
-  return null;
-}
-async function uploadFiles(){
-  const key = document.getElementById('upload-key').value.trim();
-  const files = document.getElementById('upload-input').files;
-  const log = document.getElementById('upload-log');
-  if(!files || files.length===0){ log.textContent='Select .conf or .ovpn files.'; return; }
-  for(const f of files){
-    const t = detectType(f.name);
-    if(!t){ log.textContent = `Skip ${f.name}: unsupported`; continue; }
-    const data = await b64(f);
-    const url = t==='wg' ? '/upload/wg' : '/upload/ovpn';
-    const res = await fetch(url, { method:'POST', headers:{ 'Authorization': 'Bearer '+key, 'Content-Type':'application/json' }, body: JSON.stringify({ name: f.name, data }) });
-    const j = await res.json().catch(()=>({ok:false}));
-    log.textContent = (j.ok? 'Uploaded: ' : 'Failed: ') + f.name;
-  }
-}
-async function rotateVPN(){
-  const key = document.getElementById('upload-key').value.trim();
-  const res = await fetch('/upload/vpn/rotate', { method:'POST', headers:{ 'Authorization':'Bearer '+key } });
-  const j = await res.json().catch(()=>({ok:false}));
-  document.getElementById('upload-log').textContent = j.ok ? 'Rotation triggered' : 'Rotation failed';
-}
 window.addEventListener('DOMContentLoaded',()=>{
   startAutoRefresh();
 });
-function setKeyVisibility(chk){ const inp=document.getElementById('upload-key'); inp.type = chk.checked?'text':'password'; }
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(e){} }
 </script>
 </head>
@@ -168,52 +143,23 @@ async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(
         <div id="chip-qdrant" class="chip"><span class="dot dot-err"></span><code>ai_qdrant:6333</code> · <span class="label">…</span></div>
       </div>
       <div class="status"><button class="btn" onclick="refreshStatuses()">Refresh</button> <span class="muted">Last updated: <span id="last-updated">–</span></span></div>
+      <div class="kpis" aria-label="Hardware exposure">
+        <div class="kpi"><div class="muted">External IP</div><div id="kpi-ext" class="name">—</div></div>
+        <div class="kpi"><div class="muted">VM IP</div><div id="kpi-vm" class="name">—</div></div>
+        <div class="kpi"><div class="muted">CPU Cores</div><div id="kpi-cpu" class="name">—</div></div>
+        <div class="kpi"><div class="muted">Memory</div><div id="kpi-mem" class="name">—</div></div>
+        <div class="kpi"><div class="muted">Disk</div><div id="kpi-disk" class="name">—</div></div>
+      </div>
     </div>
+
+    
 
     <div class="thanks">
       <h3>Contributors</h3>
       <p>Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer noopener">Sebastian Becker</a> for major contributions.</p>
     </div>
 
-    <div class="upload">
-      <div class="vpn-head">
-        <div class="chip"><span id="vpn-dot" class="dot dot-err"></span>VPN <span class="label">status</span></div>
-        <div id="vpn-gw" class="chip">Gateway: Off</div>
-        <div class="muted">Type: <span id="vpn-type" class="mono">…</span></div>
-        <div class="muted">Active: <span id="vpn-active" class="mono">…</span></div>
-        <div class="muted">External IP: <code id="ext-ip">…</code></div>
-        <div class="muted">Local IP: <code id="local-ip">…</code></div>
-      </div>
-      <pre id="vpn-output" style="background:#0b1017;color:#9fb0c0;border:1px solid #1f2937;border-radius:8px;padding:8px;max-height:120px;overflow:auto">No status yet…</pre>
-      <div class="row">
-        <div class="row-inline" role="group" aria-label="Upload API key">
-          <input id="upload-key" type="password" placeholder="Upload API key" aria-label="Upload API key" />
-          <label class="muted"><input type="checkbox" onchange="setKeyVisibility(this)" /> show</label>
-          <span id="upload-key-warn" class="muted" style="display:none;color:#ff9aa7">Default key in use. Change in .env</span>
-        </div>
-        <input id="upload-input" type="file" multiple accept=".conf,.ovpn" style="display:none" onchange="document.getElementById('selected-files').textContent=[...this.files].map(f=>f.name).join(', ')||'No files selected'" />
-        <button class="btn" onclick="document.getElementById('upload-input').click()">Select files</button>
-        <button class="btn" onclick="uploadFiles()">Upload</button>
-        <button class="btn" onclick="rotateVPN()">Rotate</button>
-      </div>
-      <div id="selected-files" style="margin-top:6px; color:#9fb0c0; font-size:12px">No files selected</div>
-      <div id="upload-log" style="margin-top:8px; color:var(--muted); font-size:13px"></div>
-    </div>
 
-    <div class="upload">
-      <div class="section-title">VM Access (reference)</div>
-      <table class="table" aria-label="Internal endpoints">
-        <thead><tr><th>Service</th><th>Docker DNS</th><th>Port</th><th>Nginx Hostname</th><th>Purpose</th><th>Copy</th></tr></thead>
-        <tbody>
-          <tr><td>Open WebUI</td><td class="mono">open-webui</td><td>8080</td><td class="mono">oweb.tu.local</td><td>Web UI</td><td><button class="copy" onclick="copyText('https://oweb.tu.local')">URL</button></td></tr>
-          <tr><td>Ollama</td><td class="mono">ollama</td><td>11434</td><td class="mono">ollama.tu.local</td><td>AI API</td><td><button class="copy" onclick="copyText('https://ollama.tu.local')">Base URL</button></td></tr>
-          <tr><td>Postgres</td><td class="mono">postgres</td><td>5432</td><td class="mono">(internal)</td><td>SQL DB</td><td><button class="copy" onclick="copyText('postgresql://ai_admin:REDACTED@postgres:5432/ai_platform')">DSN</button></td></tr>
-          <tr><td>Redis</td><td class="mono">redis</td><td>6379</td><td class="mono">(internal)</td><td>Cache</td><td><button class="copy" onclick="copyText('redis://default:REDACTED@redis:6379')">URL</button></td></tr>
-          <tr><td>Qdrant</td><td class="mono">qdrant</td><td>6333</td><td class="mono">(internal)</td><td>Vector DB</td><td><button class="copy" onclick="copyText('http://qdrant:6333')">URL</button></td></tr>
-        </tbody>
-      </table>
-      <p class="muted" style="margin-top:8px">Docker DNS names are reachable from containers and the host. Prefer the .tu.local hostnames from browsers and external tools.</p>
-    </div>
 
     <div class="footer">
       <div class="links">Resources: 
@@ -221,7 +167,6 @@ async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(
         <a href="https://github.com/techuties/tu-vm" target="_blank" rel="noreferrer noopener">GitHub Repo</a>
       </div>
       <p>Thank you for using TechUties VM. <span role="img" aria-label="sparkles">✨</span></p>
-      <p>Tip: add <code>tu.local</code>, <code>oweb.tu.local</code>, <code>n8n.tu.local</code>, and <code>pihole.tu.local</code> to your hosts/DNS.</p>
     </div>
   </div>
 </body>
