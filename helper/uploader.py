@@ -94,6 +94,14 @@ def status():
     except Exception:
         res['ollama'] = False
     
+    # Tika
+    try:
+        s = socket.create_connection(('ai_tika', 9998), timeout=2)
+        s.close()
+        res['tika'] = True
+    except Exception:
+        res['tika'] = False
+    
     # External IP
     try:
         ip = requests.get('https://api.ipify.org', timeout=3).text
