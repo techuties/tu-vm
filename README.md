@@ -19,6 +19,8 @@ sudo ./tu-vm.sh secure
 ./tu-vm.sh status
 ```
 
+**Note**: Tika is configured as the default PDF processor with full capabilities enabled automatically.
+
 ## 🚀 Features
 
 ### Core Services
@@ -28,12 +30,21 @@ sudo ./tu-vm.sh secure
 - **PostgreSQL** - Primary database with optimized settings
 - **Qdrant** - Vector database for AI embeddings
 - **Redis** - Caching layer for improved performance
+- **Apache Tika** - Advanced document processing and content extraction
 
 ### Security & Network
 - **Pi-hole** - DNS ad-blocking and network security (Primary DNS on port 53)
 - **Access Control** - Secure access with easy on/off switching
 - **Nginx** - Reverse proxy with SSL/TLS and security headers
 - **Self-signed SSL certificates** - HTTPS encryption
+
+### Document Processing
+- **Apache Tika Default** - Full document processing with OCR and image analysis
+- **Multi-format Support** - Handles 1000+ file formats including PDF, DOC, PPT, images
+- **Advanced OCR** - Text extraction from scanned documents and images
+- **Table Extraction** - Converts tables to structured text with layout preservation
+- **Image Analysis** - Describes content in images, charts, and diagrams
+- **Layout Understanding** - Maintains document structure and formatting
 
 ### Mobile Optimizations
 - **Resource limits** - Battery-friendly resource management
@@ -308,6 +319,43 @@ sudo ./tu-vm.sh restore backup_file.tar.gz
 - **Network Security**: Isolated from internet threats
 - **Monitoring**: Easy status checking and control
 
+## 📄 Document Processing
+
+### PDF Processing Options
+The platform supports two powerful PDF processing engines:
+
+#### **Apache Tika (Default - Recommended)**
+- 🌐 **Universal** - Handles 1000+ file formats
+- 🔍 **Advanced OCR** - Reads scanned documents and images
+- 📊 **Table extraction** - Converts tables to structured text
+- 🖼️ **Image analysis** - Describes charts, diagrams, and visual content
+- 📈 **Layout understanding** - Preserves document structure and formatting
+- ✅ **No reshape errors** - Robust handling of all PDF types
+
+#### **PyMuPDF (Alternative)**
+- ⚡ **Fast and lightweight** - Optimized for speed
+- 🎯 **PDF-focused** - Excellent text extraction
+- 💾 **Minimal resources** - Lower memory usage
+- 📝 **Text-only** - No image processing capabilities
+
+### Switching PDF Processors
+```bash
+# Switch to Tika (recommended - full document processing)
+./scripts/switch-pdf-loader.sh tika
+
+# Switch to PyMuPDF (fast, text-only)
+./scripts/switch-pdf-loader.sh pymupdf
+
+# Check current configuration
+./scripts/switch-pdf-loader.sh
+```
+
+### Troubleshooting PDF Issues
+If you encounter PDF processing errors:
+1. **Switch to Tika**: `./scripts/switch-pdf-loader.sh tika`
+2. **Check logs**: `docker logs ai_openwebui`
+3. **Verify Tika**: `docker logs ai_tika`
+
 ## 🎉 Conclusion
 
 The TechUties VM provides a **secure, private AI platform** with:
@@ -315,6 +363,7 @@ The TechUties VM provides a **secure, private AI platform** with:
 - **Secure access** by default
 - **Easy security control** with three levels
 - **Comprehensive backup/restore** system
+- **Advanced document processing** with PyMuPDF and Apache Tika
 - **Production-ready** architecture
 
 **Perfect for**: Private AI development, secure automation workflows, and isolated AI research environments.

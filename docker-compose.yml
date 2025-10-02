@@ -142,6 +142,10 @@ services:
       # Disable telemetry
       ANONYMIZED_TELEMETRY: "false"
       DO_NOT_TRACK: "true"
+      # PDF Processing with Tika
+      PDF_LOADER: "TikaLoader"
+      PDF_EXTRACT_IMAGES: "true"
+      TIKA_SERVER_URL: "http://ai_tika:9998"
     networks:
       ai_network:
         ipv4_address: 172.20.0.14
@@ -155,6 +159,26 @@ services:
         reservations:
           memory: 512M
           cpus: '0.25'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+
+  # Apache Tika for robust content extraction (used by Open WebUI)
+  tika:
+    image: apache/tika:latest
+    container_name: ai_tika
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9998"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     dns:
       - 127.0.0.11
       - 172.20.0.16

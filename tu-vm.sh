@@ -308,6 +308,9 @@ start_services() {
     # Wait for services to be ready
     if wait_for_services; then
         info "All services started successfully!"
+        
+        # Note: Tika is configured as default in docker-compose.yml
+        
         show_access_info
     else
         warn "Some services may not be fully ready yet."
@@ -728,6 +731,7 @@ validate_security() {
         return 1
     fi
 }
+
 
 # =============================================================================
 # DIAGNOSTIC FUNCTIONS
