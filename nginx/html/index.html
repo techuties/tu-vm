@@ -103,6 +103,7 @@ async function refreshStatuses(){
     setChip('chip-redis', !!full.redis);
     setChip('chip-qdrant', !!full.qdrant);
     setChip('chip-tika', !!full.tika);
+    setChip('chip-minio', !!full.minio);
     // Update KPIs
     const ext = (full.external_ip||full.ip||'');
     const vmip = full.vm_ip||'';
@@ -143,6 +144,7 @@ async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(
         <div id="chip-redis" class="chip"><span class="dot dot-err"></span><code>ai_redis:6379</code> · <span class="label">…</span></div>
         <div id="chip-qdrant" class="chip"><span class="dot dot-err"></span><code>ai_qdrant:6333</code> · <span class="label">…</span></div>
         <div id="chip-tika" class="chip"><span class="dot dot-err"></span><code>ai_tika:9998</code> · <span class="label">…</span></div>
+        <div id="chip-minio" class="chip"><span class="dot dot-err"></span><code>ai_minio:9000</code> · <span class="label">…</span></div>
       </div>
       <div class="status"><button class="btn" onclick="refreshStatuses()">Refresh</button> <span class="muted">Last updated: <span id="last-updated">–</span></span></div>
       <div class="kpis" aria-label="Hardware exposure">

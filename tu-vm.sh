@@ -157,9 +157,23 @@ check_env_file() {
         warn ".env file not found. Creating from env.example..."
         if [[ -f "env.example" ]]; then
             cp env.example "$ENV_FILE"
-            info "Created .env file from env.example. Please review and configure as needed."
+            info "Created .env file from env.example."
+            
+            # Check for default passwords and generate secrets automatically
+            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+                warn "Default passwords detected! Generating secure secrets automatically..."
+                generate_secrets
+            else
+                info "Please review and configure your .env file as needed."
+            fi
         else
             error ".env file not found and no env.example available."
+        fi
+    else
+        # Check existing .env file for default passwords
+        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+            warn "Default passwords detected in existing .env file!"
+            warn "Run './tu-vm.sh generate-secrets' to generate secure passwords."
         fi
     fi
 }
@@ -667,6 +681,7 @@ generate_secrets() {
     local redis_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local n8n_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local pihole_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+    local minio_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local webui_secret=$(openssl rand -hex 32)
     local jwt_secret=$(openssl rand -hex 32)
     local auth_secret=$(openssl rand -hex 32)
@@ -679,11 +694,57 @@ generate_secrets() {
     sed -i "s/CHANGE_ME_JWT_SECRET_KEY/$jwt_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_AUTH_SECRET/$auth_secret/g" "$ENV_FILE"
     
+    # Update MinIO password (handle multiple occurrences)
+    sed -i "0,/CHANGE_ME_SECURE_PASSWORD/s//$minio_pass/" "$ENV_FILE"
+    
     # Set proper permissions
     chmod 600 "$ENV_FILE"
     
     info "Secure secrets generated and saved to .env"
     info "File permissions set to 600 (owner read/write only)"
+    
+    # Display generated credentials
+    echo ""
+    echo -e "${BLUE}📋 Generated Credentials:${NC}"
+    echo "=================================="
+    echo -e "${GREEN}🔑 Service Access Credentials:${NC}"
+    echo ""
+    echo -e "${YELLOW}Open WebUI:${NC}"
+    echo "  URL: https://oweb.tu.local"
+    echo "  Admin: First user to register"
+    echo ""
+    echo -e "${YELLOW}n8n Workflow Automation:${NC}"
+    echo "  URL: https://n8n.tu.local"
+    echo "  Username: admin"
+    echo "  Password: $n8n_pass"
+    echo ""
+    echo -e "${YELLOW}MinIO Object Storage:${NC}"
+    echo "  Console: https://minio.tu.local"
+    echo "  API: https://api.minio.tu.local"
+    echo "  Username: admin"
+    echo "  Password: $minio_pass"
+    echo ""
+    echo -e "${YELLOW}Pi-hole DNS:${NC}"
+    echo "  URL: https://pihole.tu.local/admin"
+    echo "  Password: $pihole_pass"
+    echo ""
+    echo -e "${YELLOW}Database Access:${NC}"
+    echo "  Host: ai_postgres:5432"
+    echo "  Database: ai_platform"
+    echo "  Username: ai_admin"
+    echo "  Password: $postgres_pass"
+    echo ""
+    echo -e "${YELLOW}Redis Access:${NC}"
+    echo "  Host: ai_redis:6379"
+    echo "  Password: $redis_pass"
+    echo ""
+    echo -e "${RED}⚠️  IMPORTANT SECURITY NOTES:${NC}"
+    echo "• Store these credentials securely"
+    echo "• Change passwords after first login"
+    echo "• Never share these credentials"
+    echo "• Consider using a password manager"
+    echo ""
+    echo -e "${GREEN}🎉 Installation complete! All services are ready.${NC}"
     warn "⚠️  Keep your .env file secure and never commit it to version control!"
 }
 

@@ -31,6 +31,7 @@ sudo ./tu-vm.sh secure
 - **Qdrant** - Vector database for AI embeddings
 - **Redis** - Caching layer for improved performance
 - **Apache Tika** - Advanced document processing and content extraction
+- **MinIO** - S3-compatible object storage with web GUI
 
 ### Security & Network
 - **Pi-hole** - DNS ad-blocking and network security (Primary DNS on port 53)
@@ -109,6 +110,8 @@ Access services at:
 - **Open WebUI**: `https://10.211.55.12` (oweb.tu.local)
 - **n8n**: `https://10.211.55.12` (n8n.tu.local)
 - **Pi-hole**: `https://10.211.55.12` (pihole.tu.local)
+- **MinIO Console**: `https://10.211.55.12` (minio.tu.local)
+- **MinIO API**: `https://10.211.55.12` (api.minio.tu.local)
 
 ## 🌐 Pi-hole DNS Configuration
 
@@ -173,6 +176,13 @@ The VM's Pi-hole is configured with:
 - **Vector Access**: Workflows can call Qdrant directly using `QDRANT_URL`
 - **Access**: Only via Nginx at `https://n8n.tu.local`
 - **Persistence**: Data stored in PostgreSQL; n8n home at `n8n_data` volume
+
+### MinIO Object Storage
+- **Purpose**: Centralized file storage for all services
+- **Access**: Web GUI at `https://minio.tu.local`, API at `https://api.minio.tu.local`
+- **Benefits**: Scalable storage, multi-service access, S3-compatible
+- **Integration**: Works with Open WebUI, n8n, and Tika for document processing
+- **Persistence**: `minio_data` volume for all object storage
 
 ## 💾 Backup & Restore
 

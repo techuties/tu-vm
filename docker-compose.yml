@@ -183,6 +183,35 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
+  # MinIO Object Storage with GUI
+  minio:
+    image: minio/minio:latest
+    container_name: ai_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console GUI
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123456}
+      MINIO_CONSOLE_ADDRESS: ":9001"
+      MINIO_SERVER_URL: "https://api.minio.tu.local"
+      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.local"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.21
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
 
   # n8n Workflow Automation (lightweight)
   n8n:
@@ -371,6 +400,8 @@ volumes:
   qdrant_data:
     driver: local
   ollama_data:
+    driver: local
+  minio_data:
     driver: local
   n8n_data:
     driver: local

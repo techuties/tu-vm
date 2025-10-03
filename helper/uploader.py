@@ -102,6 +102,14 @@ def status():
     except Exception:
         res['tika'] = False
     
+    # MinIO
+    try:
+        s = socket.create_connection(('ai_minio', 9000), timeout=2)
+        s.close()
+        res['minio'] = True
+    except Exception:
+        res['minio'] = False
+    
     # External IP
     try:
         ip = requests.get('https://api.ipify.org', timeout=3).text
