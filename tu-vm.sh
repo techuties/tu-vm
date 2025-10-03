@@ -537,6 +537,10 @@ update_system() {
     local compose_cmd=$(get_docker_compose_cmd)
     $compose_cmd pull
     
+    # Handle Pi-hole DNS replacement
+    info "Handling Pi-hole DNS service..."
+    handle_pihole_dns_replacement "stop"
+    
     # Stop services gracefully
     info "Stopping services for update..."
     $compose_cmd down
@@ -548,6 +552,10 @@ update_system() {
     # Start services with updated images
     info "Starting services with updated images..."
     $compose_cmd up -d
+    
+    # Restore Pi-hole DNS after services are running
+    info "Restoring Pi-hole DNS service..."
+    handle_pihole_dns_replacement "start"
     
     # Wait for services to be ready
     if wait_for_services; then
@@ -652,6 +660,14 @@ update_preview() {
     echo "  - Backup will be created before update"
     echo ""
     
+    # Show DNS handling info
+    echo -e "${YELLOW}🌐 DNS Handling:${NC}"
+    echo "  - Pi-hole DNS will be temporarily replaced"
+    echo "  - Independent DNS servers will be used during update"
+    echo "  - Pi-hole DNS will be restored after update"
+    echo "  - No DNS resolution interruption"
+    echo ""
+    
     # Show services that will be updated
     echo -e "${YELLOW}🔄 Services to Update:${NC}"
     echo "  - Open WebUI (AI chat interface)"
@@ -668,6 +684,80 @@ update_preview() {
     
     echo -e "${GREEN}✅ Update process is safe and preserves all data${NC}"
     echo -e "${YELLOW}⚠️  Services will be briefly unavailable during update${NC}"
+}
+
+# Handle Pi-hole DNS replacement during updates
+handle_pihole_dns_replacement() {
+    local action="$1"
+    
+    case "$action" in
+        "stop")
+            info "Temporarily restoring system DNS..."
+            
+            # Backup current resolv.conf
+            cp /etc/resolv.conf /etc/resolv.conf.pihole.backup
+            
+            # Restore independent DNS servers
+            cat > /etc/resolv.conf << EOF
+# Temporary DNS configuration during update
+# Independent DNS servers (not Google)
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+            
+            # Make resolv.conf immutable to prevent systemd from overwriting
+            chattr +i /etc/resolv.conf 2>/dev/null || true
+            
+            info "System DNS restored with independent servers"
+            ;;
+        "start")
+            info "Restoring Pi-hole DNS configuration..."
+            
+            # Remove immutable flag
+            chattr -i /etc/resolv.conf 2>/dev/null || true
+            
+            # Restore Pi-hole DNS configuration
+            cat > /etc/resolv.conf << EOF
+# Pi-hole DNS configuration
+nameserver 127.0.0.1
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+EOF
+            
+            # Make resolv.conf immutable again
+            chattr +i /etc/resolv.conf 2>/dev/null || true
+            
+            # Wait for Pi-hole to be ready
+            info "Waiting for Pi-hole to be ready..."
+            local max_attempts=30
+            local attempt=0
+            
+            while [ $attempt -lt $max_attempts ]; do
+                if docker exec ai_pihole pihole status >/dev/null 2>&1; then
+                    info "Pi-hole DNS service restored successfully"
+                    return 0
+                fi
+                sleep 2
+                attempt=$((attempt + 1))
+            done
+            
+            warn "Pi-hole may not be fully ready yet, but DNS is configured"
+            ;;
+        *)
+            error "Invalid action for Pi-hole DNS replacement: $action"
+            ;;
+    esac
+}
+
+# Check if Pi-hole DNS is currently active
+check_pihole_dns_status() {
+    if grep -q "127.0.0.1" /etc/resolv.conf; then
+        return 0  # Pi-hole DNS is active
+    else
+        return 1  # System DNS is active
+    fi
 }
 
 # Create backup
