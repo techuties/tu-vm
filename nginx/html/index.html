@@ -80,16 +80,18 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih, full] = await Promise.all([
+  const [land, oweb, n8n, pih, minio, full] = await Promise.all([
     Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
     probe('/status/pihole'),
+    probe('/status/minio'),
     fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
+  setBadge('badge-minio', minio);
   try{
     const setChip = (id, ok) => {
       const el = document.getElementById(id);
@@ -136,6 +138,7 @@ async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(
         <div class="card"><span id="badge-oweb" class="badge warn">checking…</span><a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a></div>
         <div class="card"><span id="badge-n8n" class="badge warn">checking…</span><a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a></div>
         <div class="card"><span id="badge-pihole" class="badge warn">checking…</span><a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a></div>
+        <div class="card"><span id="badge-minio" class="badge warn">checking…</span><a href="https://minio.tu.local/"><div class="name">MinIO Console</div><div class="url">minio.tu.local</div></a></div>
       </div>
       <div class="section-title">VM Access</div>
       <div class="chips">
