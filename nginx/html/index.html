@@ -11,7 +11,7 @@
   .hero { background: linear-gradient(135deg, rgba(0,200,150,0.15), rgba(59,130,246,0.12)); border:1px solid #163042; border-radius:16px; padding:32px; }
   h1 { margin:0 0 8px; font-size:32px; letter-spacing:.3px }
   p.lead { margin:0; color:var(--muted); }
-  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:28px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:12px; }
   .card { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px; transition: transform .1s ease, border-color .2s ease; position:relative }
   .card:hover { transform: translateY(-1px); border-color: #374151; }
   .card a { color:var(--fg); text-decoration:none; display:block }
@@ -29,6 +29,36 @@
   .err { background:#281215; color:#ff9aa7; border-color:#4d2228 }
   .warn { background:#2a2314; color:#ffdd8b; border-color:#4b3d1c }
   code { background:#101822; padding:2px 6px; border-radius:6px; border:1px solid #1f2a37 }
+  .upload { display:none }
+  /* Dashboard cards */
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
+  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
+  .table { width:100%; border-collapse: collapse; margin-top: 10px }
+  .table th, .table td { border:1px solid #1f2937; padding:8px; text-align:left; font-size:13px }
+  .table th { background:#0b1017; color:#b9c6d2 }
+  .copy { cursor:pointer; padding:4px 8px; border:1px solid #1f2937; border-radius:6px; background:#0e1a26; color:#e6eef7 }
+  .row-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
+  .row input[type="file"] { color:var(--muted) }
+  .row input[type="text"] { background:#0b1017; color:var(--fg); border:1px solid #1f2937; border-radius:8px; padding:8px 10px; min-width:260px }
+  .btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer }
+  .btn:hover { border-color:#374151 }
+  .section-title { margin:18px 0 8px; color:#b9c6d2; font-size:14px; text-transform:uppercase; letter-spacing:.08em }
+  .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px }
+  .chip { background:#0b1017; border:1px solid #1f2937; color:#cbd5e1; border-radius:999px; padding:6px 10px; font-size:12px }
+  .chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; position:relative; top:1px }
+  .dot-ok { background:#00c896 }
+  .dot-err { background:#ff6b6b }
+  .vpn-head { display:flex; align-items:center; gap:12px; margin-bottom:8px }
+  .muted { color:#9fb0c0; font-size:13px }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  
+  /* Dashboard cards */
+  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
+  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
+
+  
+  @media (max-width: 768px) { .grid { gap:12px } }
 </style>
 <script>
 async function probe(url, opts={}){
@@ -50,24 +80,52 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih] = await Promise.all([
-    probe('/health'),
+  const [land, oweb, n8n, pih, minio, full] = await Promise.all([
+    Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
     probe('/status/pihole'),
+    probe('/status/minio'),
+    fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
-  setBadge('badge-landing', land);
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
+  setBadge('badge-minio', minio);
+  try{
+    const setChip = (id, ok) => {
+      const el = document.getElementById(id);
+      if(!el) return;
+      const dot = el.querySelector('.dot');
+      if(dot){ dot.className = 'dot ' + (ok?'dot-ok':'dot-err'); }
+      el.querySelector('.label').textContent = ok ? 'healthy' : 'down';
+    };
+    setChip('chip-ollama', !!full.ollama);
+    setChip('chip-db', !!full.postgres);
+    setChip('chip-redis', !!full.redis);
+    setChip('chip-qdrant', !!full.qdrant);
+    setChip('chip-tika', !!full.tika);
+    setChip('chip-minio', !!full.minio);
+    // Update KPIs
+    const ext = (full.external_ip||full.ip||'');
+    const vmip = full.vm_ip||'';
+    const k1=document.getElementById('kpi-ext'); if(k1) k1.textContent = ext || '—';
+    const k2=document.getElementById('kpi-vm'); if(k2) k2.textContent = vmip || '—';
+    const kcpu=document.getElementById('kpi-cpu'); if(kcpu) kcpu.textContent = (full.cpu_cores||'—');
+    const km=document.getElementById('kpi-mem'); if(km && full.memory_mb){ km.textContent = `${full.memory_mb.used}/${full.memory_mb.total} MB`; }
+    const kd=document.getElementById('kpi-disk'); if(kd && full.disk_mb){ kd.textContent = `${full.disk_mb.used}/${full.disk_mb.total} MB`; }
+    const tsEl=document.getElementById('last-updated'); if(tsEl){ const d=new Date(); tsEl.textContent=d.toLocaleTimeString(); }
+  }catch(e){}
 }
 function startAutoRefresh(){
   refreshStatuses();
   setInterval(refreshStatuses, 15000);
 }
+
 window.addEventListener('DOMContentLoaded',()=>{
   startAutoRefresh();
 });
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(e){} }
 </script>
 </head>
 <body>
@@ -75,18 +133,40 @@ window.addEventListener('DOMContentLoaded',()=>{
     <div class="hero">
       <h1>TechUties VM</h1>
       <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
+      <div class="section-title">Host Access</div>
       <div class="grid">
         <div class="card"><span id="badge-oweb" class="badge warn">checking…</span><a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a></div>
         <div class="card"><span id="badge-n8n" class="badge warn">checking…</span><a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a></div>
         <div class="card"><span id="badge-pihole" class="badge warn">checking…</span><a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a></div>
+        <div class="card"><span id="badge-minio" class="badge warn">checking…</span><a href="https://minio.tu.local/"><div class="name">MinIO Console</div><div class="url">minio.tu.local</div></a></div>
       </div>
-      <div class="status"><span id="badge-landing" class="badge warn">checking…</span></div>
+      <div class="section-title">VM Access</div>
+      <div class="chips">
+        <div id="chip-ollama" class="chip"><span class="dot dot-err"></span><code>ai_ollama:11434</code> · <span class="label">…</span></div>
+        <div id="chip-db" class="chip"><span class="dot dot-err"></span><code>ai_postgres:5432</code> · <span class="label">…</span></div>
+        <div id="chip-redis" class="chip"><span class="dot dot-err"></span><code>ai_redis:6379</code> · <span class="label">…</span></div>
+        <div id="chip-qdrant" class="chip"><span class="dot dot-err"></span><code>ai_qdrant:6333</code> · <span class="label">…</span></div>
+        <div id="chip-tika" class="chip"><span class="dot dot-err"></span><code>ai_tika:9998</code> · <span class="label">…</span></div>
+        <div id="chip-minio" class="chip"><span class="dot dot-err"></span><code>ai_minio:9000</code> · <span class="label">…</span></div>
+      </div>
+      <div class="status"><button class="btn" onclick="refreshStatuses()">Refresh</button> <span class="muted">Last updated: <span id="last-updated">–</span></span></div>
+      <div class="kpis" aria-label="Hardware exposure">
+        <div class="kpi"><div class="muted">External IP</div><div id="kpi-ext" class="name">—</div></div>
+        <div class="kpi"><div class="muted">VM IP</div><div id="kpi-vm" class="name">—</div></div>
+        <div class="kpi"><div class="muted">CPU Cores</div><div id="kpi-cpu" class="name">—</div></div>
+        <div class="kpi"><div class="muted">Memory</div><div id="kpi-mem" class="name">—</div></div>
+        <div class="kpi"><div class="muted">Disk</div><div id="kpi-disk" class="name">—</div></div>
+      </div>
     </div>
+
+    
 
     <div class="thanks">
       <h3>Contributors</h3>
       <p>Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer noopener">Sebastian Becker</a> for major contributions.</p>
     </div>
+
+
 
     <div class="footer">
       <div class="links">Resources: 
@@ -94,7 +174,6 @@ window.addEventListener('DOMContentLoaded',()=>{
         <a href="https://github.com/techuties/tu-vm" target="_blank" rel="noreferrer noopener">GitHub Repo</a>
       </div>
       <p>Thank you for using TechUties VM. <span role="img" aria-label="sparkles">✨</span></p>
-      <p>Tip: add <code>tu.local</code>, <code>oweb.tu.local</code>, <code>n8n.tu.local</code>, and <code>pihole.tu.local</code> to your hosts/DNS.</p>
     </div>
   </div>
 </body>

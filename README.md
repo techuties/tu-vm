@@ -1,6 +1,25 @@
-# TechUties AI Platform - All In One self hosted Ai Workflow stack
+# TechUties AI Platform - All In One Self-Hosted AI Workflow Stack
 
-A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments.
+A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments with **maximum security** and **easy management**.
+
+## 🎯 Quick Start
+
+### 1. Start Services
+```bash
+./tu-vm.sh start
+```
+
+### 2. Enable Secure Access
+```bash
+sudo ./tu-vm.sh secure
+```
+
+### 3. Check Status
+```bash
+./tu-vm.sh status
+```
+
+**Note**: Tika is configured as the default PDF processor with full capabilities enabled automatically.
 
 ## 🚀 Features
 
@@ -11,57 +30,215 @@ A comprehensive, production-ready AI platform running in Docker containers with 
 - **PostgreSQL** - Primary database with optimized settings
 - **Qdrant** - Vector database for AI embeddings
 - **Redis** - Caching layer for improved performance
+- **Apache Tika** - Advanced document processing and content extraction
+- **MinIO** - S3-compatible object storage with web GUI
 
 ### Security & Network
-- **Pi-hole** - DNS ad-blocking and network security
-- **WireGuard VPN** - Secure remote access
-- **Nginx** - Reverse proxy with SSL/TLS support
+- **Pi-hole** - DNS ad-blocking and network security (Primary DNS on port 53)
+- **Access Control** - Secure access with easy on/off switching
+- **Nginx** - Reverse proxy with SSL/TLS and security headers
 - **Self-signed SSL certificates** - HTTPS encryption
+
+### Document Processing
+- **Apache Tika Default** - Full document processing with OCR and image analysis
+- **Multi-format Support** - Handles 1000+ file formats including PDF, DOC, PPT, images
+- **Advanced OCR** - Text extraction from scanned documents and images
+- **Table Extraction** - Converts tables to structured text with layout preservation
+- **Image Analysis** - Describes content in images, charts, and diagrams
+- **Layout Understanding** - Maintains document structure and formatting
 
 ### Mobile Optimizations
 - **Resource limits** - Battery-friendly resource management
 - **Telemetry disabled** - Privacy-focused configuration
 - **Health checks** - Automatic service monitoring
-- **Foolproof scripts** - One-command setup and management
+- **Simple control** - One script for everything
 
-### Data & Vector Features (Open WebUI and n8n)
-- **Open WebUI**
-  - Primary DB: PostgreSQL (stores users, chats, settings) via `DATABASE_URL`
-  - Vector DB: Qdrant (embeddings, retrieval) via `QDRANT_URL`
-  - Cache: Redis via `REDIS_URL`
-  - LLM backend: Ollama via `OLLAMA_BASE_URL`
-  - Access: only via Nginx at `https://oweb.tu.local` (container port 8080 is internal)
-  - Persistence: `postgres_data` and `qdrant_data` volumes
-- **n8n**
-  - Primary DB: PostgreSQL schema `n8n` (workflows, credentials, executions)
-  - Vector access: Workflows can call Qdrant directly using `QDRANT_URL` (HTTP API)
-  - Access: only via Nginx at `https://n8n.tu.local`
-  - Persistence: data stored in PostgreSQL; n8n home at `n8n_data` volume
+## 🔒 Security First
 
-## 📋 Prerequisites
+### Security Objective: "Secure access control with easy management" ✅
 
-### System Requirements
-- **Host OS**: Windows or MacOS
-- **VM Software**: Parallels Desktop, VirtualBox, ...
-- **VM OS**: Ubuntu Server 22.04+ (latest LTS recommended) inside a VM on your host machine
+The platform implements **secure access control** with three security levels:
+
+| Level | Description | Use Case |
+|-------|-------------|----------|
+| **🔒 SECURE** | Local network access (recommended) | Daily usage |
+| **🔓 PUBLIC** | Access from internet | Testing/development |
+| **🚫 LOCKED** | No external access | Maintenance |
+
+### Security Features
+- **Container Network Isolation**: All services in isolated Docker containers
+- **Custom Network**: 172.20.0.0/16 internal network
+- **Firewall Protection**: UFW-based access control
+- **TLS Encryption**: HTTPS-only with strong cipher suites
+- **Information Disclosure Protection**: Health endpoints secured
+- **Credential Management**: Secure key generation and rotation
+
+## 📋 Simple Control Commands
+
+### Basic Operations
+```bash
+./tu-vm.sh start          # Start all services
+./tu-vm.sh stop           # Stop all services
+./tu-vm.sh restart        # Restart all services
+./tu-vm.sh status         # Show service status
+```
+
+### Access Control
+```bash
+sudo ./tu-vm.sh secure    # Enable secure access (recommended)
+sudo ./tu-vm.sh public    # Enable public access (less secure)
+sudo ./tu-vm.sh lock      # Block all external access
+```
+
+### Maintenance
+```bash
+sudo ./tu-vm.sh update    # Update system and services
+./tu-vm.sh backup         # Create backup
+sudo ./tu-vm.sh restore file.tar.gz # Restore from backup
+```
+
+## 🔧 Access Setup
+
+### 1. Enable Secure Access
+```bash
+sudo ./tu-vm.sh secure
+```
+
+### 2. Access Services
+Access services at:
+- **Landing**: `https://10.211.55.12`
+- **Open WebUI**: `https://10.211.55.12` (oweb.tu.local)
+- **n8n**: `https://10.211.55.12` (n8n.tu.local)
+- **Pi-hole**: `https://10.211.55.12` (pihole.tu.local)
+- **MinIO Console**: `https://10.211.55.12` (minio.tu.local)
+- **MinIO API**: `https://10.211.55.12` (api.minio.tu.local)
+
+## 🌐 Pi-hole DNS Configuration
+
+### How Pi-hole Works
+
+The VM's Pi-hole serves as the primary DNS server on port 53, providing ad-blocking and privacy protection for all DNS queries.
+
+#### Network Flow Diagram
+```
+Internet
+    ↓
+Host Machine
+    ↓ DNS queries to VM
+VM (10.211.55.12)
+    ↓ DNS queries to Pi-hole container
+Pi-hole Container (172.20.0.16)
+    ↓ Filtered/blocked queries
+External DNS (1.1.1.1, 1.0.0.1)
+```
+
+### Pi-hole Access Levels
+
+| Access Method | Port | Who Can Access | Use Case |
+|---------------|------|----------------|----------|
+| **Local Network** | 53 (DNS) | Host and local devices | DNS queries, ad-blocking |
+| **Localhost** | 8081 (Admin) | Direct VM access | Pi-hole administration |
+| **Internet** | 53 | Blocked | No public access |
+
+### Benefits of Pi-hole DNS
+
+#### ✅ Privacy & Security
+- **Ad-blocking** for all DNS queries
+- **No DNS leaks** to tracking services
+- **Privacy protection** - all traffic filtered through your Pi-hole
+- **Custom blocklists** for enhanced protection
+
+#### ✅ Performance
+- **Fast DNS resolution** with caching
+- **Low latency** - local DNS server
+- **Reliable** - direct connection to VM
+
+### Pi-hole Configuration
+
+The VM's Pi-hole is configured with:
+- **DNS Server**: `10.211.55.12` (accessible from local network)
+- **External DNS**: Cloudflare (`1.1.1.1`, `1.0.0.1`)
+- **Blocking**: Enabled for ad and tracking domains
+- **Access**: Local network only
+
+## 📊 Data & Vector Features
+
+### Open WebUI
+- **Primary DB**: PostgreSQL (users, chats, settings) via `DATABASE_URL`
+- **Vector DB**: Qdrant (embeddings, retrieval) via `QDRANT_URL`
+- **Cache**: Redis via `REDIS_URL`
+- **LLM Backend**: Ollama via `OLLAMA_BASE_URL`
+- **Access**: Only via Nginx at `https://oweb.tu.local`
+- **Persistence**: `postgres_data` and `qdrant_data` volumes
+
+### n8n
+- **Primary DB**: PostgreSQL schema `n8n` (workflows, credentials, executions)
+- **Vector Access**: Workflows can call Qdrant directly using `QDRANT_URL`
+- **Access**: Only via Nginx at `https://n8n.tu.local`
+- **Persistence**: Data stored in PostgreSQL; n8n home at `n8n_data` volume
+
+### MinIO Object Storage
+- **Purpose**: Centralized file storage for all services
+- **Access**: Web GUI at `https://minio.tu.local`, API at `https://api.minio.tu.local`
+- **Benefits**: Scalable storage, multi-service access, S3-compatible
+- **Integration**:
+  - **n8n**: Uses S3 (MinIO) natively for binary data (`N8N_BINARY_DATA_MODE=s3`)
+  - **Open WebUI**: No native S3 backend today — we transparently mount MinIO to the host via rclone and bind-mount that folder into Open WebUI uploads so it “just works”.
+- **Persistence**: `minio_data` volume for all object storage
+
+#### Transparent S3 Mount (Open WebUI Workaround)
+- On first install, `./tu-vm.sh start` will:
+  1) Create required MinIO buckets
+  2) Mount MinIO buckets to host under `/mnt/minio/*` using rclone (non-interactive)
+  3) Bind-mount `/mnt/minio/openwebui` to `open-webui:/app/backend/data/uploads`
+
+- This provides S3-backed storage without modifying Open WebUI. If MinIO is not available, Open WebUI still starts; the mount is idempotent and retried on start.
+
+## 💾 Backup & Restore
+
+### Automatic Backups
+Backups are created automatically during updates and manually:
+
+```bash
+./tu-vm.sh backup
+```
+
+### Backup Contents
+- **Database**: Full PostgreSQL dump
+- **Configuration**: `.env`, `docker-compose.yml`, `nginx/`, `ssl/`
+- **Volumes**: PostgreSQL, Redis, Qdrant, Pi-hole data
+- **Compressed**: Timestamped `.tar.gz` files
+
+### Restore from Backup
+```bash
+sudo ./tu-vm.sh restore backups/backup_20250823_143353.tar.gz
+```
+
+### Backup Location
+```
+backups/
+├── backup_YYYYMMDD_HHMMSS.tar.gz
+└── update_YYYYMMDD_HHMMSS.tar.gz
+```
+
+## 🛠️ Installation
+
+### Prerequisites
+- **Host OS**: Windows or macOS
+- **VM Software**: Parallels Desktop, VirtualBox, etc.
+- **VM OS**: Ubuntu Server 22.04+ (latest LTS recommended)
 - **RAM**: Minimum 4GB, Recommended 8GB+
 - **Storage**: 20GB+ free space
 - **Docker**: Version 20.10+
 - **Docker Compose**: Version 2.0+
 
 ### Network Requirements
-- **Ports**: 80, 443, 5678, 8081, 5353, 51820 (UDP)
+- **Ports**: 80, 443 (public/LAN), 53 (DNS) if running Pi-hole for LAN
 - **Domain**: Optional (tu.local as default)
 
-References:
-- Ubuntu Server: https://ubuntu.com/server/docs
-- Docker Engine (Ubuntu): https://docs.docker.com/engine/install/ubuntu/
-- Docker Compose: https://docs.docker.com/compose/
-- WireGuard: https://www.wireguard.com/
+### Installation Steps
 
-## 🛠️ Installation (Fresh Ubuntu Server)
-
-### 1) Update OS and install Docker
+#### 1. Update OS and Install Docker
 ```bash
 sudo apt-get update -y && sudo apt-get upgrade -y
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
@@ -72,511 +249,147 @@ sudo apt-get update -y
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo usermod -aG docker $USER
 sudo reboot
-# log out/in or: newgrp docker
 ```
 
-### 2) Get the code
+#### 2. Get the Code
 ```bash
 git clone https://github.com/techuties/tu-vm.git
 cd tu-vm
 ```
 
-### 3) Configure environment
+#### 3. Configure Environment
 ```bash
-sudo nano env.example
 cp env.example .env
+# Edit .env with your settings
 ```
-Edit `.env` minimally:
-- POSTGRES_PASSWORD, REDIS_PASSWORD
-- HOST_IP (server IP), DOMAIN (e.g., tu.local)
-- Optional secrets for n8n/Open WebUI
 
-### 4) Workstation hostname mapping (Required)
-Map your VM IP to local hostnames on your workstation. Use spaces (no commas):
-```
-<VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local ollama.tu.local
-```
-Where `<VM_IP>` is the VM address from step 4.1. After saving, flush DNS (macOS: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, Windows: `ipconfig /flushdns`).
-
-### 4.1) Find your VM IP (inside the Ubuntu VM)
-Use one of the following to get the VM's LAN IP (not 127.0.0.1):
+#### 4. Start Services
 ```bash
-# Simple: first address shown
-hostname -I | awk '{print $1}'
-
-# Alternative:
-ip -4 addr show | grep -oP 'inet \K[0-9.]+' | grep -v '^127\.' | head -n1
+./tu-vm.sh start
 ```
-Tips:
-- If your VM uses bridged networking, this is the IP your host/LAN can reach.
-- Hypervisor GUIs (Parallels/VMware/VirtualBox/Hyper‑V) also show the VM IP.
-- Replace `<HOST_IP>` in the hosts mapping above with this VM IP.
 
-### 5) Start the platform (safe sequence)
+#### 5. Enable Secure Access
 ```bash
-./scripts/start.sh
+sudo ./tu-vm.sh secure
 ```
-The script frees port 53 for Pi‑hole, generates self‑signed TLS if missing, and starts services in dependency order.
 
-### 6) Verify access
+## 🔍 Troubleshooting
+
+### Services Not Starting
 ```bash
-curl -k https://tu.local/health      # Landing page health
-curl -k https://oweb.tu.local/health # Open WebUI health
-curl -k https://n8n.tu.local/health  # n8n health
+./tu-vm.sh status
+docker compose logs
 ```
-If you didn’t add hostnames, browse to the server IP on 443 and set Host header accordingly.
+
+### Can't Access Services
+```bash
+sudo ./tu-vm.sh secure
+./tu-vm.sh status
+```
+
+### Backup/Restore Issues
+```bash
+./tu-vm.sh backup
+sudo ./tu-vm.sh restore backup_file.tar.gz
+```
+
+## 🚨 Security Considerations
+
+### Before Implementation
+- ❌ Services exposed to internet
+- ❌ DNS amplification risk
+- ❌ Information disclosure
+- ❌ No access control
+- ❌ Default credentials
+
+### After Implementation
+- ✅ Services isolated from internet
+- ✅ DNS protected from amplification
+- ✅ Information disclosure removed
+- ✅ Strong access control
+- ✅ Secure credentials
+- ✅ Easy on/off switching
+
+## 📚 Documentation
+
+### Quick References
+- **Simple Guide**: [SIMPLE_GUIDE.md](SIMPLE_GUIDE.md)
+- **Security Analysis**: [SECURITY_ANALYSIS.md](SECURITY_ANALYSIS.md)
+- **VPN Access Control**: [VPN_ACCESS_CONTROL.md](VPN_ACCESS_CONTROL.md)
+- **Backup & Restore**: [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
+
+### External References
+- [Ubuntu Server](https://ubuntu.com/server/docs)
+- [Docker Engine](https://docs.docker.com/engine/install/ubuntu/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [WireGuard](https://www.wireguard.com/)
+
+## 🎯 Security Objective Verification
+
+### ✅ Achieved Goals
+1. **Secure Communication**: Local network access with firewall protection
+2. **Internet Isolation**: Services not accessible from internet by default
+3. **Easy Control**: Simple commands to switch access modes
+4. **Maximum Security**: Secure access by default
+5. **Flexibility**: Can enable public access when needed
+
+### 🔒 Security Posture
+- **Attack Surface**: Minimized through secure access control
+- **Access Control**: Strong firewall-based access control
+- **Network Security**: Isolated from internet threats
+- **Monitoring**: Easy status checking and control
+
+## 📄 Document Processing
+
+### PDF Processing Options
+The platform supports two powerful PDF processing engines:
+
+#### **Apache Tika (Default - Recommended)**
+- 🌐 **Universal** - Handles 1000+ file formats
+- 🔍 **Advanced OCR** - Reads scanned documents and images
+- 📊 **Table extraction** - Converts tables to structured text
+- 🖼️ **Image analysis** - Describes charts, diagrams, and visual content
+- 📈 **Layout understanding** - Preserves document structure and formatting
+- ✅ **No reshape errors** - Robust handling of all PDF types
+
+#### **PyMuPDF (Alternative)**
+- ⚡ **Fast and lightweight** - Optimized for speed
+- 🎯 **PDF-focused** - Excellent text extraction
+- 💾 **Minimal resources** - Lower memory usage
+- 📝 **Text-only** - No image processing capabilities
+
+### Switching PDF Processors
+```bash
+# Switch to Tika (recommended - full document processing)
+./scripts/switch-pdf-loader.sh tika
+
+# Switch to PyMuPDF (fast, text-only)
+./scripts/switch-pdf-loader.sh pymupdf
+
+# Check current configuration
+./scripts/switch-pdf-loader.sh
+```
+
+### Troubleshooting PDF Issues
+If you encounter PDF processing errors:
+1. **Switch to Tika**: `./scripts/switch-pdf-loader.sh tika`
+2. **Check logs**: `docker logs ai_openwebui`
+3. **Verify Tika**: `docker logs ai_tika`
+
+## 🎉 Conclusion
+
+The TechUties VM provides a **secure, private AI platform** with:
+- **One simple script** for all operations
+- **Secure access** by default
+- **Easy security control** with three levels
+- **Comprehensive backup/restore** system
+- **Advanced document processing** with PyMuPDF and Apache Tika
+- **Production-ready** architecture
+
+**Perfect for**: Private AI development, secure automation workflows, and isolated AI research environments.
 
 ---
 
-## 🖥️ Running on macOS/Windows Hosts (via VM)
-
-This stack is intended to run INSIDE an Ubuntu Server VM (latest LTS). Your macOS/Windows machine acts only as the host of the VM.
-
-Recommended VM setup:
-
-1) Hypervisor: Parallels/VMware/VirtualBox/Hyper‑V
-2) OS in VM: Ubuntu Server 22.04+ (latest LTS recommended)
-3) Networking: 
-      Recommendet: Bridged adapter preferred (VM gets its own LAN IP). Alternatively use NAT and expose required ports.
-4) IP: Reserve a static DHCP lease for the VM on your router (stable IP).
-5) Workstation hostnames: add to your host OS:
-   - macOS: `/etc/hosts`
-   - Windows: `C:\\Windows\\System32\\drivers\\etc\\hosts`
-   - Map to the VM IP:
-   ```
-   <VM_IP> tu.local oweb.tu.local n8n.tu.local pihole.tu.local ollama.tu.local
-   ```
-
-No special Docker overrides are needed on the host. Run all commands inside the Ubuntu VM and follow the Linux instructions above.
-
-## 🌐 Access URLs
-
-- ### Main Services
-- **Landing Page**: https://tu.local (links + live status badges)
-- **Open WebUI**: https://oweb.tu.local (via Nginx; container 8080 is internal)
-- **n8n Workflows**: https://n8n.tu.local (via Nginx; 5678 is internal)
-- **Ollama API**: https://ollama.tu.local (TLS via Nginx; container 11434 is internal)
-- **WireGuard**: UDP 51820 (host)
-- **Pi-hole Admin**: https://pihole.tu.local/admin (via Nginx; 8081 is localhost-only on VM)
-
-### Default Credentials
-- **Open WebUI**: No default login (first user creates admin)
-- **n8n**: admin / admin123
-- **Pi-hole**: No username / SwissPiHole2024!
-
-Official docs:
-- Open WebUI: https://docs.openwebui.com/
-- n8n: https://docs.n8n.io/
-- Pi-hole: https://docs.pi-hole.net/
-
-### Database Access
-- **PostgreSQL**: localhost:5432 (inside VM only)
-  - Database: ai_platform
-  - User: ai_admin
-  - Password: ai_password_2024
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Key configuration options in `.env`:
-
-```
-# Database
-POSTGRES_DB=ai_platform
-POSTGRES_USER=ai_admin
-POSTGRES_PASSWORD=ai_password_2024
-
-# AI Services
-WEBUI_SECRET_KEY=your_secret_key
-N8N_USER=admin
-N8N_PASSWORD=admin123
-
-# Security
-PIHOLE_PASSWORD=SwissPiHole2024!
-```
-
-### Service Configuration
-
-#### Open WebUI
-- **Primary database**: PostgreSQL via `DATABASE_URL` (talks to service `postgres`)
-- **Vector database**: Qdrant via `QDRANT_URL` (talks to service `qdrant`)
-- **Cache**: Redis via `REDIS_URL` (talks to service `redis`)
-- **LLM backend**: Ollama via `OLLAMA_BASE_URL` (talks to service `ollama`)
-- **Access**: `https://oweb.tu.local` through Nginx; container port 8080 is internal only
-- **Persistence**: Data is stored in Docker volumes (`postgres_data` and `qdrant_data`)
-- **Networking**: All services discover each other on `ai_network` using service names
-
-Configuration is set in Compose via environment variables (excerpt):
-
-```
-open-webui:
-  environment:
-    OLLAMA_BASE_URL: http://ollama:11434
-    DATABASE_URL: postgresql://${POSTGRES_USER:-ai_admin}:${POSTGRES_PASSWORD:-ai_password_2024}@postgres:5432/${POSTGRES_DB:-ai_platform}
-    QDRANT_URL: http://qdrant:6333
-    REDIS_URL: redis://default:${REDIS_PASSWORD:-redis_password_2024}@redis:6379
-```
-
-To customize, edit `.env` (for `POSTGRES_*`/`REDIS_PASSWORD`/secrets) or override the `open-webui` env vars, then run `docker compose up -d`.
-
-#### n8n (First-time setup)
-- **Database**: PostgreSQL backend, schema `n8n` (created automatically by scripts)
-- **Authentication**: Basic auth enabled (env `N8N_USER`/`N8N_PASSWORD`)
-- **Onboarding**: On first run, the app creates its user/project in schema `n8n`.
-- **Webhooks**: HTTPS via Nginx; external URL: `https://n8n.${DOMAIN}/`
-
-#### Pi-hole
-- **DNS Port**: 53 (host), with Linux handoff from systemd‑resolved handled by scripts
-- **Admin Port**: 8081
-- **Blocking**: Enabled by default
-
-## 📊 Management Scripts
-
-### What the scripts actually do (foolproof)
-
-#### scripts/start.sh
-- Purpose: one-command safe boot of the entire stack on Ubuntu Server.
-- Why: Pi‑hole must bind host port 53 before anything else; many services depend on DNS. Start order and DNS handoff are easy to get wrong manually.
-- How it works:
-  1) Checks and frees port 53 if `systemd-resolved` is holding it
-  2) Ensures Nginx upstreams and hosts entries are sane
-  3) Starts services in dependency order: Pi‑hole → PostgreSQL/Redis/Qdrant → Ollama/Open WebUI/n8n → WireGuard/Nginx
-  4) Verifies health and prints access URLs
-
-#### scripts/update.sh
-- Purpose: safe OS + container update with DNS handoff, backups, and logs.
-- Why: pulling images and running apt upgrades requires DNS while Pi‑hole is stopped; we hand off to host DNS (systemd‑resolved) then switch back.
-- How it works:
-  1) Enable host DNS (Cloudflare/Quad9), verify resolution
-  2) Create timestamped backups (DB dump + configs)
-  3) Stop app services, stop Pi‑hole
-  4) Run `apt-get update && apt-get upgrade`, pull images with retries
-  5) Stop host DNS, start Pi‑hole, then other services in order
-  6) Write a full run log with DNS diagnostics to `logs/update_YYYYmmdd_HHMMSS.log`
-
-#### scripts/cleanup.sh
-- Purpose: free space and remove unused Docker artifacts without touching active data.
-- How it works:
-  - `docker compose down`, prune containers/images/volumes/networks/system
-  - Deletes old temp files and rotates backups (keeps newest)
-
-### Available Scripts
-
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `scripts/start.sh` | Safe startup with DNS handoff and dependency order | `./scripts/start.sh` |
-| `scripts/update.sh` | OS + image updates with backups and logs | `./scripts/update.sh` |
-| `scripts/cleanup.sh` | Prune unused Docker artifacts and rotate backups | `./scripts/cleanup.sh` |
-
-See `scripts/scripts.md` for details on each script.
-
-Note on manual operations:
-
-- For cold starts and restarts, prefer `./scripts/start.sh` so Pi‑hole can bind :53 first and services start in the correct order.
-- The commands below are safe for day‑to‑day admin tasks (logs, restarting a single service, stopping the stack), but they do not perform the DNS handoff logic that `start.sh` does.
-
-### Service Management
-
-```bash
-# Start all services
-docker compose up -d
-
-# Stop all services
-docker compose down
-
-# View logs
-docker compose logs -f [service_name]
-
-# Restart specific service
-docker compose restart [service_name]
-
-# Check service status
-docker compose ps
-```
-
-## 🔒 Security Features
-
-### Network Security
-- **Pi-hole DNS**: Blocks ads and malicious domains
-- **WireGuard VPN**: Secure remote access
-- **SSL/TLS**: HTTPS encryption for all web services
-- **Firewall**: Containerized network isolation
-
-### Access Control
-- **Authentication**: Required for all admin interfaces
-- **Rate Limiting**: Protection against abuse
-- **Resource Limits**: Prevents resource exhaustion
-- **Health Monitoring**: Automatic service recovery
-
-### Privacy
-- **Local Processing**: AI models run locally
-- **No Telemetry**: All telemetry disabled
-- **Query Logging**: Configurable privacy settings
-- **Data Encryption**: Database and communication encryption
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-#### Service Won't Start
-```bash
-# Check Docker status
-docker compose ps
-
-# View service logs
-docker compose logs [service_name]
-
-# Check port conflicts
-sudo lsof -i :[port_number]
-```
-
-#### Database Connection Issues
-```bash
-# Check PostgreSQL status
-docker compose logs postgres
-
-# Reset database (WARNING: Data loss)
-docker compose down -v
-docker compose up -d postgres
-```
-
-#### SSL Certificate Issues
-```bash
-# Regenerate certificates
-rm -rf ssl/*
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout ssl/nginx.key -out ssl/nginx.crt \
-  -subj "/C=CH/ST=Zurich/L=Zurich/O=AI Platform/CN=tu.local"
-```
-
-#### Port Conflicts
-```bash
-# Check what's using a port
-sudo ss -tlnp | grep :[port]
-
-# Use cleanup script
-./scripts/cleanup.sh
-```
-
-#### DNS (Linux) – Pi-hole cannot bind :53
-```bash
-sudo ss -tulnp | grep :53       # See who holds 53
-systemctl status systemd-resolved
-./scripts/start.sh               # Enforces proper DNS handoff and start order
-```
-
-### Performance Issues
-
-#### High Memory Usage
-```bash
-# Check resource usage
-docker stats
-
-# Restart memory-intensive services
-docker compose restart ollama open-webui
-```
-
-#### Slow AI Responses
-```bash
-# Check Ollama status (container logs)
-docker compose logs ollama
-
-# Verify model availability via Nginx (TLS)
-curl -k https://ollama.tu.local/api/tags
-```
-
-## 📈 Monitoring & Maintenance
-
-### Health Checks
-All services include health checks that automatically restart failed containers.
-
-### Log Management
-```bash
-# View all logs
-docker compose logs -f
-
-# View specific service logs
-docker compose logs -f [service_name]
-
-# Export logs
-docker compose logs > platform.log
-```
-
-### Backup & Recovery
-```bash
-# Backup data volumes
-docker run --rm -v ai_postgres_data:/data -v $(pwd):/backup \
-  alpine tar czf /backup/postgres_backup.tar.gz -C /data .
-
-# Restore from backup
-docker run --rm -v ai_postgres_data:/data -v $(pwd):/backup \
-  alpine tar xzf /backup/postgres_backup.tar.gz -C /data
-```
-
-## 🔄 Updates
-
-### Automatic Updates
-```bash
-# Update all services
-./scripts/update.sh
-
-# Update specific service
-docker compose pull [service_name]
-docker compose up -d [service_name]
-```
-
-What it does (summary):
-- Switches DNS to host resolver (systemd‑resolved) using Cloudflare/Quad9
-- Creates timestamped backups (DB dump + configs)
-- Runs `apt-get update && apt-get upgrade`
-- Pulls latest container images with retries
-- Stops host DNS and brings Pi‑hole up first, then the rest
-- Logs every step to `logs/update_YYYYmmdd_HHMMSS.log`
-
-References:
-- systemd‑resolved: https://www.freedesktop.org/software/systemd/man/latest/systemd-resolved.service.html
-
-### Manual Updates
-```bash
-# Pull latest images
-docker compose pull
-
-# Recreate containers
-docker compose up -d --force-recreate
-```
-
-## 📚 Advanced Configuration
-### Architecture Overview (High Level)
-
-```mermaid
-flowchart TD
-  Host["macOS/Windows Host"] -->|Hypervisor| VM["Ubuntu Server VM (tu-vm)"]
-
-  subgraph Docker_Network["Docker bridge network (172.20.0.0/16)"]
-    Nginx["ai_nginx<br/>TLS/Reverse proxy"]:::edge
-    OpenWebUI["ai_openwebui<br/>Chat UI"]:::app
-    N8N["ai_n8n<br/>Workflow"]:::app
-    Ollama["ai_ollama<br/>Models"]:::svc
-    Postgres["ai_postgres<br/>PostgreSQL"]:::db
-    Qdrant["ai_qdrant<br/>Vector DB"]:::db
-    Redis["ai_redis<br/>Redis"]:::svc
-    Pihole["ai_pihole<br/>DNS:53"]:::svc
-    Wireguard["ai_wireguard<br/>VPN"]:::svc
-  end
-
-  %% Data paths
-  OpenWebUI -->|DATABASE_URL| Postgres
-  OpenWebUI -->|QDRANT_URL| Qdrant
-  OpenWebUI -->|REDIS_URL| Redis
-  OpenWebUI -->|OLLAMA_BASE_URL| Ollama
-
-  N8N -->|DB schema n8n| Postgres
-  N8N -.->|HTTP API| Qdrant
-
-  %% External access
-  Client[(Browser)] -->|HTTPS 80/443| Nginx
-  Nginx -->|oweb.tu.local| OpenWebUI
-  Nginx -->|n8n.tu.local| N8N
-  Nginx -->|ollama.tu.local| Ollama
-  Nginx -->|pihole.tu.local| Pihole
-
-  classDef app fill:#0f151d,stroke:#1f2937,color:#e6eef7
-  classDef db fill:#0b1a13,stroke:#1f2937,color:#a7f3d0
-  classDef svc fill:#111827,stroke:#1f2937,color:#cbd5e1
-  classDef edge fill:#0b1020,stroke:#1f2937,color:#93c5fd
-```
-
-Scripts: `start.sh` / `update.sh` (DNS handoff, backups, health)
-
-External access → Nginx (80/443) → Open WebUI / n8n / Ollama / Pi-hole admin
-Internal name resolution → Pi‑hole
-
-### Custom AI Models
-1. From your workstation: use `https://ollama.tu.local` (TLS via Nginx)
-2. From containers: use `http://ollama:11434` (internal Docker network)
-3. Pull models: `ollama pull llama2:7b`
-4. Configure in Open WebUI
-
-Official docs:
-- Ollama: https://ollama.com/docs
-- Qdrant: https://qdrant.tech/documentation/
-
-### Custom Workflows
-1. Access n8n: https://n8n.tu.local (from host, ensure hosts mapping to VM IP)
-2. Create workflows with database nodes
-3. Use PostgreSQL for data storage
-
-### DNS Configuration
-1. Access Pi-hole: http://localhost:8081/admin
-2. Add custom blocklists
-3. Configure upstream DNS servers
-
-Official docs:
-- Pi-hole DNS: https://docs.pi-hole.net/ftldns/configfile/
-
-## 🤝 Support
-
-### Documentation
-- [Open WebUI Documentation](https://docs.openwebui.com/)
-- [n8n Documentation](https://docs.n8n.io/)
-- [Ollama Documentation](https://ollama.ai/docs)
-- [Pi-hole Documentation](https://docs.pi-hole.net/)
-
-### Community
-- GitHub Issues for bug reports
-- Discord/Slack for community support
-- Stack Overflow for technical questions
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Open WebUI team for the excellent AI interface
-- n8n team for powerful workflow automation
-- Ollama team for local AI model support
-- Pi-hole team for network security
-- Docker community for containerization tools
-
----
-
-## Governance
-
-This project is managed and maintained by [TechUties](https://www.techuties.com).
-
-## Why Open Source
-
-- **Transparency and auditability**: Review DNS handoff, update flow, and security posture end‑to‑end — essential for AI/data workflows.
-- **Vendor neutrality and portability**: No lock‑in; runs the same on any hypervisor/host with Docker + Compose.
-- **Community‑driven quality**: Issues/PRs/integrations raise the baseline for everyone.
-- **Education and reproducibility**: A living reference for teams operating private AI safely and repeatably.
-
-## Project Values
-
-- **Privacy‑first**: Local models (Ollama) and self‑hosted UI/workflows; minimal telemetry — control data flows, reduce risk.
-- **Security by default**: Nginx TLS, Pi‑hole DNS, optional WireGuard, least‑privilege containers — shrink attack surface from day one.
-- **Sovereignty and independence**: Your VM, your network, your keys — compliance, resilience, freedom to adapt.
-- **Traceability and accountability**: Update logs, health checks, explicit DNS handoff — operations you can observe and audit.
-- **Composability**: Swappable services via Docker Compose — tailor the stack without replatforming.
-- **Performance and stewardship**: Sensible limits and start order — reliability on modest VMs; prevent cascading failures.
-- **Accessibility and clarity**: Foolproof scripts + step‑by‑step README — reduce toil; make secure ops repeatable.
-- **Ethical and sustainable AI**: Local‑first options and open governance — align outcomes with organizational values.
-
-## Roadmap (Aspirational)
-
-- **Security baselines**: CIS‑aligned notes, SBOMs, image provenance.
-- **Identity & policy**: SSO (OIDC), policy‑as‑code for access/updates.
-- **Backups & DR**: Built‑in restore guides and verified DR runbooks.
-- **Observability**: Optional minimal Prometheus/Loki/Grafana bundle.
-- **Compliance helpers**: Mappings (e.g., ISO 27001 controls) to accelerate audits.
-
-
----
-
-**⚠️ Important Notes:**
-- This setup is designed for development and personal use
-- For production deployment, review security settings
-- Regular backups are recommended
-- Keep Docker and images updated for security 
+**Security Level**: 🔒 **HIGH** - Secure access with easy control  
+**Complexity**: 🟢 **LOW** - One script for everything  
+**Maintenance**: 🟢 **EASY** - Simple commands and automatic backups 

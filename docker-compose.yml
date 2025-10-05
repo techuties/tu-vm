@@ -1,5 +1,5 @@
 services:
-  # PostgreSQL Database (lightweight)
+  # PostgreSQL Database (optimized)
   postgres:
     image: postgres:15-alpine
     container_name: ai_postgres
@@ -7,12 +7,15 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_platform}
       POSTGRES_USER: ${POSTGRES_USER:-ai_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_password_2024}
-      # Optimize for mobile usage
-      POSTGRES_SHARED_BUFFERS: 256MB
-      POSTGRES_EFFECTIVE_CACHE_SIZE: 1GB
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Performance optimization
+      POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFERS:-256MB}
+      POSTGRES_EFFECTIVE_CACHE_SIZE: ${POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
       POSTGRES_WORK_MEM: 4MB
       POSTGRES_MAINTENANCE_WORK_MEM: 64MB
+      POSTGRES_MAX_CONNECTIONS: ${POSTGRES_MAX_CONNECTIONS:-100}
+      # Security settings
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -36,12 +39,12 @@ services:
       - 172.20.0.16
 
 
-  # Redis Cache (lightweight)
+  # Redis Cache (optimized)
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: ai_redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password_2024} --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru} --save "" --appendonly no --tcp-keepalive 60
     volumes:
       - redis_data:/data
     networks:
@@ -122,6 +125,10 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: ai_openwebui
     restart: unless-stopped
+    ports:
+      - "8080:8080"
+    entrypoint: ["/init-openwebui.sh"]
+    command: ["bash", "start.sh"]
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-webui_secret_key_2024}
@@ -139,6 +146,19 @@ services:
       # Disable telemetry
       ANONYMIZED_TELEMETRY: "false"
       DO_NOT_TRACK: "true"
+      CONTENT_EXTRACTION_ENGINE: "tika"
+      # PDF Processing with Tika
+      PDF_LOADER: "TikaLoader"
+      # Enable full Tika power for images, tables, and graphs
+      PDF_EXTRACT_IMAGES: "true"
+      TIKA_SERVER_URL: "http://ai_tika:9998"
+      # Use local storage with MinIO sync (reliable solution)
+      # Files stored locally but synced to MinIO bucket
+    volumes:
+      # Shared volume for file sync between Open WebUI and MinIO
+      - openwebui_files:/app/backend/data/uploads
+      # Mount initialization script
+      - ./scripts/init-openwebui.sh:/init-openwebui.sh:ro
     networks:
       ai_network:
         ipv4_address: 172.20.0.14
@@ -152,6 +172,51 @@ services:
         reservations:
           memory: 512M
           cpus: '0.25'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  
+
+  # Apache Tika for robust content extraction (used by Open WebUI)
+  tika:
+    image: apache/tika:latest
+    container_name: ai_tika
+    restart: unless-stopped
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.20
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # MinIO Object Storage with GUI
+  minio:
+    image: minio/minio:latest
+    container_name: ai_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console GUI
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123456}
+      MINIO_CONSOLE_ADDRESS: ":9001"
+      MINIO_SERVER_URL: "https://api.minio.tu.local"
+      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.local"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.21
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     dns:
       - 127.0.0.11
       - 172.20.0.16
@@ -189,6 +254,14 @@ services:
       # Disable telemetry
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_TELEMETRY_ENABLED: "false"
+      # Binary data storage in S3 (MinIO)
+      N8N_BINARY_DATA_MODE: s3
+      N8N_S3_ENDPOINT: ai_minio:9000
+      N8N_S3_BUCKET: n8n-workflows
+      N8N_S3_REGION: us-east-1
+      N8N_S3_ACCESS_KEY: admin
+      N8N_S3_ACCESS_SECRET: ${MINIO_ROOT_PASSWORD:-minio123456}
+      N8N_S3_FORCE_PATH_STYLE: 'true'
     # Prefer access via Nginx (443). If you need direct host access, re-add 5678 mapping.
     volumes:
       - n8n_data:/home/node/.n8n
@@ -213,7 +286,7 @@ services:
       - 172.20.0.16
 
 
-  # Pi-hole for Ad Blocking & DNS Security
+  # Pi-hole for Ad Blocking & DNS Security (Primary DNS on port 53)
   pihole:
     image: pihole/pihole:latest
     container_name: ai_pihole
@@ -222,8 +295,8 @@ services:
       - 1.1.1.1
       - 9.9.9.9
     ports:
-      - "0.0.0.0:53:53/udp"
-      - "0.0.0.0:53:53/tcp"
+      - "53:53/udp"
+      - "53:53/tcp"
       - "8081:80"
     environment:
       TZ: 'Europe/Zurich'
@@ -268,49 +341,6 @@ services:
           cpus: '0.1'
 
 
-  # WireGuard VPN for Host Security
-  wireguard:
-    image: linuxserver/wireguard:latest
-    container_name: ai_wireguard
-    restart: unless-stopped
-    cap_add:
-      - NET_ADMIN
-      - SYS_MODULE
-    environment:
-      - SERVERURL=auto
-      - SERVERPORT=51820
-      - PEERS=1
-      - PEERDNS=auto
-      - INTERNAL_SUBNET=10.13.13.0
-      - ALLOWEDIPS=0.0.0.0/0
-      - PERSISTENTKEEPALIVE_PEERS=all
-      - LOG_CONFS=true
-    volumes:
-      - wireguard_config:/config
-      - /lib/modules:/lib/modules
-    ports:
-      - "51820:51820/udp"
-    networks:
-      ai_network:
-        ipv4_address: 172.20.0.17
-    healthcheck:
-      test: ["CMD", "ping", "-c", "1", "1.1.1.1"]
-      interval: 60s
-      timeout: 10s
-      retries: 2
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
-        reservations:
-          memory: 64M
-          cpus: '0.1'
-    dns:
-      - 127.0.0.11
-      - 172.20.0.16
-
-
   # Nginx Reverse Proxy (lightweight)
   nginx:
     image: nginx:alpine
@@ -328,6 +358,8 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.18
+    depends_on:
+      - helper_index
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 60s
@@ -346,7 +378,35 @@ services:
       - 172.20.0.16
 
 
+  # Helper API for landing page (status + uploads)
+  helper_index:
+    image: python:3.11-alpine
+    container_name: ai_helper_index
+    restart: unless-stopped
+    command: sh -c "pip install --no-cache-dir flask requests && python -u /app/uploader.py"
+    volumes:
+      - ./helper:/app
+      - ./wg-configs:/data/wg-configs
+      - ./ovpn-configs:/data/ovpn-configs
+    environment:
+      - UPLOAD_API_KEY=${UPLOAD_API_KEY}
+      - HOST_IP=${HOST_IP}
+      - VPN_WEBHOOK_ADDR=${VPN_WEBHOOK_ADDR}
+      - VPN_WEBHOOK_PORT=${VPN_WEBHOOK_PORT}
+      - VPN_WEBHOOK_TOKEN=${VPN_WEBHOOK_TOKEN}
+      - GATEWAY_ENABLED=${GATEWAY_ENABLED}
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.19
+    extra_hosts:
+      - "host.docker.internal:172.20.0.1"
+    # no depends_on to avoid cycles with nginx
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
 volumes:
+  openwebui_files:
   postgres_data:
     driver: local
   redis_data:
@@ -355,6 +415,8 @@ volumes:
     driver: local
   ollama_data:
     driver: local
+  minio_data:
+    driver: local
   n8n_data:
     driver: local
   nginx_logs:
@@ -362,8 +424,6 @@ volumes:
   pihole_data:
     driver: local
   pihole_dnsmasq:
-    driver: local
-  wireguard_config:
     driver: local
 
 networks:

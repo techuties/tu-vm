@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['172.20.0.22:9100']
+
+  # PostgreSQL metrics (if postgres_exporter is added)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['172.20.0.10:5432']
+
+  # Redis metrics (if redis_exporter is added)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['172.20.0.11:6379']
+
+  # Nginx metrics (if nginx-prometheus-exporter is added)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['172.20.0.18:9113']
+
+  # Pi-hole metrics
+  - job_name: 'pihole'
+    static_configs:
+      - targets: ['172.20.0.16:80']
+    metrics_path: '/admin/api.php'
+    params:
+      summaryRaw: ['']
+      auth: ['${PIHOLE_PASSWORD}']
+
+  # Docker container metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['172.20.0.1:9323']
