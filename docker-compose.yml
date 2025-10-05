@@ -125,6 +125,10 @@ services:
     image: ghcr.io/open-webui/open-webui:main
     container_name: ai_openwebui
     restart: unless-stopped
+    ports:
+      - "8080:8080"
+    entrypoint: ["/init-openwebui.sh"]
+    command: ["bash", "start.sh"]
     environment:
       OLLAMA_BASE_URL: http://ollama:11434
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-webui_secret_key_2024}
@@ -142,16 +146,19 @@ services:
       # Disable telemetry
       ANONYMIZED_TELEMETRY: "false"
       DO_NOT_TRACK: "true"
+      CONTENT_EXTRACTION_ENGINE: "tika"
       # PDF Processing with Tika
       PDF_LOADER: "TikaLoader"
+      # Enable full Tika power for images, tables, and graphs
       PDF_EXTRACT_IMAGES: "true"
       TIKA_SERVER_URL: "http://ai_tika:9998"
-      # MinIO Object Storage Integration
-      S3_ENDPOINT_URL: "http://ai_minio:9000"
-      S3_ACCESS_KEY_ID: "admin"
-      S3_SECRET_ACCESS_KEY: "${MINIO_ROOT_PASSWORD:-minio123456}"
-      S3_BUCKET_NAME: "openwebui-files"
-      S3_REGION: "us-east-1"
+      # Use local storage with MinIO sync (reliable solution)
+      # Files stored locally but synced to MinIO bucket
+    volumes:
+      # Shared volume for file sync between Open WebUI and MinIO
+      - openwebui_files:/app/backend/data/uploads
+      # Mount initialization script
+      - ./scripts/init-openwebui.sh:/init-openwebui.sh:ro
     networks:
       ai_network:
         ipv4_address: 172.20.0.14
@@ -169,6 +176,7 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
+  
 
   # Apache Tika for robust content extraction (used by Open WebUI)
   tika:
@@ -180,11 +188,6 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.20
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9998"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
     dns:
       - 127.0.0.11
       - 172.20.0.16
@@ -251,11 +254,14 @@ services:
       # Disable telemetry
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_TELEMETRY_ENABLED: "false"
-      # MinIO Object Storage Integration
-      MINIO_ENDPOINT: "http://ai_minio:9000"
-      MINIO_ACCESS_KEY: "admin"
-      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minio123456}"
-      MINIO_BUCKET: "n8n-workflows"
+      # Binary data storage in S3 (MinIO)
+      N8N_BINARY_DATA_MODE: s3
+      N8N_S3_ENDPOINT: ai_minio:9000
+      N8N_S3_BUCKET: n8n-workflows
+      N8N_S3_REGION: us-east-1
+      N8N_S3_ACCESS_KEY: admin
+      N8N_S3_ACCESS_SECRET: ${MINIO_ROOT_PASSWORD:-minio123456}
+      N8N_S3_FORCE_PATH_STYLE: 'true'
     # Prefer access via Nginx (443). If you need direct host access, re-add 5678 mapping.
     volumes:
       - n8n_data:/home/node/.n8n
@@ -399,11 +405,8 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-
-  
-
-
 volumes:
+  openwebui_files:
   postgres_data:
     driver: local
   redis_data:

@@ -285,6 +285,7 @@ show_help() {
     echo -e "${WHITE}Security:${NC}"
     echo "  generate-secrets         Generate secure passwords and keys"
     echo "  validate-security        Validate security configuration"
+    echo "  setup-minio             Setup MinIO buckets for existing installation"
     echo ""
     echo -e "${WHITE}Diagnostics:${NC}"
     echo "  health                   Check service health"
@@ -326,10 +327,167 @@ start_services() {
         
         # Note: Tika is configured as default in docker-compose.yml
         
+        # Setup MinIO buckets for first-time installation
+        setup_minio_buckets
+        
+        # Mount MinIO buckets to host via rclone (transparent S3 filesystem)
+        mount_minio_storage
+
+        # Ensure cron-based MinIO sync is installed (idempotent)
+        ensure_sync_cron_job
+        
         show_access_info
     else
         warn "Some services may not be fully ready yet."
         info "Check status with: ./$SCRIPT_NAME status"
+    fi
+}
+
+# Setup MinIO buckets for first-time installation
+setup_minio_buckets() {
+    info "Setting up MinIO buckets for first-time installation..."
+    
+    # Check if MinIO is running
+    if ! docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+        warn "MinIO container is not running, skipping bucket setup"
+        return 0
+    fi
+    
+    # Wait for MinIO to be ready
+    info "Waiting for MinIO to be ready..."
+    local max_attempts=30
+    local attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+        if docker exec ai_minio mc version >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+        attempt=$((attempt + 1))
+    done
+    
+    if [ $attempt -eq $max_attempts ]; then
+        warn "MinIO is not ready, skipping bucket setup"
+        return 0
+    fi
+    
+    # Configure MinIO client
+    info "Configuring MinIO client..."
+    docker exec ai_minio mc alias set local "http://localhost:9000" "admin" "${MINIO_ROOT_PASSWORD:-minio123456}" 2>/dev/null || {
+        warn "MinIO client might already be configured"
+    }
+    
+    # Required buckets
+    local buckets=(
+        "openwebui-files"
+        "n8n-workflows"
+        "shared-documents"
+        "processed-files"
+        "thumbnails"
+        "metadata"
+    )
+    
+    # Create buckets
+    info "Creating required MinIO buckets..."
+    for bucket in "${buckets[@]}"; do
+        if docker exec ai_minio mc ls "local/$bucket" >/dev/null 2>&1; then
+            info "Bucket $bucket already exists"
+        else
+            info "Creating bucket: $bucket"
+            docker exec ai_minio mc mb "local/$bucket" 2>/dev/null || {
+                warn "Failed to create bucket $bucket"
+            }
+        fi
+    done
+    
+    # Create folder structure
+    info "Creating folder structure..."
+    docker exec ai_minio mc cp /dev/null "local/openwebui-files/uploads/.gitkeep" 2>/dev/null || true
+    docker exec ai_minio mc cp /dev/null "local/openwebui-files/processed/.gitkeep" 2>/dev/null || true
+    docker exec ai_minio mc cp /dev/null "local/n8n-workflows/inputs/.gitkeep" 2>/dev/null || true
+    docker exec ai_minio mc cp /dev/null "local/n8n-workflows/outputs/.gitkeep" 2>/dev/null || true
+    docker exec ai_minio mc cp /dev/null "local/shared-documents/company/.gitkeep" 2>/dev/null || true
+    
+    info "✅ MinIO buckets setup complete"
+}
+
+# Ensure rclone is installed and mount MinIO buckets to host for transparent S3 storage
+mount_minio_storage() {
+    info "Configuring transparent MinIO mount (rclone) for host access..."
+    
+    # Install rclone if missing
+    if ! command -v rclone >/dev/null 2>&1; then
+        info "Installing rclone..."
+        sudo apt-get update -y >/dev/null 2>&1 || true
+        sudo apt-get install -y rclone fuse3 >/dev/null 2>&1 || true
+        echo "user_allow_other" | sudo tee -a /etc/fuse.conf >/dev/null 2>&1 || true
+    fi
+    
+    # Prepare rclone config directory
+    local rclone_conf_dir="/etc/rclone"
+    local rclone_conf="$rclone_conf_dir/rclone.conf"
+    sudo mkdir -p "$rclone_conf_dir"
+    
+    # Create/update non-interactive rclone config for MinIO
+    if ! sudo grep -q "^\[minio\]" "$rclone_conf" 2>/dev/null; then
+        info "Writing rclone config for MinIO..."
+        sudo tee "$rclone_conf" >/dev/null <<EOF
+[minio]
+type = s3
+provider = Minio
+env_auth = false
+access_key_id = admin
+secret_access_key = ${MINIO_ROOT_PASSWORD:-minio123456}
+endpoint = http://127.0.0.1:9000
+region = us-east-1
+EOF
+        sudo chmod 600 "$rclone_conf"
+    fi
+    
+    # Create mount points
+    local base_mount="/mnt/minio"
+    sudo mkdir -p "$base_mount/openwebui" "$base_mount/n8n" "$base_mount/shared"
+    
+    # Mount helper (idempotent)
+    mount_minio_bucket() {
+        local bucket="$1"; local target="$2"
+        if mountpoint -q "$target"; then
+            info "Mount already active: $target"
+            return 0
+        fi
+        info "Mounting minio:$bucket -> $target"
+        # Use daemon mode, path-style, write cache for compatibility
+        sudo rclone mount "minio:$bucket" "$target" \
+            --daemon \
+            --vfs-cache-mode writes \
+            --allow-other \
+            --dir-cache-time 30s \
+            --poll-interval 0 \
+            --attr-timeout 1s \
+            --config "$rclone_conf" \
+            >/dev/null 2>&1 || warn "Failed to mount $bucket"
+    }
+    
+    # Attempt mounts (buckets created earlier)
+    mount_minio_bucket "openwebui-files" "$base_mount/openwebui"
+    mount_minio_bucket "n8n-workflows" "$base_mount/n8n"
+    mount_minio_bucket "shared-documents" "$base_mount/shared"
+    
+    info "MinIO mounts ready under $base_mount (if buckets exist)."
+}
+
+# Ensure a cron job exists to run the Open WebUI -> MinIO sync script
+ensure_sync_cron_job() {
+    info "Ensuring cron job for MinIO sync is installed..."
+    local cron_line="*/5 * * * * $SCRIPT_DIR/scripts/sync-openwebui-minio.sh"
+    # Install user crontab if missing entry
+    local current_cron
+    current_cron=$(crontab -l 2>/dev/null || true)
+    if echo "$current_cron" | grep -Fq "$cron_line"; then
+        info "Cron job already present"
+    else
+        (echo "$current_cron"; echo "$cron_line") | crontab -
+        info "Cron job installed: $cron_line"
     fi
 }
 
@@ -1227,11 +1385,14 @@ main() {
                     ;;
                 validate-security)
                     validate_security
-            ;;
-        *)
-            error "Unknown command: $1"
-            echo ""
-            show_help
+                    ;;
+                setup-minio)
+                    setup_minio_buckets
+                    ;;
+                *)
+                    error "Unknown command: $1"
+                    echo ""
+                    show_help
                     ;;
             esac
             ;;

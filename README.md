@@ -181,8 +181,18 @@ The VM's Pi-hole is configured with:
 - **Purpose**: Centralized file storage for all services
 - **Access**: Web GUI at `https://minio.tu.local`, API at `https://api.minio.tu.local`
 - **Benefits**: Scalable storage, multi-service access, S3-compatible
-- **Integration**: Works with Open WebUI, n8n, and Tika for document processing
+- **Integration**:
+  - **n8n**: Uses S3 (MinIO) natively for binary data (`N8N_BINARY_DATA_MODE=s3`)
+  - **Open WebUI**: No native S3 backend today — we transparently mount MinIO to the host via rclone and bind-mount that folder into Open WebUI uploads so it “just works”.
 - **Persistence**: `minio_data` volume for all object storage
+
+#### Transparent S3 Mount (Open WebUI Workaround)
+- On first install, `./tu-vm.sh start` will:
+  1) Create required MinIO buckets
+  2) Mount MinIO buckets to host under `/mnt/minio/*` using rclone (non-interactive)
+  3) Bind-mount `/mnt/minio/openwebui` to `open-webui:/app/backend/data/uploads`
+
+- This provides S3-backed storage without modifying Open WebUI. If MinIO is not available, Open WebUI still starts; the mount is idempotent and retried on start.
 
 ## 💾 Backup & Restore
 
