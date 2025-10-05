@@ -186,13 +186,11 @@ The VM's Pi-hole is configured with:
   - **Open WebUI**: No native S3 backend today — we transparently mount MinIO to the host via rclone and bind-mount that folder into Open WebUI uploads so it “just works”.
 - **Persistence**: `minio_data` volume for all object storage
 
-#### Transparent S3 Mount (Open WebUI Workaround)
-- On first install, `./tu-vm.sh start` will:
-  1) Create required MinIO buckets
-  2) Mount MinIO buckets to host under `/mnt/minio/*` using rclone (non-interactive)
-  3) Bind-mount `/mnt/minio/openwebui` to `open-webui:/app/backend/data/uploads`
-
-- This provides S3-backed storage without modifying Open WebUI. If MinIO is not available, Open WebUI still starts; the mount is idempotent and retried on start.
+#### Centralized Storage Strategy (Open WebUI)
+- Open WebUI writes to its internal uploads volume.
+- A single cron job syncs uploads to the MinIO bucket `openwebui-files` every 5 minutes.
+- The cron job is installed automatically by `./tu-vm.sh start`.
+- Optional: rclone mounts are prepared for host-side browsing under `/mnt/minio/*`.
 
 ## 💾 Backup & Restore
 
@@ -313,10 +311,7 @@ sudo ./tu-vm.sh restore backup_file.tar.gz
 ## 📚 Documentation
 
 ### Quick References
-- **Simple Guide**: [SIMPLE_GUIDE.md](SIMPLE_GUIDE.md)
-- **Security Analysis**: [SECURITY_ANALYSIS.md](SECURITY_ANALYSIS.md)
-- **VPN Access Control**: [VPN_ACCESS_CONTROL.md](VPN_ACCESS_CONTROL.md)
-- **Backup & Restore**: [BACKUP_RESTORE.md](BACKUP_RESTORE.md)
+- **Quick Reference**: [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 
 ### External References
 - [Ubuntu Server](https://ubuntu.com/server/docs)
