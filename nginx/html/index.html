@@ -9,6 +9,7 @@
   html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
   .hero { background: linear-gradient(135deg, rgba(0,200,150,0.15), rgba(59,130,246,0.12)); border:1px solid #163042; border-radius:16px; padding:32px; }
+  .hero-head { display:flex; align-items:center; justify-content:space-between; gap:12px }
   h1 { margin:0 0 8px; font-size:32px; letter-spacing:.3px }
   p.lead { margin:0; color:var(--muted); }
   .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:12px; }
@@ -43,6 +44,7 @@
   .row input[type="text"] { background:#0b1017; color:var(--fg); border:1px solid #1f2937; border-radius:8px; padding:8px 10px; min-width:260px }
   .btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer }
   .btn:hover { border-color:#374151 }
+  .btn-sm { padding:6px 8px; font-size:12px }
   .section-title { margin:18px 0 8px; color:#b9c6d2; font-size:14px; text-transform:uppercase; letter-spacing:.08em }
   .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px }
   .chip { background:#0b1017; border:1px solid #1f2937; color:#cbd5e1; border-radius:999px; padding:6px 10px; font-size:12px }
@@ -56,6 +58,41 @@
   /* Dashboard cards */
   .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
   .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
+  
+  /* Notification system */
+  .notification { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; max-width: 300px; z-index: 1000; display: none; }
+  .notification.show { display: block; animation: slideIn 0.3s ease-out; }
+  .notification-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .notification-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .notification-icon.update { background: #0d1f17; color: #6fe0b8; }
+  .notification-icon.warning { background: #2a2314; color: #ffdd8b; }
+  .notification-title { font-weight: 600; color: var(--fg); }
+  .notification-message { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .notification-actions { display: flex; gap: 8px; }
+  .notification-btn { background: #0e1a26; color: var(--fg); border: 1px solid #1f2937; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .notification-btn:hover { border-color: #374151; }
+  .notification-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Announcements dropdown */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer; min-width: 180px; display:flex; align-items:center; justify-content:space-between; gap:8px }
+  .dropdown-btn:hover { border-color:#374151 }
+  .dropdown-badge { position:absolute; top:-4px; right:-4px; width:8px; height:8px; background:#ff6b6b; border-radius:50%; display:none }
+  .dropdown-badge.show { display:block }
+  .dropdown-panel { position:absolute; top: calc(100% + 6px); right: 0; background: var(--card); border:1px solid #1f2937; border-radius:10px; width: 360px; max-width: calc(100vw - 32px); box-shadow: 0 10px 24px rgba(0,0,0,.25); display:none; z-index:100; max-height: 360px; overflow:auto }
+  .dropdown.open .dropdown-panel { display:block }
+  .ann-item { padding:10px 12px; border-bottom:1px solid #172131 }
+  .ann-item:last-child { border-bottom: 0 }
+  .ann-title { font-weight:600; font-size:14px }
+  .ann-meta { color: var(--muted); font-size:11px; margin-top:4px }
+  .ann-type { text-transform:uppercase; font-size:10px; letter-spacing:.06em; padding:2px 6px; border:1px solid #263246; border-radius:999px; margin-left:6px }
+  .ann-critical { border-left:3px solid #ff4757 }
+  .ann-warning { border-left:3px solid #ffa502 }
+  .ann-info { border-left:3px solid #3742fa }
+  .ann-update { border-left:3px solid #2ed573 }
+  .caret { transition: transform .15s ease }
+  .dropdown.open .caret { transform: rotate(180deg) }
 
   
   @media (max-width: 768px) { .grid { gap:12px } }
@@ -80,18 +117,28 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih, minio, full] = await Promise.all([
+  const [land, oweb, n8n, pih, minio, full, updates] = await Promise.all([
     Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
     probe('/status/pihole'),
     probe('/status/minio'),
-    fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({}))
+    fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({})),
+    fetch('/status/updates').then(r=>r.ok?r.json():{}).catch(()=>({}))
   ]);
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
   setBadge('badge-minio', minio);
+  // Update control buttons state
+  setServiceButtons('oweb', oweb.ok);
+  setServiceButtons('n8n', n8n.ok);
+  setServiceButtons('pihole', pih.ok);
+  setServiceButtons('minio', minio.ok);
+  
+  // Check for updates and show notification
+  checkUpdateNotifications(updates);
+  
   try{
     const setChip = (id, ok) => {
       const el = document.getElementById(id);
@@ -117,28 +164,230 @@ async function refreshStatuses(){
     const tsEl=document.getElementById('last-updated'); if(tsEl){ const d=new Date(); tsEl.textContent=d.toLocaleTimeString(); }
   }catch(e){}
 }
+function setServiceButtons(id, running){
+  const startBtn = document.getElementById(`btn-${id}-start`);
+  const stopBtn = document.getElementById(`btn-${id}-stop`);
+  if(!startBtn||!stopBtn) return;
+  startBtn.disabled = running;
+  stopBtn.disabled = !running;
+}
+async function controlService(service, action){
+  try{
+    const token = localStorage.getItem('control-token')||'';
+    const r = await fetch(`/control/${service}/${action}`, {
+      method: 'POST',
+      headers: { 'X-Control-Token': token }
+    });
+    if(!r.ok){
+      const t = await r.text();
+      alert(`Failed to ${action} ${service}: ${t}`);
+    }
+    setTimeout(refreshStatuses, 500);
+  }catch(e){
+    alert(`Error: ${e}`);
+  }
+}
 function startAutoRefresh(){
   refreshStatuses();
   setInterval(refreshStatuses, 15000);
 }
 
+// Update notification system
+function checkUpdateNotifications(updates) {
+  if (!updates || !updates.updates_available) return;
+  
+  // Check if notification was already shown today
+  const lastShown = localStorage.getItem('tu-vm-update-notification');
+  const today = new Date().toDateString();
+  
+  if (lastShown === today) return;
+  
+  showUpdateNotification(updates);
+  localStorage.setItem('tu-vm-update-notification', today);
+}
+
+function showUpdateNotification(updates) {
+  const notification = document.getElementById('update-notification');
+  if (!notification) return;
+  
+  const title = notification.querySelector('.notification-title');
+  const message = notification.querySelector('.notification-message');
+  const lastCheck = notification.querySelector('.notification-last-check');
+  
+  title.textContent = 'Updates Available';
+  message.textContent = updates.message || 'System updates are available. Run "sudo ./tu-vm.sh update" to apply them.';
+  lastCheck.textContent = `Last checked: ${new Date(updates.last_check).toLocaleString()}`;
+  
+  notification.classList.add('show');
+}
+
+function hideNotification() {
+  const notification = document.getElementById('update-notification');
+  if (notification) {
+    notification.classList.remove('show');
+  }
+}
+
+function runUpdate() {
+  // This would need to be implemented as a separate endpoint or action
+  alert('To run updates, please SSH into the VM and run: sudo ./tu-vm.sh update');
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
   startAutoRefresh();
+  // Load announcements on page load
+  setTimeout(() => {
+    loadAnnouncements();
+  }, 2000); // Show after 2 seconds
 });
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(e){} }
+
+// Announcement system (dropdown only)
+let announcements = [];
+
+function refreshAnnouncements() {
+  loadAnnouncements();
+}
+
+async function loadAnnouncements() {
+  try {
+    const response = await fetch('/status/announcements');
+    const data = await response.json();
+    announcements = data.announcements || [];
+    updateAnnouncementDisplay();
+  } catch (error) {
+    console.error('Failed to load announcements:', error);
+    announcements = [{
+      title: "System Status",
+      message: "Welcome to TechUties VM! Your AI platform is running smoothly.",
+      type: "info",
+      timestamp: new Date().toISOString()
+    }];
+    updateAnnouncementDisplay();
+  }
+}
+
+function updateAnnouncementDisplay() {
+  // Populate dropdown list
+  renderAnnouncementsDropdown();
+  // Show badge if there are announcements
+  const badge = document.querySelector('.dropdown-badge');
+  if (badge) {
+    badge.classList.toggle('show', announcements.length > 0);
+  }
+}
+
+function getTimeAgo(timestamp) {
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffMs = now - time;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return `${diffDays}d ago`;
+}
+
+// Dropdown logic
+function toggleAnnouncementsDropdown(ev){
+  const dd = document.getElementById('announcements-dropdown');
+  if(!dd) return;
+  const isOpen = dd.classList.contains('open');
+  document.querySelectorAll('.dropdown.open').forEach(el=>el.classList.remove('open'));
+  if(!isOpen){ dd.classList.add('open'); }
+}
+function closeAnnouncementsDropdown(){
+  const dd = document.getElementById('announcements-dropdown');
+  if(dd) dd.classList.remove('open');
+}
+function onDropdownKey(e){
+  if(e.key === 'Escape'){ closeAnnouncementsDropdown(); }
+}
+document.addEventListener('click', (e)=>{
+  const dd = document.getElementById('announcements-dropdown');
+  if(!dd) return;
+  if(!dd.contains(e.target)) closeAnnouncementsDropdown();
+});
+function renderAnnouncementsDropdown(){
+  const list = document.getElementById('announcements-list');
+  const count = document.getElementById('announcements-count');
+  if(!list) return;
+  list.innerHTML = '';
+  (announcements||[]).forEach(a=>{
+    const li = document.createElement('div');
+    li.className = `ann-item ann-${a.type || 'info'}`;
+    const when = getTimeAgo(a.timestamp);
+    const type = (a.type||'info').toUpperCase();
+    li.innerHTML = `
+      <div class="ann-title">${a.title}<span class="ann-type">${type}</span></div>
+      <div class="ann-meta">${when}</div>
+      <div class="ann-msg" style="margin-top:6px">${a.message}</div>
+    `;
+    list.appendChild(li);
+  });
+  if(count){ count.textContent = (announcements||[]).length; }
+}
 </script>
 </head>
 <body>
+  
+
   <div class="wrap">
     <div class="hero">
-      <h1>TechUties VM</h1>
-      <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
+      <div class="hero-head">
+        <div>
+          <h1>TechUties VM</h1>
+          <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
+        </div>
+        <div id="announcements-dropdown" class="dropdown" onkeydown="onDropdownKey(event)" style="align-self:flex-start; position:relative;">
+          <button class="dropdown-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleAnnouncementsDropdown(event)" title="Show all announcements">
+            <span>Announcements</span>
+            <span class="muted" style="font-size:12px">(<span id="announcements-count">0</span>)</span>
+            <span class="caret">▾</span>
+          </button>
+          <div class="dropdown-badge"></div>
+          <div class="dropdown-panel" role="menu" aria-label="Announcements">
+            <div id="announcements-list" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
       <div class="section-title">Host Access</div>
       <div class="grid">
-        <div class="card"><span id="badge-oweb" class="badge warn">checking…</span><a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a></div>
-        <div class="card"><span id="badge-n8n" class="badge warn">checking…</span><a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a></div>
-        <div class="card"><span id="badge-pihole" class="badge warn">checking…</span><a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a></div>
-        <div class="card"><span id="badge-minio" class="badge warn">checking…</span><a href="https://minio.tu.local/"><div class="name">MinIO Console</div><div class="url">minio.tu.local</div></a></div>
+        <div class="card">
+          <span id="badge-oweb" class="badge warn">checking…</span>
+          <a href="https://oweb.tu.local/"><div class="name">Open WebUI</div><div class="url">oweb.tu.local</div></a>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-oweb-start" class="btn btn-sm" onclick="controlService('open-webui','start')">Start</button>
+            <button id="btn-oweb-stop" class="btn btn-sm" onclick="controlService('open-webui','stop')">Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <span id="badge-n8n" class="badge warn">checking…</span>
+          <a href="https://n8n.tu.local/"><div class="name">n8n</div><div class="url">n8n.tu.local</div></a>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-n8n-start" class="btn btn-sm" onclick="controlService('n8n','start')">Start</button>
+            <button id="btn-n8n-stop" class="btn btn-sm" onclick="controlService('n8n','stop')">Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <span id="badge-pihole" class="badge warn">checking…</span>
+          <a href="https://pihole.tu.local/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.local/admin</div></a>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-pihole-start" class="btn btn-sm" onclick="controlService('pihole','start')">Start</button>
+            <button id="btn-pihole-stop" class="btn btn-sm" onclick="controlService('pihole','stop')">Stop</button>
+          </div>
+        </div>
+        <div class="card">
+          <span id="badge-minio" class="badge warn">checking…</span>
+          <a href="https://minio.tu.local/"><div class="name">MinIO Console</div><div class="url">minio.tu.local</div></a>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-minio-start" class="btn btn-sm" onclick="controlService('minio','start')">Start</button>
+            <button id="btn-minio-stop" class="btn btn-sm" onclick="controlService('minio','stop')">Stop</button>
+          </div>
+        </div>
       </div>
       <div class="section-title">VM Access</div>
       <div class="chips">

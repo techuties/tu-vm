@@ -35,6 +35,9 @@ readonly SERVICES=(
     "pihole:80"
     "nginx:80"
     "helper_index:9001"
+    "tika:9998"
+    "minio:9000"
+    "minio:9001"
 )
 
 # =============================================================================
@@ -117,6 +120,9 @@ info() { log $LOG_LEVEL_INFO "$@"; }
 warn() { log $LOG_LEVEL_WARN "$@"; }
 error() { log $LOG_LEVEL_ERROR "$@"; exit 1; }
 
+# Success-level helper (alias to info with success styling)
+success() { info "$@"; }
+
 # =============================================================================
 # UTILITY FUNCTIONS
 # =============================================================================
@@ -193,7 +199,7 @@ get_network_prefix() {
 check_service_health() {
     local service_name="$1"
     local port="$2"
-    local max_attempts=3
+    local max_attempts=5
     local attempt=1
     
     debug "Checking health of $service_name..."
@@ -211,12 +217,27 @@ check_service_health() {
         local container_status=$(docker compose ps --format json | jq -r "select(.Name==\"ai_$service_name\") | .State" 2>/dev/null)
         
         if [[ "$container_status" == "running" ]]; then
-            debug "$service_name is running (Docker status)"
-            return 0
+            # For services without health checks, try to connect to their port
+            if [[ "$health_status" == "none" || "$health_status" == "null" ]]; then
+                if [[ -n "$port" && "$port" != "0" ]]; then
+                    if timeout 3 bash -c "echo > /dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+                        debug "$service_name is running and port $port is accessible"
+                        return 0
+                    else
+                        debug "Attempt $attempt/$max_attempts: $service_name running but port $port not accessible yet..."
+                    fi
+                else
+                    debug "$service_name is running (no port check needed)"
+                    return 0
+                fi
+            else
+                debug "$service_name is running (Docker status)"
+                return 0
+            fi
         fi
         
         debug "Attempt $attempt/$max_attempts: $service_name not ready yet..."
-        sleep 1
+        sleep 2
         ((attempt++))
     done
     
@@ -269,6 +290,7 @@ show_help() {
     echo "  restart                  Restart all services"
     echo "  status                   Show service status"
     echo "  logs [service]           Show service logs"
+    echo "  access                   Show access URLs and information"
     echo ""
     echo -e "${WHITE}Access Control:${NC}"
     echo "  secure                   Enable secure access (recommended)"
@@ -277,15 +299,15 @@ show_help() {
     echo ""
     echo -e "${WHITE}Maintenance:${NC}"
     echo "  update                   Update system and services"
-    echo "  update-preview            Preview what will be updated"
+    echo "  test-update              Test update process (dry run)"
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
     echo "  cleanup                  Clean up old backups and logs"
+    echo "  setup-minio             Setup MinIO buckets for existing installation"
     echo ""
     echo -e "${WHITE}Security:${NC}"
     echo "  generate-secrets         Generate secure passwords and keys"
     echo "  validate-security        Validate security configuration"
-    echo "  setup-minio             Setup MinIO buckets for existing installation"
     echo ""
     echo -e "${WHITE}Diagnostics:${NC}"
     echo "  health                   Check service health"
@@ -293,19 +315,32 @@ show_help() {
     echo "  diagnose                 Run comprehensive diagnostics"
     echo "  info                     Show system information"
     echo ""
+    echo -e "${WHITE}PDF Processing:${NC}"
+    echo "  pdf-status               Check PDF processing pipeline status"
+    echo "  pdf-test                 Test PDF processing with sample file"
+    echo "  pdf-logs [service]        Show PDF processing logs (tika/minio/processor)"
+    echo "  pdf-reset                Reset PDF processing pipeline"
+    echo ""
+    echo -e "${WHITE}System:${NC}"
+    echo "  version                  Show script version and information"
+    echo "  help                     Show this help message"
+    echo ""
     echo -e "${WHITE}Security Levels:${NC}"
     echo "  ${ICON_SECURE} SECURE:    Secure access (recommended)"
     echo "  ${ICON_PUBLIC} PUBLIC:    Access from internet"
     echo "  ${ICON_LOCKED} LOCKED:    No external access"
     echo ""
     echo -e "${WHITE}Examples:${NC}"
-    echo "  ./$SCRIPT_NAME start                    # Start services"
+    echo "  ./$SCRIPT_NAME start                    # Start all services"
+    echo "  ./$SCRIPT_NAME status                   # Check service status"
+    echo "  ./$SCRIPT_NAME access                   # Show access URLs"
     echo "  ./$SCRIPT_NAME secure                   # Enable secure access"
-    echo "  sudo ./$SCRIPT_NAME secure              # Enable secure access (needs sudo)"
     echo "  ./$SCRIPT_NAME backup my-backup         # Create named backup"
     echo "  ./$SCRIPT_NAME restore backup.tar.gz    # Restore from backup"
     echo "  ./$SCRIPT_NAME logs nginx               # Show nginx logs"
+    echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
+    echo "  ./$SCRIPT_NAME version                  # Show version info"
 }
 
 # Start services
@@ -335,6 +370,9 @@ start_services() {
 
         # Ensure cron-based MinIO sync is installed (idempotent)
         ensure_sync_cron_job
+        
+        # Ensure daily checkup cron job is installed (idempotent)
+        ensure_daily_checkup_cron_job
         
         show_access_info
     else
@@ -379,10 +417,9 @@ setup_minio_buckets() {
     
     # Required buckets
     local buckets=(
-        "openwebui-files"
+        "tika-pipe"
         "n8n-workflows"
         "shared-documents"
-        "processed-files"
         "thumbnails"
         "metadata"
     )
@@ -402,8 +439,7 @@ setup_minio_buckets() {
     
     # Create folder structure
     info "Creating folder structure..."
-    docker exec ai_minio mc cp /dev/null "local/openwebui-files/uploads/.gitkeep" 2>/dev/null || true
-    docker exec ai_minio mc cp /dev/null "local/openwebui-files/processed/.gitkeep" 2>/dev/null || true
+    docker exec ai_minio mc cp /dev/null "local/tika-pipe/.gitkeep" 2>/dev/null || true
     docker exec ai_minio mc cp /dev/null "local/n8n-workflows/inputs/.gitkeep" 2>/dev/null || true
     docker exec ai_minio mc cp /dev/null "local/n8n-workflows/outputs/.gitkeep" 2>/dev/null || true
     docker exec ai_minio mc cp /dev/null "local/shared-documents/company/.gitkeep" 2>/dev/null || true
@@ -479,15 +515,51 @@ EOF
 # Ensure a cron job exists to run the Open WebUI -> MinIO sync script
 ensure_sync_cron_job() {
     info "Ensuring cron job for MinIO sync is installed..."
-    local cron_line="*/5 * * * * $SCRIPT_DIR/scripts/sync-openwebui-minio.sh"
+
+    # Resolve MinIO password at install time (dynamic)
+    local resolved_pass="${MINIO_ROOT_PASSWORD:-}"
+    if [[ -z "$resolved_pass" && -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        resolved_pass="${MINIO_ROOT_PASSWORD:-}"
+    fi
+    if [[ -z "$resolved_pass" ]] && docker ps --format '{{.Names}}' | grep -q '^ai_minio$'; then
+        resolved_pass=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' ai_minio | awk -F= '$1=="MINIO_ROOT_PASSWORD"{print $2; exit}')
+    fi
+    if [[ -z "$resolved_pass" ]]; then
+        warn "Could not resolve MinIO password for cron install; falling back to literal variable reference."
+    fi
+
+    # Build cron line (every 2 minutes) with dynamic MINIO_SYNC_PASSWORD
+    local cron_line
+    if [[ -n "$resolved_pass" ]]; then
+        cron_line="*/2 * * * * MINIO_SYNC_PASSWORD=$resolved_pass $SCRIPT_DIR/scripts/sync-openwebui-minio.sh >> /var/log/sync-openwebui-minio.log 2>&1"
+    else
+        cron_line="*/2 * * * * MINIO_SYNC_PASSWORD=\${MINIO_ROOT_PASSWORD:-minio123456} $SCRIPT_DIR/scripts/sync-openwebui-minio.sh >> /var/log/sync-openwebui-minio.log 2>&1"
+    fi
+
+    # Replace any existing sync lines and install idempotently
+    local current_cron
+    current_cron=$(crontab -l 2>/dev/null || true)
+    # Remove old entries referencing the script
+    current_cron=$(echo "$current_cron" | sed '/sync-openwebui-minio\.sh/d')
+    # Install new line
+    (echo "$current_cron"; echo "$cron_line") | crontab -
+    info "Cron job installed/updated: $cron_line"
+}
+
+# Ensure daily checkup cron job is installed
+ensure_daily_checkup_cron_job() {
+    info "Ensuring daily checkup cron job is installed..."
+    local cron_line="0 9 * * * $SCRIPT_DIR/scripts/daily-checkup.sh"
     # Install user crontab if missing entry
     local current_cron
     current_cron=$(crontab -l 2>/dev/null || true)
     if echo "$current_cron" | grep -Fq "$cron_line"; then
-        info "Cron job already present"
+        info "Daily checkup cron job already present"
     else
         (echo "$current_cron"; echo "$cron_line") | crontab -
-        info "Cron job installed: $cron_line"
+        info "Daily checkup cron job installed: $cron_line"
     fi
 }
 
@@ -551,6 +623,8 @@ show_access_info() {
     echo "  n8n:         https://n8n.tu.local (https://$vm_ip)"
     echo "  Pi-hole:     https://pihole.tu.local (https://$vm_ip)"
     echo "  Ollama API:  https://ollama.tu.local (https://$vm_ip)"
+    echo "  MinIO Console: https://minio.tu.local (https://$vm_ip:9001)"
+    echo "  MinIO API:   https://api.minio.tu.local (https://$vm_ip:9000)"
     echo ""
     
     # Check if services are accessible
@@ -690,30 +764,155 @@ update_system() {
     apt-get autoremove -y
     apt-get autoclean
     
-    # Update Docker images
-    info "Updating Docker images..."
-    local compose_cmd=$(get_docker_compose_cmd)
-    $compose_cmd pull
-    
-    # Handle Pi-hole DNS replacement
-    info "Handling Pi-hole DNS service..."
+    # Handle Pi-hole DNS replacement BEFORE stopping services
+    info "🌐 Handling Pi-hole DNS service..."
     handle_pihole_dns_replacement "stop"
     
-    # Stop services gracefully
+    # Verify internet connectivity before proceeding
+    info "Verifying internet connectivity..."
+    if ! verify_dns_connectivity; then
+        error "Internet connectivity verification failed. Cannot proceed with update."
+        error "Please check your network connection and try again."
+        exit 1
+    fi
+    success "Internet connectivity verified"
+    
+    # Defer service stop and cleanup until after user confirms update scope
+    local compose_cmd=$(get_docker_compose_cmd)
+    
+    # Pull latest images in one batch (parallel) and detect updated services from output
+    info "Pulling latest images for all services (showing live progress)..."
+    local pull_log_file="/tmp/tu-compose-pull.log"
+    : > "$pull_log_file"
+    local pull_cmd="$compose_cmd pull"
+    # Detect support for --progress flag and prefer it if available
+    if $compose_cmd pull --help 2>&1 | grep -q -- "--progress"; then
+        pull_cmd="$compose_cmd pull --progress=plain"
+    fi
+    # Stream progress to console and log to file for parsing; retry without flags on failure
+    set +e
+    $pull_cmd 2>&1 | tee "$pull_log_file"
+    local pull_ec=${PIPESTATUS[0]}
+    if [[ $pull_ec -ne 0 ]]; then
+        warn "compose pull failed with exit code $pull_ec. Retrying without extra flags..."
+        $compose_cmd pull 2>&1 | tee "$pull_log_file"
+        pull_ec=${PIPESTATUS[0]}
+        if [[ $pull_ec -ne 0 ]]; then
+            error "Image pull failed (exit code $pull_ec). Aborting update."
+        fi
+    fi
+    set -e
+    # Build list of compose services to validate matches
+    local -a all_services
+    mapfile -t all_services < <($compose_cmd config --services)
+
+    local updated_services=()
+    # Detect lines that indicate a service "Pulled" and map to valid service names
+    while IFS= read -r line; do
+        if echo "$line" | grep -qE "\bPulled\b"; then
+            local svc=""
+            # Handle formats like: "✔ service Pulled" or "service Pulled"
+            if echo "$line" | grep -q "✔"; then
+                svc=$(echo "$line" | awk '{print $2}')
+            else
+                svc=$(echo "$line" | awk '{print $1}')
+            fi
+            if [[ -n "$svc" ]] && printf '%s\n' "${all_services[@]}" | grep -qx "$svc"; then
+                updated_services+=("$svc")
+            fi
+        fi
+    done < "$pull_log_file"
+
+    # De-duplicate services list
+    if [[ ${#updated_services[@]} -gt 0 ]]; then
+        mapfile -t updated_services < <(printf "%s\n" "${updated_services[@]}" | sort -u)
+        info "Services with new images: ${updated_services[*]}"
+    else
+        # If pull succeeded and no updated services parsed, report up-to-date
+        info "All images are already up to date."
+    fi
+
+    # Ask whether to update all services or only those with updates (interactive)
+    local update_choice="all"
+    if [[ -t 0 ]]; then
+        if [[ ${#updated_services[@]} -gt 0 ]]; then
+            echo ""
+            echo "Update options:"
+            echo "  [1] Update only services with new images: ${updated_services[*]}"
+            echo "  [2] Update all services"
+            echo "  [c] Cancel update"
+            read -p "Choose [1/2/c] (default: 1): " -r choice
+            case "$choice" in
+                2) update_choice="all" ;;
+                c|C) info "Update cancelled by user"; return 0 ;;
+                *) update_choice="only" ;;
+            esac
+        else
+            # Nothing to update; allow user to proceed or skip
+            read -p "No new images detected. Start services anyway? [Y/n]: " -r choice2
+            case "$choice2" in
+                n|N) info "Update skipped (nothing to do)."; return 0 ;;
+                *) update_choice="all" ;;
+            esac
+        fi
+    fi
+    
+    # Stop services gracefully (only after user decision)
     info "Stopping services for update..."
     $compose_cmd down
-    
-    # Remove old images (keep data volumes)
-    info "Cleaning up old Docker images..."
-    docker image prune -f
-    
-    # Start services with updated images
+
+    # Restore Pi-hole DNS BEFORE starting services: start Pi-hole first
+    info "Restoring Pi-hole DNS before starting services..."
+    # Stop systemd-resolved to free port 53
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl stop systemd-resolved 2>/dev/null || true
+        systemctl disable systemd-resolved 2>/dev/null || true
+    fi
+    # Ensure port 53 is free
+    info "Ensuring port 53 is free for Pi-hole..."
+    local port_attempts=10
+    local port_attempt=0
+    while [[ $port_attempt -lt $port_attempts ]]; do
+        if ! netstat -tuln | grep -q ":53 "; then
+            break
+        fi
+        sleep 2
+        port_attempt=$((port_attempt + 1))
+    done
+    # Start Pi-hole first
+    info "Starting Pi-hole service first..."
+    $compose_cmd up -d pihole || warn "Pi-hole failed to start"
+    # Wait briefly for Pi-hole
+    sleep 5
+    # Configure resolv.conf to use Pi-hole if available
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+    cat > /etc/resolv.conf << EOF
+# Pi-hole DNS configuration
+nameserver 127.0.0.1
+nameserver 1.1.1.1
+nameserver 1.0.0.1
+EOF
+    chattr +i /etc/resolv.conf 2>/dev/null || true
+
+    # Start services according to user's choice
     info "Starting services with updated images..."
-    $compose_cmd up -d
+    if [[ "$update_choice" == "only" && ${#updated_services[@]} -gt 0 ]]; then
+        $compose_cmd up -d "${updated_services[@]}"
+    else
+        $compose_cmd up -d
+    fi
+
+    # Wait for critical services to be ready
+    info "Waiting for critical services to be ready..."
+    sleep 10
     
     # Restore Pi-hole DNS after services are running
-    info "Restoring Pi-hole DNS service..."
+    info "🌐 Restoring Pi-hole DNS service..."
     handle_pihole_dns_replacement "start"
+    
+    # Post-update cleanup (optional): prune dangling items now that new images are in use
+    info "Performing post-update Docker cleanup..."
+    perform_docker_cleanup
     
     # Wait for services to be ready
     if wait_for_services; then
@@ -722,6 +921,9 @@ update_system() {
         # Verify data retention
         info "Verifying data retention..."
         verify_data_retention
+        
+        # Show update summary
+        show_update_summary
         
         show_access_info
     else
@@ -850,31 +1052,120 @@ handle_pihole_dns_replacement() {
     
     case "$action" in
         "stop")
-            info "Temporarily restoring system DNS..."
+            info "🌐 Temporarily replacing Pi-hole DNS with system DNS..."
             
-            # Backup current resolv.conf
-            cp /etc/resolv.conf /etc/resolv.conf.pihole.backup
+            # Check if Pi-hole DNS is currently active
+            if check_pihole_dns_status; then
+                info "Pi-hole DNS is currently active, switching to system DNS..."
+            else
+                # Check if we have any working DNS configuration
+                if [ -f /etc/resolv.conf ] && verify_dns_connectivity; then
+                    info "System DNS is already active and working, no change needed"
+                    return 0
+                else
+                    info "No working DNS configuration found, setting up system DNS..."
+                fi
+            fi
             
-            # Restore independent DNS servers
+            # Backup current resolv.conf (once) if it exists
+            if [ -f /etc/resolv.conf ] && [ ! -f /etc/resolv.conf.pihole.backup ]; then
+                cp /etc/resolv.conf /etc/resolv.conf.pihole.backup 2>/dev/null || true
+                info "Backed up current DNS configuration"
+            fi
+
+            # Remove immutable flag if present (only if file exists)
+            if [ -f /etc/resolv.conf ]; then
+                chattr -i /etc/resolv.conf 2>/dev/null || true
+            fi
+            
+            # Try to enable systemd-resolved first
+            if command -v systemctl >/dev/null 2>&1; then
+                systemctl enable --now systemd-resolved 2>/dev/null || true
+                sleep 2
+            fi
+            
+            # Create resolv.conf with public DNS servers directly
+            info "Creating DNS configuration with public servers..."
             cat > /etc/resolv.conf << EOF
 # Temporary DNS configuration during update
-# Independent DNS servers (not Google)
 nameserver 1.1.1.1
 nameserver 1.0.0.1
+nameserver 9.9.9.9
+nameserver 8.8.8.8
+EOF
+
+            # Ensure Docker daemon uses public DNS during pulls
+            configure_docker_dns set
+            
+            # Verify DNS connectivity
+            info "Verifying DNS connectivity..."
+            if verify_dns_connectivity; then
+                success "System DNS is working correctly"
+            else
+                warn "DNS connectivity verification failed"
+                info "Attempting to fix DNS configuration..."
+                # Try alternative DNS servers
+                cat > /etc/resolv.conf << EOF
+# Alternative DNS configuration
 nameserver 8.8.8.8
 nameserver 8.8.4.4
+nameserver 1.1.1.1
+nameserver 1.0.0.1
 EOF
+                sleep 3
+                if verify_dns_connectivity; then
+                    success "DNS fixed with alternative servers"
+                else
+                    error "DNS connectivity verification failed. Cannot proceed with update."
+                    error "Please check your network connection and try again."
+                    exit 1
+                fi
+            fi
             
-            # Make resolv.conf immutable to prevent systemd from overwriting
-            chattr +i /etc/resolv.conf 2>/dev/null || true
-            
-            info "System DNS restored with independent servers"
+            info "✅ System DNS active via systemd-resolved; Docker DNS overridden for update"
             ;;
         "start")
-            info "Restoring Pi-hole DNS configuration..."
+            info "🌐 Restoring Pi-hole DNS configuration..."
             
+            # Stop systemd-resolved to free up port 53
+            if command -v systemctl >/dev/null 2>&1; then
+                systemctl stop systemd-resolved 2>/dev/null || true
+                systemctl disable systemd-resolved 2>/dev/null || true
+            fi
+            
+            # Restore Docker DNS and restart Docker
+            configure_docker_dns restore
+
             # Remove immutable flag
             chattr -i /etc/resolv.conf 2>/dev/null || true
+            
+            # Wait for port 53 to be free
+            info "Waiting for port 53 to be free..."
+            local port_attempts=10
+            local port_attempt=0
+            
+            while [ $port_attempt -lt $port_attempts ]; do
+                if ! netstat -tuln | grep -q ":53 "; then
+                    info "Port 53 is now free"
+                    break
+                fi
+                sleep 2
+                port_attempt=$((port_attempt + 1))
+            done
+            
+            # Wait for Pi-hole container to be running
+            info "Waiting for Pi-hole container to be ready..."
+            local max_attempts=30
+            local attempt=0
+            
+            while [ $attempt -lt $max_attempts ]; do
+                if docker ps | grep -q "ai_pihole.*Up"; then
+                    info "Pi-hole container is running"
+                    break
+                fi
+                sleep 2
+                attempt=$((attempt + 1))
+            done
             
             # Restore Pi-hole DNS configuration
             cat > /etc/resolv.conf << EOF
@@ -887,14 +1178,22 @@ EOF
             # Make resolv.conf immutable again
             chattr +i /etc/resolv.conf 2>/dev/null || true
             
-            # Wait for Pi-hole to be ready
-            info "Waiting for Pi-hole to be ready..."
-            local max_attempts=30
-            local attempt=0
+            # Wait for Pi-hole service to be ready
+            info "Waiting for Pi-hole DNS service to be ready..."
+            attempt=0
+            max_attempts=30
             
             while [ $attempt -lt $max_attempts ]; do
                 if docker exec ai_pihole pihole status >/dev/null 2>&1; then
-                    info "Pi-hole DNS service restored successfully"
+                    success "Pi-hole DNS service is ready"
+                    
+                    # Final DNS connectivity test
+                    if verify_dns_connectivity; then
+                        success "Pi-hole DNS is working correctly"
+                        return 0
+                    else
+                        warn "Pi-hole DNS may not be fully ready yet"
+                    fi
                     return 0
                 fi
                 sleep 2
@@ -909,12 +1208,82 @@ EOF
     esac
 }
 
+# Configure Docker daemon DNS temporarily during updates
+configure_docker_dns() {
+    local action="$1"
+    local docker_daemon_conf="/etc/docker/daemon.json"
+    local docker_daemon_conf_backup="/etc/docker/daemon.json.tu-backup"
+
+    case "$action" in
+        set)
+            info "Configuring Docker daemon to use public DNS during update..."
+            if [ -f "$docker_daemon_conf" ] && [ ! -f "$docker_daemon_conf_backup" ]; then
+                cp "$docker_daemon_conf" "$docker_daemon_conf_backup" 2>/dev/null || true
+            fi
+            mkdir -p /etc/docker
+            cat > "$docker_daemon_conf" << EOF
+{
+    "dns": ["1.1.1.1", "1.0.0.1", "9.9.9.9", "8.8.8.8"]
+}
+EOF
+            ;;
+        restore)
+            info "Restoring Docker daemon DNS configuration..."
+            if [ -f "$docker_daemon_conf_backup" ]; then
+                mv -f "$docker_daemon_conf_backup" "$docker_daemon_conf" 2>/dev/null || true
+            else
+                if [ -f "$docker_daemon_conf" ] && grep -q '"dns"' "$docker_daemon_conf" 2>/dev/null; then
+                    echo "{}" > "$docker_daemon_conf"
+                fi
+            fi
+            ;;
+        *)
+            warn "Unknown docker DNS action: $action"
+            ;;
+    esac
+
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart docker 2>/dev/null || true
+    else
+        service docker restart 2>/dev/null || true
+    fi
+}
+
 # Check if Pi-hole DNS is currently active
 check_pihole_dns_status() {
-    if grep -q "127.0.0.1" /etc/resolv.conf; then
+    if [ -f /etc/resolv.conf ] && grep -q "127.0.0.1" /etc/resolv.conf; then
         return 0  # Pi-hole DNS is active
     else
         return 1  # System DNS is active
+    fi
+}
+
+# Verify DNS connectivity
+verify_dns_connectivity() {
+    local test_domains=("google.com" "cloudflare.com" "github.com")
+    local success_count=0
+    
+    # Wait a moment for DNS to be ready
+    sleep 2
+    
+    debug "Testing DNS connectivity with domains: ${test_domains[*]}"
+    
+    for domain in "${test_domains[@]}"; do
+        if nslookup "$domain" >/dev/null 2>&1 || dig +short "$domain" >/dev/null 2>&1 || getent hosts "$domain" >/dev/null 2>&1; then
+            debug "✓ DNS resolution successful for $domain"
+            success_count=$((success_count + 1))
+        else
+            debug "✗ DNS resolution failed for $domain"
+        fi
+    done
+    
+    debug "DNS test results: $success_count/${#test_domains[@]} successful"
+    
+    # Consider DNS working if at least 1 out of 3 tests pass
+    if [ $success_count -ge 1 ]; then
+        return 0
+    else
+        return 1
     fi
 }
 
@@ -933,6 +1302,9 @@ create_backup() {
     cp "$ENV_FILE" "$backup_path/" 2>/dev/null || warn ".env file not found"
     cp -r nginx "$backup_path/" 2>/dev/null || warn "nginx directory not found"
     cp -r ssl "$backup_path/" 2>/dev/null || warn "ssl directory not found"
+    cp -r helper "$backup_path/" 2>/dev/null || warn "helper directory not found"
+    cp -r pihole "$backup_path/" 2>/dev/null || warn "pihole directory not found"
+    cp -r tika-minio-processor "$backup_path/" 2>/dev/null || warn "tika-minio-processor directory not found"
     
     # Backup Docker volumes
     if docker compose ps --format json | grep -q '"State":"running"'; then
@@ -944,18 +1316,69 @@ create_backup() {
         fi
         
         # Docker volumes
-        for volume in postgres_data redis_data qdrant_data ollama_data n8n_data pihole_data; do
+        for volume in docker_postgres_data docker_redis_data docker_qdrant_data docker_ollama_data docker_n8n_data docker_pihole_data minio_data docker_openwebui_files docker_nginx_logs docker_pihole_dnsmasq; do
             if docker volume inspect "$volume" >/dev/null 2>&1; then
                 docker run --rm -v "$volume":/data -v "$(pwd)/$backup_path":/backup \
                     alpine tar czf "/backup/${volume}.tar.gz" -C /data . 2>/dev/null || warn "$volume backup failed"
             fi
         done
+        
+        # Service-specific data backups
+        info "Backing up service-specific configurations..."
+        
+        # MinIO bucket configuration
+        if docker exec ai_minio mc ls local/ >/dev/null 2>&1; then
+            info "Backing up MinIO configuration..."
+            docker exec ai_minio mc admin config export local > "$backup_path/minio-config.json" 2>/dev/null || warn "MinIO config backup failed"
+            docker exec ai_minio mc ls local/ > "$backup_path/minio-buckets.txt" 2>/dev/null || warn "MinIO buckets list failed"
+        fi
+        
+        # Pi-hole configuration
+        if docker exec ai_pihole pihole -v >/dev/null 2>&1; then
+            info "Backing up Pi-hole configuration..."
+            docker exec ai_pihole pihole -a -t > "$backup_path/pihole-config.txt" 2>/dev/null || warn "Pi-hole config backup failed"
+            docker exec ai_pihole pihole -g > "$backup_path/pihole-gravity.txt" 2>/dev/null || warn "Pi-hole gravity backup failed"
+        fi
+        
+        # Open WebUI configuration (if accessible)
+        if docker exec ai_openwebui curl -s -f http://localhost:8080/api/health >/dev/null 2>&1; then
+            info "Backing up Open WebUI configuration..."
+            docker exec ai_openwebui curl -s http://localhost:8080/api/config > "$backup_path/openwebui-config.json" 2>/dev/null || warn "Open WebUI config backup failed"
+        fi
+        
+        # n8n workflows export (if accessible)
+        if docker exec ai_n8n curl -s -f http://localhost:5678/healthz >/dev/null 2>&1; then
+            info "Backing up n8n workflows..."
+            # Note: n8n workflows are stored in the n8n_data volume, but we can also export them via API if needed
+            docker exec ai_n8n find /home/node/.n8n -name "*.json" -exec cat {} \; > "$backup_path/n8n-workflows.json" 2>/dev/null || warn "n8n workflows backup failed"
+        fi
     fi
     
     # Create archive
     info "Creating backup archive..."
     tar czf "${backup_path}.tar.gz" -C "$BACKUP_DIR" "$(basename "$backup_path")"
     rm -rf "$backup_path"
+    
+    # Automatic backup rotation - keep only last 2 backups
+    info "Managing backup rotation (keeping last 2 backups)..."
+    local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
+    
+    if [[ $backup_count -gt 2 ]]; then
+        local backups_to_remove=$((backup_count - 2))
+        info "Removing $backups_to_remove old backup(s)..."
+        
+        # Sort by modification time (oldest first) and remove excess
+        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +3 | while read -r old_backup; do
+            if [[ -f "$old_backup" ]]; then
+                info "Removing old backup: $(basename "$old_backup")"
+                rm -f "$old_backup"
+            fi
+        done
+        
+        info "✅ Backup rotation complete"
+    else
+        info "✅ No rotation needed (current backups: $backup_count)"
+    fi
     
     info "Backup created: ${backup_path}.tar.gz"
 }
@@ -1018,12 +1441,24 @@ restore_backup() {
 cleanup() {
     info "Cleaning up old backups and logs..."
     
-    # Clean up old backups (keep last 10)
+    # Clean up old backups (keep last 2)
     if [[ -d "$BACKUP_DIR" ]]; then
-        local backup_count=$(find "$BACKUP_DIR" -name "*.tar.gz" | wc -l)
-        if [[ $backup_count -gt 10 ]]; then
-            info "Removing old backups (keeping last 10)..."
-            find "$BACKUP_DIR" -name "*.tar.gz" -type f -printf '%T@ %p\n' | sort -n | head -n -10 | cut -d' ' -f2- | xargs rm -f
+        local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
+        if [[ $backup_count -gt 2 ]]; then
+            local backups_to_remove=$((backup_count - 2))
+            info "Removing $backups_to_remove old backup(s) (keeping last 2)..."
+            
+            # Sort by modification time (oldest first) and remove excess
+            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +3 | while read -r old_backup; do
+                if [[ -f "$old_backup" ]]; then
+                    info "Removing old backup: $(basename "$old_backup")"
+                    rm -f "$old_backup"
+                fi
+            done
+            
+            info "✅ Backup cleanup complete"
+        else
+            info "✅ No backup cleanup needed (current backups: $backup_count)"
         fi
     fi
     
@@ -1042,6 +1477,161 @@ cleanup() {
     docker system prune -f >/dev/null 2>&1 || warn "Docker cleanup failed"
     
     info "Cleanup completed!"
+}
+
+# Comprehensive Docker cleanup during update
+perform_docker_cleanup() {
+    info "Performing comprehensive Docker cleanup..."
+    
+    # Show current disk usage
+    info "Current Docker disk usage:"
+    docker system df
+    
+    # Remove stopped containers
+    info "Removing stopped containers..."
+    docker container prune -f
+    
+    # Remove unused images (including dangling images)
+    info "Removing unused images..."
+    docker image prune -a -f
+    
+    # Remove unused volumes (be careful not to remove data volumes)
+    info "Removing unused volumes (preserving data volumes)..."
+    docker volume prune -f
+    
+    # Remove unused networks
+    info "Removing unused networks..."
+    docker network prune -f
+    
+    # Remove build cache
+    info "Removing build cache..."
+    docker builder prune -a -f
+    
+    # Show cleanup results
+    info "Docker cleanup completed. New disk usage:"
+    docker system df
+}
+
+
+# Show update summary
+show_update_summary() {
+    info "Update Summary:"
+    echo ""
+    
+    # Show Docker system info
+    echo -e "${GREEN}🐳 Docker System Status:${NC}"
+    docker system df
+    echo ""
+    
+    # Show running services
+    echo -e "${GREEN}🔄 Running Services:${NC}"
+    docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+    echo ""
+    
+    # Show image versions
+    echo -e "${GREEN}📦 Current Image Versions:${NC}"
+    docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | head -20
+    echo ""
+    
+    # Show resource usage
+    echo -e "${GREEN}📊 Resource Usage:${NC}"
+    docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}" | head -10
+    echo ""
+}
+
+# Test update process (dry run)
+test_update() {
+    info "Testing update process (dry run)..."
+    echo ""
+    
+    # Show what would be cleaned up
+    echo -e "${YELLOW}🧹 Docker Cleanup Preview:${NC}"
+    echo "  - Stopped containers: $(docker ps -a --filter status=exited --format '{{.Names}}' | wc -l)"
+    echo "  - Unused images: $(docker images -f dangling=true -q | wc -l)"
+    echo "  - Unused volumes: $(docker volume ls -f dangling=true -q | wc -l)"
+    echo "  - Unused networks: $(docker network ls -f dangling=true -q | wc -l)"
+    echo ""
+    
+    # Show current disk usage
+    echo -e "${YELLOW}💾 Current Disk Usage:${NC}"
+    docker system df
+    echo ""
+    
+    # Show services that would be updated
+    echo -e "${YELLOW}🔄 Services to Update:${NC}"
+    local compose_cmd=$(get_docker_compose_cmd)
+    $compose_cmd config --services | while read service; do
+        echo "  - $service"
+    done
+    echo ""
+    
+    # Show services that would be updated
+    echo -e "${YELLOW}📦 Services to Update:${NC}"
+    local compose_cmd=$(get_docker_compose_cmd)
+    $compose_cmd config --services | while read service; do
+        echo "  - $service"
+    done
+    echo ""
+    
+    info "Dry run completed. Use 'sudo ./tu-vm.sh update' to perform actual update."
+}
+
+# Show DNS status
+show_dns_status() {
+    info "DNS Status Information:"
+    echo ""
+    
+    # Show current DNS configuration
+    echo -e "${GREEN}🌐 Current DNS Configuration:${NC}"
+    if [ -f /etc/resolv.conf ]; then
+        cat /etc/resolv.conf
+    else
+        echo "  No resolv.conf found"
+    fi
+    echo ""
+    
+    # Show DNS type
+    echo -e "${GREEN}🔍 DNS Type:${NC}"
+    if check_pihole_dns_status; then
+        echo "  ✅ Pi-hole DNS is active (127.0.0.1)"
+    else
+        echo "  🌍 System DNS is active (public DNS servers)"
+    fi
+    echo ""
+    
+    # Test DNS connectivity
+    echo -e "${GREEN}🔗 DNS Connectivity Test:${NC}"
+    if verify_dns_connectivity; then
+        echo "  ✅ DNS resolution is working correctly"
+    else
+        echo "  ❌ DNS resolution is not working"
+    fi
+    echo ""
+    
+    # Show Pi-hole container status
+    echo -e "${GREEN}🐳 Pi-hole Container Status:${NC}"
+    if docker ps | grep -q "ai_pihole"; then
+        echo "  ✅ Pi-hole container is running"
+        if docker exec ai_pihole pihole status >/dev/null 2>&1; then
+            echo "  ✅ Pi-hole service is ready"
+        else
+            echo "  ⚠️  Pi-hole service is not ready yet"
+        fi
+    else
+        echo "  ❌ Pi-hole container is not running"
+    fi
+    echo ""
+    
+    # Show backup status
+    if [ -f /etc/resolv.conf.pihole.backup ]; then
+        echo -e "${GREEN}💾 DNS Backup:${NC}"
+        echo "  ✅ DNS configuration backup exists"
+        echo "  📁 Backup file: /etc/resolv.conf.pihole.backup"
+    else
+        echo -e "${GREEN}💾 DNS Backup:${NC}"
+        echo "  ℹ️  No DNS backup found (normal if no updates have been performed)"
+    fi
+    echo ""
 }
 
 # =============================================================================
@@ -1178,6 +1768,183 @@ validate_security() {
     fi
 }
 
+
+# =============================================================================
+# PDF PROCESSING FUNCTIONS
+# =============================================================================
+
+# Check PDF processing status
+check_pdf_processing_status() {
+    info "Checking PDF processing pipeline status..."
+    echo ""
+    
+    # Check Tika service
+    echo -e "${GREEN}🔍 Apache Tika Service:${NC}"
+    if docker ps | grep -q "ai_tika.*Up"; then
+        echo "  ✅ Tika container is running"
+        if curl -s -f "http://localhost:9998/tika" >/dev/null 2>&1; then
+            echo "  ✅ Tika API is responding"
+        else
+            echo "  ⚠️  Tika API not responding"
+        fi
+    else
+        echo "  ❌ Tika container is not running"
+    fi
+    echo ""
+    
+    # Check MinIO service
+    echo -e "${GREEN}🗄️ MinIO Object Storage:${NC}"
+    if docker ps | grep -q "ai_minio.*Up"; then
+        echo "  ✅ MinIO container is running"
+        if curl -s -f "http://localhost:9000/minio/health/live" >/dev/null 2>&1; then
+            echo "  ✅ MinIO API is responding"
+        else
+            echo "  ⚠️  MinIO API not responding"
+        fi
+    else
+        echo "  ❌ MinIO container is not running"
+    fi
+    echo ""
+    
+    # Check Tika-MinIO processor
+    echo -e "${GREEN}⚙️ Tika-MinIO Processor:${NC}"
+    if docker ps | grep -q "tika_minio_processor.*Up"; then
+        echo "  ✅ Processor container is running"
+        echo "  📊 Recent activity:"
+        docker logs tika_minio_processor --tail 5 2>/dev/null | grep -E "(✅|❌|🔄)" || echo "    No recent activity"
+    else
+        echo "  ❌ Processor container is not running"
+    fi
+    echo ""
+    
+    # Check tika-pipe bucket
+    echo -e "${GREEN}📁 Tika-Pipe Bucket:${NC}"
+    if docker exec ai_minio mc ls local/tika-pipe/ >/dev/null 2>&1; then
+        local file_count=$(docker exec ai_minio mc ls local/tika-pipe/ | wc -l)
+        echo "  ✅ Bucket exists with $file_count files"
+    else
+        echo "  ❌ tika-pipe bucket not found"
+    fi
+    echo ""
+}
+
+# Test PDF processing
+test_pdf_processing() {
+    info "Testing PDF processing pipeline..."
+    
+    # Create a test PDF
+    local test_pdf="/tmp/test.pdf"
+    echo "Creating test PDF..."
+    cat > /tmp/test.tex << 'EOF'
+\documentclass{article}
+\begin{document}
+\title{Test Document}
+\author{TechUties AI Platform}
+\date{\today}
+\maketitle
+
+This is a test document for PDF processing pipeline validation.
+
+\section{Test Content}
+The Tika-MinIO pipeline should process this document and extract the text content.
+
+\subsection{Features}
+\begin{itemize}
+\item Text extraction
+\item Metadata processing
+\item MinIO storage
+\end{itemize}
+
+\end{document}
+EOF
+    
+    # Check if pdflatex is available
+    if ! command -v pdflatex >/dev/null 2>&1; then
+        warn "pdflatex not available, using simple test file"
+        echo "Test PDF content" > "$test_pdf"
+    else
+        cd /tmp && pdflatex test.tex >/dev/null 2>&1 && mv test.pdf "$test_pdf" || {
+            warn "PDF generation failed, using simple test file"
+            echo "Test PDF content" > "$test_pdf"
+        }
+    fi
+    
+    # Upload to MinIO
+    info "Uploading test PDF to tika-pipe bucket..."
+    if docker run --rm -v "$test_pdf":/test.pdf -v minio_data:/data alpine sh -c "cp /test.pdf /data/tika-pipe/test-$(date +%s).pdf"; then
+        info "✅ Test PDF uploaded successfully"
+        info "⏳ Waiting for Tika processing (30 seconds)..."
+        sleep 30
+        
+        # Check for processed file
+        if docker exec ai_minio mc ls local/tika-pipe/ | grep -q "\.txt"; then
+            info "✅ PDF processing successful - .txt file found"
+        else
+            warn "⚠️  No .txt file found - processing may have failed"
+        fi
+    else
+        error "❌ Failed to upload test PDF"
+    fi
+    
+    # Cleanup
+    rm -f /tmp/test.tex /tmp/test.aux /tmp/test.log "$test_pdf" 2>/dev/null || true
+}
+
+# Show PDF processing logs
+show_pdf_logs() {
+    local service="$1"
+    
+    if [[ -z "$service" ]]; then
+        info "Available PDF processing services:"
+        echo "  - tika (Apache Tika service)"
+        echo "  - minio (MinIO object storage)"
+        echo "  - processor (Tika-MinIO processor)"
+        echo ""
+        echo "Usage: ./$SCRIPT_NAME pdf-logs <service_name>"
+        return 0
+    fi
+    
+    case "$service" in
+        tika)
+            info "Showing Tika service logs..."
+            docker logs ai_tika --tail=50 -f
+            ;;
+        minio)
+            info "Showing MinIO service logs..."
+            docker logs ai_minio --tail=50 -f
+            ;;
+        processor)
+            info "Showing Tika-MinIO processor logs..."
+            docker logs tika_minio_processor --tail=50 -f
+            ;;
+        *)
+            error "Unknown PDF processing service: $service"
+            echo "Available services: tika, minio, processor"
+            ;;
+    esac
+}
+
+# Reset PDF processing pipeline
+reset_pdf_pipeline() {
+    warn "Resetting PDF processing pipeline..."
+    
+    # Stop processor
+    info "Stopping Tika-MinIO processor..."
+    docker stop tika_minio_processor 2>/dev/null || true
+    
+    # Clear tika-pipe bucket
+    info "Clearing tika-pipe bucket..."
+    docker exec ai_minio mc rm --recursive --force local/tika-pipe/ 2>/dev/null || true
+    
+    # Restart processor
+    info "Restarting Tika-MinIO processor..."
+    docker start tika_minio_processor 2>/dev/null || {
+        info "Starting processor from docker-compose..."
+        docker compose up -d tika_minio_processor
+    }
+    
+    info "✅ PDF processing pipeline reset complete"
+}
 
 # =============================================================================
 # DIAGNOSTIC FUNCTIONS
@@ -1328,42 +2095,45 @@ main() {
             
             # Execute command
             case "$1" in
-        start)
-            start_services
-            ;;
-        stop)
-            stop_services
-            ;;
-        restart)
-            restart_services
-            ;;
-        status)
-            show_status
-            ;;
+                start)
+                    start_services
+                    ;;
+                stop)
+                    stop_services
+                    ;;
+                restart)
+                    restart_services
+                    ;;
+                status)
+                    show_status
+                    ;;
                 logs)
                     show_logs "$2"
-            ;;
-        secure)
-            enable_secure
-            ;;
-        public)
-            enable_public
-            ;;
-        lock)
-            lock_access
-            ;;
-        update)
-            update_system
-            ;;
-        update-preview)
-            update_preview
-            ;;
-        backup)
+                    ;;
+                access)
+                    show_access_info
+                    ;;
+                secure)
+                    enable_secure
+                    ;;
+                public)
+                    enable_public
+                    ;;
+                lock)
+                    lock_access
+                    ;;
+                update)
+                    update_system
+                    ;;
+                test-update)
+                    test_update
+                    ;;
+                backup)
                     create_backup "$2"
-            ;;
-        restore)
-            restore_backup "$2"
-            ;;
+                    ;;
+                restore)
+                    restore_backup "$2"
+                    ;;
                 cleanup)
                     cleanup
                     ;;
@@ -1388,6 +2158,21 @@ main() {
                     ;;
                 setup-minio)
                     setup_minio_buckets
+                    ;;
+                pdf-status)
+                    check_pdf_processing_status
+                    ;;
+                pdf-test)
+                    test_pdf_processing
+                    ;;
+                pdf-logs)
+                    show_pdf_logs "$2"
+                    ;;
+                pdf-reset)
+                    reset_pdf_pipeline
+                    ;;
+                version)
+                    show_version
                     ;;
                 *)
                     error "Unknown command: $1"

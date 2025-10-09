@@ -120,3 +120,8 @@ wg-configs/**
 ovpn-configs/**
 
 nginx/conf.d/backup/**
+
+# Additional hardening
+docker-compose.override.yml
+.env.local
+.envrc
