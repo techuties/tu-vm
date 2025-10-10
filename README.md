@@ -2,6 +2,9 @@
 
 A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments with **maximum security** and **easy management**.
 
+<img width="1443" height="711" alt="tu-vm dashboard" src="https://github.com/user-attachments/assets/90a29bf9-3ed5-45af-bac2-ae0e7c354a8c" />
+
+
 ## 🎯 Quick Start
 
 ### 1. Start Services
