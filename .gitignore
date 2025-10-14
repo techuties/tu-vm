@@ -67,6 +67,14 @@ temp/
 ##############################
 .vscode/
 .idea/
+# Cursor editor artifacts
+.cursor/
+.cursor/rules/**
+.cursor/cache/
+.cursor/history/
+.cursor/tmp/
+.cursor/memories.json
+.cursorrules
 *.swp
 *.swo
 *~
