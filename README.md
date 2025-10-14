@@ -1,30 +1,39 @@
-# TechUties AI Platform - All In One Self-Hosted AI Workflow Stack
+# TechUties VirtualMachine - Private Ai Platform
 
-A comprehensive, production-ready AI platform running in Docker containers with PostgreSQL, vector storage, workflow automation, and local AI model support. Optimized for both desktop and mobile environments with **maximum security** and **easy management**.
+TU-VM transforms your computer into a private AI operations center. It combines essential AI services into one secure, easy-to-manage platform that runs entirely on your hardware.
+
+### Key Features 
+- Local AI Operations   - Run AI models and workflows without cloud dependencies
+- Complete Privacy      - All data stays on your machine with configurable access controls
+- Document Intelligence - Process thousands of document formats with advanced OCR
+- Workflow Automation   - Create and run complex AI pipelines with visual tools
+- One-Command Control   - Manage your entire AI stack through a simple interface
+
+### Data Protection 
+- Automated Backups
+  - Scheduled daily snapshots of all systems
+  - Pre-update safety backups
+  - Compressed and encrypted storage
+  - Configurable retention policies
+- Recovery Options
+  - Point-in-time system restoration
+  - Selective service recovery
+  - Data integrity verification
+  - Quick disaster recovery
+
+### System Requirements
+- Minimum: 4GB RAM, 20GB storage, Ubuntu Server 22.04+
+- Recommended: 8GB+ RAM, 50GB+ SSD storage
+- Supported OS: Ubuntu Server (LTS versions)
+- Docker: Version 20.10 or higher
+- Network: Local network access for secure operations
+
+Perfect for developers and researchers who need a reliable, private environment for AI development without the complexity of manual setup or the risks of cloud services.
 
 <img width="1443" height="711" alt="tu-vm dashboard" src="https://github.com/user-attachments/assets/90a29bf9-3ed5-45af-bac2-ae0e7c354a8c" />
+The Dashboard
 
-
-## 🎯 Quick Start
-
-### 1. Start Services
-```bash
-./tu-vm.sh start
-```
-
-### 2. Enable Secure Access
-```bash
-sudo ./tu-vm.sh secure
-```
-
-### 3. Check Status
-```bash
-./tu-vm.sh status
-```
-
-**Note**: Tika is configured as the default PDF processor with full capabilities enabled automatically.
-
-## 🚀 Features
+## Features
 
 ### Core Services
 - **Open WebUI** - Modern AI chat interface with local model support
@@ -58,7 +67,7 @@ sudo ./tu-vm.sh secure
 - **Service control** - Start/stop buttons for individual services
 - **Simple control** - One script for everything
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 .
@@ -77,7 +86,7 @@ sudo ./tu-vm.sh secure
 └── tu-vm.sh                    # Main control script
 ```
 
-## ➕ Additional Services
+## Additional Services
 
 - **Tika‑MinIO Processor** (`tika_minio_processor`)
   - Watches a MinIO bucket for PDFs, sends to Apache Tika, stores `<same>.txt` back
@@ -88,9 +97,9 @@ sudo ./tu-vm.sh secure
   - Lightweight Flask API used by the landing page for service status, updates and announcements
   - Code: `helper/uploader.py`
 
-## 📈 Monitoring & Observability
+## Monitoring & Observability
 
-### 🚨 Intelligent Monitoring System
+### Intelligent Monitoring System
 The platform includes a comprehensive monitoring system optimized for laptop VMs with **proactive issue detection** and **battery-aware recommendations**.
 
 #### **Daily Health Checks** (9:00 AM)
@@ -122,7 +131,7 @@ The platform includes a comprehensive monitoring system optimized for laptop VMs
 - Targets include: Docker engine metrics, Pi‑hole, Nginx, Postgres, Redis (when exporters are enabled)
 - You can extend the stack by adding exporters and a Grafana container to visualize metrics
 
-## 🧰 Operational Scripts
+## Operational Scripts
 
 - `scripts/init-openwebui.sh` – Open WebUI init hook
 - `scripts/sync-openwebui-minio.sh` – Bi-directional sync: Open WebUI uploads → MinIO `tika-pipe`, and Tika `.txt` → back into Open WebUI
@@ -135,7 +144,7 @@ The platform includes a comprehensive monitoring system optimized for laptop VMs
   - Security monitoring (firewall, access control)
 - `extend-disk.sh` – Convenience helper to expand disk on the host
 
-## 🔒 Security First
+## Security First
 
 ### Security Objective: "Secure access control with easy management" ✅
 
@@ -155,7 +164,7 @@ The platform implements **secure access control** with three security levels:
 - **Information Disclosure Protection**: Health endpoints secured
 - **Credential Management**: Secure key generation and rotation
 
-## 📋 Simple Control Commands
+## Simple Control Commands
 
 ### Basic Operations
 ```bash
@@ -188,12 +197,12 @@ sudo ./tu-vm.sh secure
 
 ### 2. Access Services
 Access services at:
-- **Landing**: `https://10.211.55.12`
-- **Open WebUI**: `https://10.211.55.12` (oweb.tu.local)
-- **n8n**: `https://10.211.55.12` (n8n.tu.local)
-- **Pi-hole**: `https://10.211.55.12` (pihole.tu.local)
-- **MinIO Console**: `https://10.211.55.12` (minio.tu.local)
-- **MinIO API**: `https://10.211.55.12` (api.minio.tu.local)
+- **Landing**: `https://<vm-IP>`
+- **Open WebUI**: `https://<vm-IP>` (oweb.tu.local)
+- **n8n**: `https://<vm-IP>` (n8n.tu.local)
+- **Pi-hole**: `https://<vm-IP>` (pihole.tu.local)
+- **MinIO Console**: `https://<vm-IP>` (minio.tu.local)
+- **MinIO API**: `https://<vm-IP>` (api.minio.tu.local)
 
 ## 🌐 Pi-hole DNS Configuration
 
@@ -207,7 +216,7 @@ Internet
     ↓
 Host Machine
     ↓ DNS queries to VM
-VM (10.211.55.12)
+VM (<VM-IP>)
     ↓ DNS queries to Pi-hole container
 Pi-hole Container (172.20.0.16)
     ↓ Filtered/blocked queries
@@ -224,13 +233,13 @@ External DNS (1.1.1.1, 1.0.0.1)
 
 ### Benefits of Pi-hole DNS
 
-#### ✅ Privacy & Security
+#### Privacy & Security
 - **Ad-blocking** for all DNS queries
 - **No DNS leaks** to tracking services
 - **Privacy protection** - all traffic filtered through your Pi-hole
 - **Custom blocklists** for enhanced protection
 
-#### ✅ Performance
+#### Performance
 - **Fast DNS resolution** with caching
 - **Low latency** - local DNS server
 - **Reliable** - direct connection to VM
@@ -238,12 +247,12 @@ External DNS (1.1.1.1, 1.0.0.1)
 ### Pi-hole Configuration
 
 The VM's Pi-hole is configured with:
-- **DNS Server**: `10.211.55.12` (accessible from local network)
+- **DNS Server**: `<VM-IP>` (accessible from local network)
 - **External DNS**: Cloudflare (`1.1.1.1`, `1.0.0.1`)
 - **Blocking**: Enabled for ad and tracking domains
 - **Access**: Local network only
 
-## 📊 Data & Vector Features
+## Data & Vector Features
 
 ### Open WebUI
 - **Primary DB**: PostgreSQL (users, chats, settings) via `DATABASE_URL`
@@ -319,7 +328,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://ai_tika:9998/tika   # expect 200
 */2 * * * * MINIO_SYNC_PASSWORD=minio123456 /home/tu/docker/scripts/sync-openwebui-minio.sh >> /var/log/sync-openwebui-minio.log 2>&1
 ```
 
-## 💾 Backup & Restore
+## Backup & Restore
 
 ### Automatic Backups
 Backups are created automatically during updates and manually:
@@ -346,7 +355,7 @@ backups/
 └── update_YYYYMMDD_HHMMSS.tar.gz
 ```
 
-## 🧭 Command Reference (tu-vm.sh)
+## Command Reference (tu-vm.sh)
 
 Use the control script to manage the entire platform. Syntax:
 
@@ -517,7 +526,6 @@ docker exec ai_openwebui curl -sf http://localhost:8080/api/health || echo "ui n
 - [Ubuntu Server](https://ubuntu.com/server/docs)
 - [Docker Engine](https://docs.docker.com/engine/install/ubuntu/)
 - [Docker Compose](https://docs.docker.com/compose/)
-- [WireGuard](https://www.wireguard.com/)
 
 ## 🎯 Security Objective Verification
 
