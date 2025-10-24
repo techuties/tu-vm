@@ -1293,6 +1293,7 @@ create_backup() {
     local backup_path="$BACKUP_DIR/$backup_name"
     
     info "Creating backup: $backup_name"
+    info "Note: Ollama models (docker_ollama_data) are excluded to keep backups small; models can be re-downloaded."
     
     # Create backup directory
     mkdir -p "$backup_path"
@@ -1316,7 +1317,7 @@ create_backup() {
         fi
         
         # Docker volumes
-        for volume in docker_postgres_data docker_redis_data docker_qdrant_data docker_ollama_data docker_n8n_data docker_pihole_data minio_data docker_openwebui_files docker_nginx_logs docker_pihole_dnsmasq; do
+        for volume in docker_postgres_data docker_redis_data docker_qdrant_data docker_n8n_data docker_pihole_data minio_data docker_openwebui_files docker_nginx_logs docker_pihole_dnsmasq; do
             if docker volume inspect "$volume" >/dev/null 2>&1; then
                 docker run --rm -v "$volume":/data -v "$(pwd)/$backup_path":/backup \
                     alpine tar czf "/backup/${volume}.tar.gz" -C /data . 2>/dev/null || warn "$volume backup failed"
@@ -1359,16 +1360,16 @@ create_backup() {
     tar czf "${backup_path}.tar.gz" -C "$BACKUP_DIR" "$(basename "$backup_path")"
     rm -rf "$backup_path"
     
-    # Automatic backup rotation - keep only last 2 backups
-    info "Managing backup rotation (keeping last 2 backups)..."
+    # Automatic backup rotation - keep only last 10 backups
+    info "Managing backup rotation (keeping last 10 backups)..."
     local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
     
-    if [[ $backup_count -gt 2 ]]; then
-        local backups_to_remove=$((backup_count - 2))
+    if [[ $backup_count -gt 10 ]]; then
+        local backups_to_remove=$((backup_count - 10))
         info "Removing $backups_to_remove old backup(s)..."
         
         # Sort by modification time (oldest first) and remove excess
-        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +3 | while read -r old_backup; do
+        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
             if [[ -f "$old_backup" ]]; then
                 info "Removing old backup: $(basename "$old_backup")"
                 rm -f "$old_backup"
@@ -1441,15 +1442,15 @@ restore_backup() {
 cleanup() {
     info "Cleaning up old backups and logs..."
     
-    # Clean up old backups (keep last 2)
+    # Clean up old backups (keep last 10)
     if [[ -d "$BACKUP_DIR" ]]; then
         local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
-        if [[ $backup_count -gt 2 ]]; then
-            local backups_to_remove=$((backup_count - 2))
-            info "Removing $backups_to_remove old backup(s) (keeping last 2)..."
+        if [[ $backup_count -gt 10 ]]; then
+            local backups_to_remove=$((backup_count - 10))
+            info "Removing $backups_to_remove old backup(s) (keeping last 10)..."
             
             # Sort by modification time (oldest first) and remove excess
-            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +3 | while read -r old_backup; do
+            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
                 if [[ -f "$old_backup" ]]; then
                     info "Removing old backup: $(basename "$old_backup")"
                     rm -f "$old_backup"
@@ -1661,16 +1662,43 @@ generate_secrets() {
     local jwt_secret=$(openssl rand -hex 32)
     local auth_secret=$(openssl rand -hex 32)
     local encryption_key=$(openssl rand -hex 32)
+    local control_token=$(openssl rand -hex 32)
     
-    # Update .env file with secure secrets
+    # Helper: set or update a key in .env if it is missing or equals an insecure default
+    set_env_var_if_default() {
+        local key="$1"; local default_val="$2"; local new_val="$3";
+        if grep -qE "^${key}=" "$ENV_FILE"; then
+            local current_val
+            current_val=$(grep -E "^${key}=" "$ENV_FILE" | sed -E "s/^${key}=//")
+            if [[ -z "$current_val" || "$current_val" == "$default_val" ]]; then
+                sed -i "s|^${key}=.*|${key}=${new_val}|" "$ENV_FILE"
+            fi
+        else
+            echo "${key}=${new_val}" >> "$ENV_FILE"
+        fi
+    }
+
+    # Backward-compat replacements for explicit CHANGE_ME markers
     sed -i "s/CHANGE_ME_SECURE_PASSWORD/$postgres_pass/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_32_CHAR_ENCRYPTION_KEY/$encryption_key/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_SECRET_KEY/$webui_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_JWT_SECRET_KEY/$jwt_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_AUTH_SECRET/$auth_secret/g" "$ENV_FILE"
-    
-    # Update MinIO password (handle multiple occurrences)
+
+    # MinIO root password (first occurrence if using template)
     sed -i "0,/CHANGE_ME_SECURE_PASSWORD/s//$minio_pass/" "$ENV_FILE"
+
+    # Ensure presence of keys referenced by docker-compose with secure defaults on first run
+    set_env_var_if_default "POSTGRES_PASSWORD" "ai_password_2024" "$postgres_pass"
+    set_env_var_if_default "REDIS_PASSWORD" "redis_password_2024" "$redis_pass"
+    set_env_var_if_default "MINIO_ROOT_PASSWORD" "minio123456" "$minio_pass"
+    set_env_var_if_default "WEBUI_SECRET_KEY" "webui_secret_key_2024" "$webui_secret"
+    set_env_var_if_default "WEBUI_JWT_SECRET_KEY" "jwt_secret_key_2024" "$jwt_secret"
+    set_env_var_if_default "WEBUI_AUTH_SECRET" "auth_secret_2024" "$auth_secret"
+    set_env_var_if_default "N8N_PASSWORD" "admin123" "$n8n_pass"
+    set_env_var_if_default "N8N_ENCRYPTION_KEY" "1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b" "$encryption_key"
+    set_env_var_if_default "PIHOLE_PASSWORD" "SwissPiHole2024!" "$pihole_pass"
+    set_env_var_if_default "CONTROL_TOKEN" "" "$control_token"
     
     # Set proper permissions
     chmod 600 "$ENV_FILE"
