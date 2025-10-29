@@ -33,6 +33,9 @@ Perfect for developers and researchers who need a reliable, private environment 
 <img width="1443" height="711" alt="tu-vm dashboard" src="https://github.com/user-attachments/assets/90a29bf9-3ed5-45af-bac2-ae0e7c354a8c" />
 The Dashboard
 
+Model available through Open WebUI
+nebulity.techuties.com/b2r8zn6/ 
+
 ## Features
 
 ### Core Services
