@@ -1,10 +1,26 @@
 from flask import Flask, request, jsonify
-import os, requests, socket, shutil, subprocess, json, datetime
+import os
+import json
+import datetime
+import socket
+import subprocess
+import ipaddress
+from pathlib import Path
+
+import requests
 import requests_unixsocket
 
 app = Flask(__name__)
 DOCKER_SOCK = '/var/run/docker.sock'
 CONTROL_TOKEN = os.environ.get('CONTROL_TOKEN', '')
+ALLOWLIST_FILE = os.environ.get("ALLOWLIST_FILE", "/nginx-dynamic/control_allowlist.conf")
+DOCKER_SUBNET = os.environ.get("DOCKER_SUBNET", "172.20.0.0/16")
+# Optional: host-level checks (ufw/auth.log/cert parsing). Off by default because this
+# service typically runs in a container without host access.
+ENABLE_HOST_CHECKS = os.environ.get("ENABLE_HOST_CHECKS", "") == "1"
+
+# Reuse one session for Docker unix-socket calls
+DOCKER_SESSION = requests_unixsocket.Session()
 
 def _authorized(req):
     token = req.headers.get('X-Control-Token') or req.args.get('token')
@@ -13,9 +29,26 @@ def _authorized(req):
     return False  # if token not set, deny by default
 
 def docker_post(path):
-    session = requests_unixsocket.Session()
     url = f"http+unix://{requests.utils.quote(DOCKER_SOCK, safe='')}" + path
-    return session.post(url, timeout=5)
+    return DOCKER_SESSION.post(url, timeout=5)
+
+def docker_get(path):
+    url = f"http+unix://{requests.utils.quote(DOCKER_SOCK, safe='')}" + path
+    return DOCKER_SESSION.get(url, timeout=5)
+
+def docker_kill(container, signal="HUP"):
+    url = f"http+unix://{requests.utils.quote(DOCKER_SOCK, safe='')}" + f"/containers/{container}/kill?signal={signal}"
+    return DOCKER_SESSION.post(url, timeout=5)
+
+def docker_inspect(container):
+    """Check if container exists and return its info, or None if not found."""
+    try:
+        r = docker_get(f"/containers/{container}/json")
+        if r.status_code == 200:
+            return r.json()
+        return None
+    except Exception:
+        return None
 
 def get_vm_ip():
     try:
@@ -26,6 +59,90 @@ def get_vm_ip():
         return ip
     except:
         return "127.0.0.1"
+
+def _client_ip():
+    """
+    Determine the real client IP when behind Nginx.
+    Priority:
+    - first address in X-Forwarded-For (if present)
+    - X-Real-IP
+    - Flask remote_addr
+    """
+    xff = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    if xff:
+        return xff
+    xr = (request.headers.get("X-Real-IP") or "").strip()
+    if xr:
+        return xr
+    return request.remote_addr or ""
+
+def _read_allowlist():
+    p = Path(ALLOWLIST_FILE)
+    if not p.exists():
+        return []
+    ips = []
+    try:
+        for line in p.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("allow "):
+                val = line[len("allow "):].strip().rstrip(";").strip()
+                ips.append(val)
+    except Exception:
+        return []
+    # de-dup preserving order
+    seen = set()
+    out = []
+    for ip in ips:
+        if ip not in seen:
+            out.append(ip)
+            seen.add(ip)
+    return out
+
+def _write_allowlist(ips):
+    """
+    Write allowlist in a stable, human-friendly way.
+    - Validates IPs
+    - Preserves insertion order (after normalization)
+    - Writes atomically
+    """
+    normalized = []
+    seen = set()
+    for raw in ips:
+        try:
+            ip_s = str(ipaddress.ip_address(raw))
+        except Exception:
+            continue
+        if ip_s in seen:
+            continue
+        normalized.append(ip_s)
+        seen.add(ip_s)
+
+    p = Path(ALLOWLIST_FILE)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    header = [
+        "# Dynamic allowlist for sensitive endpoints (e.g. /control/, /whitelist/*)",
+        "# Managed by helper_index and/or tu-vm.sh.",
+        "#",
+        "# Format:",
+        "#   allow 192.0.2.10;",
+        "#   allow 2001:db8::1;",
+        "#   deny all;",
+        "",
+    ]
+    lines = header + [f"allow {ip};" for ip in normalized] + ["deny all;", ""]
+    tmp.write_text("\n".join(lines))
+    tmp.replace(p)
+
+def _reload_nginx():
+    # Send SIGHUP to nginx container so it reloads config/includes
+    try:
+        r = docker_kill("ai_nginx", "HUP")
+        return r.status_code in (204, 200, 304)
+    except Exception:
+        return False
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -124,14 +241,94 @@ def status():
     except Exception:
         res['minio'] = False
     
-    # External IP
-    try:
-        ip = requests.get('https://api.ipify.org', timeout=3).text
-        res['external_ip'] = ip
-    except Exception:
-        res['external_ip'] = ''
-    
     return jsonify(res)
+
+@app.route('/whitelist/auto', methods=['GET'])
+def whitelist_auto():
+    """
+    Bootstrap: if allowlist is empty, add the requester's IP to the allowlist and reload Nginx.
+    Always safe to call from the landing page.
+    """
+    try:
+        docker_net = None
+        try:
+            docker_net = ipaddress.ip_network(DOCKER_SUBNET, strict=False)
+        except Exception:
+            docker_net = None
+
+        current = _read_allowlist()
+        # Treat a list that only contains docker-internal IPs as "empty" for bootstrap purposes.
+        def is_docker_ip(s: str) -> bool:
+            if not docker_net:
+                return False
+            try:
+                return ipaddress.ip_address(s) in docker_net
+            except Exception:
+                return False
+
+        non_docker = [x for x in current if not is_docker_ip(x)]
+        if non_docker:
+            return jsonify({"ok": True, "changed": False, "ips": current})
+
+        ip = _client_ip()
+        try:
+            ip_obj = ipaddress.ip_address(ip)
+            ip = str(ip_obj)
+        except Exception:
+            return jsonify({"ok": False, "error": f"invalid client ip '{ip}'"}), 400
+
+        # Do not allow bootstrapping with docker-internal IPs (common when testing from inside containers).
+        if is_docker_ip(ip):
+            return jsonify({"ok": False, "error": f"refusing to bootstrap with docker-internal ip '{ip}'"}), 400
+
+        # Replace allowlist with the real client IP (and keep any existing non-docker entries)
+        _write_allowlist([ip] + non_docker)
+        reloaded = _reload_nginx()
+        return jsonify({"ok": True, "changed": True, "added": ip, "reloaded": reloaded, "ips": _read_allowlist()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route('/whitelist', methods=['GET'])
+def whitelist_list():
+    if not _authorized(request):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    return jsonify({"ok": True, "ips": _read_allowlist()})
+
+@app.route('/whitelist/add', methods=['POST'])
+def whitelist_add():
+    if not _authorized(request):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
+    ip = (data.get("ip") or request.args.get("ip") or "").strip()
+    try:
+        ip = str(ipaddress.ip_address(ip))
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid ip"}), 400
+    current = _read_allowlist()
+    if ip not in current:
+        current.append(ip)
+        _write_allowlist(current)
+        reloaded = _reload_nginx()
+        return jsonify({"ok": True, "changed": True, "ips": _read_allowlist(), "reloaded": reloaded})
+    return jsonify({"ok": True, "changed": False, "ips": current})
+
+@app.route('/whitelist/remove', methods=['POST'])
+def whitelist_remove():
+    if not _authorized(request):
+        return jsonify({'ok': False, 'error': 'unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
+    ip = (data.get("ip") or request.args.get("ip") or "").strip()
+    try:
+        ip = str(ipaddress.ip_address(ip))
+    except Exception:
+        return jsonify({"ok": False, "error": "invalid ip"}), 400
+    current = _read_allowlist()
+    new_list = [x for x in current if x != ip]
+    if new_list != current:
+        _write_allowlist(new_list)
+        reloaded = _reload_nginx()
+        return jsonify({"ok": True, "changed": True, "ips": _read_allowlist(), "reloaded": reloaded})
+    return jsonify({"ok": True, "changed": False, "ips": current})
 
 @app.route('/updates', methods=['GET'])
 def check_updates():
@@ -365,59 +562,67 @@ def announcements():
     except Exception:
         pass
 
-    # 4) Security and access control monitoring
-    try:
-        # Check UFW firewall status
+    # 4) Optional host-level security checks (disabled by default)
+    if ENABLE_HOST_CHECKS:
         try:
-            ufw_status = subprocess.run(['ufw', 'status'], capture_output=True, text=True, timeout=5)
-            if ufw_status.returncode == 0:
-                ufw_output = ufw_status.stdout.lower()
-                if 'inactive' in ufw_output:
-                    announcements_list.append({
-                        'title': 'Firewall Disabled',
-                        'message': 'UFW firewall is inactive. Run "sudo ./tu-vm.sh secure" to enable secure access control.',
-                        'type': 'warning',
-                        'timestamp': now.isoformat(),
-                        'priority': 'high'
-                    })
-                elif 'allow 80/tcp' in ufw_output and 'allow 443/tcp' in ufw_output:
-                    announcements_list.append({
-                        'title': 'Public Access Enabled',
-                        'message': 'Services are accessible from the internet. Consider switching to secure mode with "sudo ./tu-vm.sh secure" for better security.',
-                        'type': 'warning',
-                        'timestamp': now.isoformat(),
-                        'priority': 'medium'
-                    })
-        except:
-            pass
+            # Check UFW firewall status (if ufw exists)
+            try:
+                if os.path.exists("/usr/sbin/ufw") or os.path.exists("/sbin/ufw") or os.path.exists("/usr/bin/ufw"):
+                    ufw_status = subprocess.run(['ufw', 'status'], capture_output=True, text=True, timeout=5)
+                    if ufw_status.returncode == 0:
+                        ufw_output = (ufw_status.stdout or "").lower()
+                        if 'inactive' in ufw_output:
+                            announcements_list.append({
+                                'title': 'Firewall Disabled',
+                                'message': 'UFW firewall is inactive. Run "sudo ./tu-vm.sh secure" to enable secure access control.',
+                                'type': 'warning',
+                                'timestamp': now.isoformat(),
+                                'priority': 'high'
+                            })
+                        elif 'allow 80/tcp' in ufw_output and 'allow 443/tcp' in ufw_output:
+                            announcements_list.append({
+                                'title': 'Public Access Enabled',
+                                'message': 'Services are accessible from the internet. Consider switching to secure mode with "sudo ./tu-vm.sh secure" for better security.',
+                                'type': 'warning',
+                                'timestamp': now.isoformat(),
+                                'priority': 'medium'
+                            })
+            except Exception:
+                pass
 
-        # Check for failed authentication attempts in logs
-        try:
-            auth_failures = subprocess.run(['grep', '-i', 'failed.*auth', '/var/log/auth.log'], 
-                                        capture_output=True, text=True, timeout=5)
-            if auth_failures.returncode == 0 and auth_failures.stdout:
-                failure_count = len(auth_failures.stdout.strip().split('\n'))
-                if failure_count > 5:
-                    announcements_list.append({
-                        'title': 'Authentication Failures',
-                        'message': f'Found {failure_count} authentication failures in logs. Check for unauthorized access attempts.',
-                        'type': 'warning',
-                        'timestamp': now.isoformat(),
-                        'priority': 'high'
-                    })
-        except:
-            pass
+            # Check for failed authentication attempts in logs (if log exists)
+            try:
+                if os.path.exists('/var/log/auth.log'):
+                    auth_failures = subprocess.run(
+                        ['grep', '-i', 'failed.*auth', '/var/log/auth.log'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if auth_failures.returncode == 0 and auth_failures.stdout:
+                        failure_count = len(auth_failures.stdout.strip().split('\n'))
+                        if failure_count > 5:
+                            announcements_list.append({
+                                'title': 'Authentication Failures',
+                                'message': f'Found {failure_count} authentication failures in logs. Check for unauthorized access attempts.',
+                                'type': 'warning',
+                                'timestamp': now.isoformat(),
+                                'priority': 'high'
+                            })
+            except Exception:
+                pass
 
-        # Check SSL certificate expiration (if using self-signed certs)
-        try:
-            cert_file = '/home/tu/docker/ssl/nginx.crt'
-            if os.path.exists(cert_file):
-                cert_info = subprocess.run(['openssl', 'x509', '-in', cert_file, '-noout', '-dates'], 
-                                         capture_output=True, text=True, timeout=5)
-                if cert_info.returncode == 0:
-                    # Parse certificate dates (simplified check)
-                    if 'notAfter' in cert_info.stdout:
-                        # This is a basic check - in production you'd parse the actual date
+            # Check SSL certificate expiration (if openssl and cert exist)
+            try:
+                cert_file = '/home/tu/docker/ssl/nginx.crt'
+                if os.path.exists(cert_file) and (os.path.exists("/usr/bin/openssl") or os.path.exists("/bin/openssl")):
+                    cert_info = subprocess.run(
+                        ['openssl', 'x509', '-in', cert_file, '-noout', '-dates'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if cert_info.returncode == 0 and 'notAfter' in (cert_info.stdout or ''):
                         announcements_list.append({
                             'title': 'SSL Certificate Check',
                             'message': 'SSL certificate status checked. Consider renewing self-signed certificates periodically.',
@@ -425,11 +630,11 @@ def announcements():
                             'timestamp': now.isoformat(),
                             'priority': 'low'
                         })
-        except:
-            pass
+            except Exception:
+                pass
 
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # 5) Default system status if nothing else
     if not announcements_list:
@@ -454,31 +659,135 @@ def control_service(service, action):
         if not _authorized(request):
             return jsonify({'ok': False, 'error': 'unauthorized'}), 401
 
-        # Map logical service names (from compose) to container names
+        # Map logical service names (from compose) to container names and docker-compose service names
         # Compose sets container_name explicitly for core services
         name_map = {
-            'open-webui': 'ai_openwebui',
-            'n8n': 'ai_n8n',
-            'pihole': 'ai_pihole',
-            'minio': 'ai_minio',
-            'ollama': 'ai_ollama',
-            'tika': 'ai_tika',
-            'nginx': 'ai_nginx'
+            # Dashboard-controlled services (on-demand)
+            'open-webui': ('ai_openwebui', 'open-webui'),
+            'n8n': ('ai_n8n', 'n8n'),
+            'pihole': ('ai_pihole', 'pihole'),
+            'minio': ('ai_minio', 'minio'),
+            'ollama': ('ai_ollama', 'ollama'),
+            'tika': ('ai_tika', 'tika'),
+            'nginx': ('ai_nginx', 'nginx'),
+            # Core services (always running, but can be controlled)
+            'postgres': ('ai_postgres', 'postgres'),
+            'redis': ('ai_redis', 'redis'),
+            'qdrant': ('ai_qdrant', 'qdrant'),
+            # Helper and processor services
+            'helper_index': ('ai_helper_index', 'helper_index'),
+            'helper-index': ('ai_helper_index', 'helper_index'),  # Alternative name
+            'tika-minio-processor': ('tika_minio_processor', 'tika_minio_processor'),
+            'tika_minio_processor': ('tika_minio_processor', 'tika_minio_processor')
         }
-        container = name_map.get(service, service)
+        
+        container_info = name_map.get(service)
+        if container_info:
+            container, compose_service = container_info
+        else:
+            container = service
+            compose_service = service
 
+        # Validate action
+        if action not in ('start', 'stop'):
+            return jsonify({'ok': False, 'error': 'invalid action. Use "start" or "stop"'}), 400
+
+        # Check if container exists before trying to start it
         if action == 'start':
+            container_info = docker_inspect(container)
+            if not container_info:
+                return jsonify({
+                    'ok': False,
+                    'error': (
+                        f'Container {container} does not exist. '
+                        f'Create it on the host with: docker compose up -d --no-start {compose_service}'
+                    )
+                }), 404
+            
+            # Check if already running
+            if container_info.get('State', {}).get('Running', False):
+                return jsonify({'ok': True, 'message': f'Container {container} is already running'})
+            
             r = docker_post(f"/containers/{container}/start")
         elif action == 'stop':
+            container_info = docker_inspect(container)
+            if not container_info:
+                return jsonify({
+                    'ok': False,
+                    'error': f'Container {container} not found'
+                }), 404
+            
+            if not container_info.get('State', {}).get('Running', False):
+                return jsonify({'ok': True, 'message': f'Container {container} is already stopped'})
+            
             r = docker_post(f"/containers/{container}/stop")
-        else:
-            return jsonify({'ok': False, 'error': 'invalid action'}), 400
 
         if r.status_code in (204, 304):
-            return jsonify({'ok': True})
-        return jsonify({'ok': False, 'status': r.status_code, 'body': r.text}), 500
+            return jsonify({'ok': True, 'message': f'Container {container} {action}ed successfully'})
+        
+        # Provide better error messages
+        try:
+            error_body = r.json() if r.text else {}
+            error_msg = error_body.get('message', r.text) if r.text else 'Unknown error'
+        except:
+            error_msg = r.text if r.text else 'Unknown error'
+        
+        if r.status_code == 404:
+            error_msg = f"Container {container} not found. It may need to be created first."
+        elif r.status_code == 409:
+            error_msg = f"Container {container} is already in the desired state (already {action}ed)"
+        elif r.status_code == 500:
+            error_msg = f"Internal server error while {action}ing container {container}: {error_msg}"
+        
+        return jsonify({'ok': False, 'status': r.status_code, 'error': error_msg}), r.status_code if r.status_code >= 400 else 500
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+# Individual service status endpoints for dashboard
+@app.route('/status/oweb', methods=['GET'])
+def status_oweb():
+    try:
+        s = socket.create_connection(('ai_openwebui', 8080), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/n8n', methods=['GET'])
+def status_n8n():
+    try:
+        s = socket.create_connection(('ai_n8n', 5678), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/pihole', methods=['GET'])
+def status_pihole():
+    try:
+        s = socket.create_connection(('ai_pihole', 80), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/ollama', methods=['GET'])
+def status_ollama():
+    try:
+        s = socket.create_connection(('ai_ollama', 11434), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/minio', methods=['GET'])
+def status_minio():
+    try:
+        s = socket.create_connection(('ai_minio', 9000), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
 
 @app.route('/health', methods=['GET'])
 def health():

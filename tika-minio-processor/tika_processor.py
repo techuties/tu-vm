@@ -14,6 +14,7 @@ from pathlib import Path
 import socket
 from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError
+from urllib.parse import quote
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -89,16 +90,29 @@ class TikaMinIOProcessor:
             logger.info(f"🔄 Processing PDF with Tika: {filename}")
             
             # Send to Tika for processing (use PUT for text extraction)
+            # Request plain text format explicitly - without Accept header, Tika returns HTML
+            # Enable OCR for image-based PDFs: ocr_and_text_extraction will use OCR when no text is found
             response = requests.put(
                 f"{self.tika_url}/tika",
                 data=pdf_content,
-                headers={'Content-Type': 'application/pdf'},
-                timeout=60
+                headers={
+                    'Content-Type': 'application/pdf',
+                    'Accept': 'text/plain',  # Explicitly request plain text, not HTML
+                    'X-Tika-PDFOcrStrategy': 'ocr_and_text_extraction'  # Enable OCR for image-based/scanned PDFs
+                },
+                timeout=120  # Increased timeout for OCR processing (can be slower)
             )
             
             if response.status_code == 200:
                 # Extract text content
-                text_content = response.text
+                text_content = response.text.strip()
+                
+                # Check if text extraction resulted in empty or minimal content
+                # This can happen with form-based PDFs, image-only PDFs, or scanned documents
+                if not text_content or len(text_content) < 10:
+                    logger.warning(f"⚠️ PDF '{filename}' has no extractable text content (may be form-based, image-only, or scanned document)")
+                    # Still return success but note the empty content
+                    text_content = f"[No extractable text found in PDF. This may be a form-based PDF, image-only PDF, or scanned document that requires OCR.]"
                 
                 # Get metadata (use PUT for metadata extraction)
                 metadata_response = requests.put(
@@ -147,10 +161,12 @@ class TikaMinIOProcessor:
             object_key = f"{stem}.txt" if parent == '' else f"{parent}/{stem}.txt"
             
             # Prepare metadata
+            # S3 metadata can only contain ASCII characters, so we URL-encode the filename
+            original_filename = Path(original_object_key).name
             s3_metadata = {
                 'Content-Type': 'text/plain',
                 'processed-by': 'tika',
-                'original-filename': Path(original_object_key).name,
+                'original-filename': quote(original_filename, safe=''),  # URL-encode to ensure ASCII-only
                 'processing-timestamp': str(timestamp)
             }
             

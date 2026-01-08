@@ -60,10 +60,13 @@
   .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
   
   /* Notification system */
-  .notification { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; max-width: 300px; z-index: 1000; display: none; }
+  .notification { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; max-width: 300px; z-index: 1000; display: none; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
   .notification.show { display: block; animation: slideIn 0.3s ease-out; }
   .notification-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .notification-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  .notification-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+  .notification-icon.success { background: #0d1f17; color: #6fe0b8; }
+  .notification-icon.error { background: #281215; color: #ff9aa7; }
+  .notification-icon.info { background: #1a2332; color: #6bb6ff; }
   .notification-icon.update { background: #0d1f17; color: #6fe0b8; }
   .notification-icon.warning { background: #2a2314; color: #ffdd8b; }
   .notification-title { font-weight: 600; color: var(--fg); }
@@ -117,11 +120,12 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih, minio, full, updates] = await Promise.all([
+  const [land, oweb, n8n, pih, ollama, minio, full, updates] = await Promise.all([
     Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
     probe('/status/pihole'),
+    probe('/status/ollama'),
     probe('/status/minio'),
     fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({})),
     fetch('/status/updates').then(r=>r.ok?r.json():{}).catch(()=>({}))
@@ -129,12 +133,21 @@ async function refreshStatuses(){
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
+  setBadge('badge-ollama', ollama);
   setBadge('badge-minio', minio);
   // Update control buttons state
   setServiceButtons('oweb', oweb.ok);
   setServiceButtons('n8n', n8n.ok);
   setServiceButtons('pihole', pih.ok);
+  setServiceButtons('ollama', ollama.ok);
   setServiceButtons('minio', minio.ok);
+  
+  // Update status indicators
+  updateServiceStatus('oweb', oweb.ok, oweb.ms);
+  updateServiceStatus('n8n', n8n.ok, n8n.ms);
+  updateServiceStatus('pihole', pih.ok, pih.ms);
+  updateServiceStatus('ollama', ollama.ok, ollama.ms);
+  updateServiceStatus('minio', minio.ok, minio.ms);
   
   // Check for updates and show notification
   checkUpdateNotifications(updates);
@@ -171,20 +184,125 @@ function setServiceButtons(id, running){
   startBtn.disabled = running;
   stopBtn.disabled = !running;
 }
+
+function updateServiceStatus(id, isRunning, responseTime){
+  const statusEl = document.getElementById(`status-${id}`);
+  if(!statusEl) return;
+  
+  if(isRunning){
+    statusEl.textContent = `Status: Running (${responseTime}ms)`;
+    statusEl.style.color = '#6fe0b8';
+  } else {
+    statusEl.textContent = `Status: Stopped`;
+    statusEl.style.color = '#ff9aa7';
+  }
+}
+
+function setServiceLoading(id, loading, action){
+  const startBtn = document.getElementById(`btn-${id}-start`);
+  const stopBtn = document.getElementById(`btn-${id}-stop`);
+  if(!startBtn||!stopBtn) return;
+  
+  if(loading){
+    startBtn.disabled = true;
+    stopBtn.disabled = true;
+    startBtn.textContent = action === 'start' ? 'Starting...' : 'Start';
+    stopBtn.textContent = action === 'stop' ? 'Stopping...' : 'Stop';
+  } else {
+    startBtn.disabled = false;
+    stopBtn.disabled = false;
+    startBtn.textContent = 'Start';
+    stopBtn.textContent = 'Stop';
+  }
+}
+
+function showNotification(message, type = 'info'){
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <div class="notification-header">
+      <div class="notification-icon ${type}">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</div>
+      <div class="notification-title">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</div>
+    </div>
+    <div class="notification-message">${message}</div>
+  `;
+  
+  // Add to page
+  document.body.appendChild(notification);
+  
+  // Show notification
+  setTimeout(() => notification.classList.add('show'), 100);
+  
+  // Auto-hide after 3 seconds
+  setTimeout(() => {
+    notification.classList.remove('show');
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
 async function controlService(service, action){
+  const serviceId = service.replace('open-webui', 'oweb').replace('ai_', '');
+  setServiceLoading(serviceId, true, action);
+  
   try{
     const token = localStorage.getItem('control-token')||'';
     const r = await fetch(`/control/${service}/${action}`, {
       method: 'POST',
       headers: { 'X-Control-Token': token }
     });
+    
     if(!r.ok){
       const t = await r.text();
-      alert(`Failed to ${action} ${service}: ${t}`);
+      showNotification(`Failed to ${action} ${service}: ${t}`, 'error');
+      setServiceLoading(serviceId, false);
+      return;
     }
-    setTimeout(refreshStatuses, 500);
+    
+    const result = await r.json();
+    if(result.ok){
+      showNotification(`${service} ${action} command sent successfully`, 'success');
+      
+      // Poll for status change with timeout
+      let attempts = 0;
+      const maxAttempts = 20; // 20 seconds timeout
+      const pollStatus = async () => {
+        attempts++;
+        try {
+          const statusResponse = await fetch(`/status/${serviceId}`);
+          const isRunning = statusResponse.ok;
+          
+          if((action === 'start' && isRunning) || (action === 'stop' && !isRunning)){
+            showNotification(`${service} ${action} completed successfully`, 'success');
+            setServiceLoading(serviceId, false);
+            refreshStatuses();
+            return;
+          }
+          
+          if(attempts >= maxAttempts){
+            showNotification(`${service} ${action} taking longer than expected. Check status manually.`, 'info');
+            setServiceLoading(serviceId, false);
+            refreshStatuses();
+            return;
+          }
+          
+          setTimeout(pollStatus, 1000); // Poll every second
+        } catch(e) {
+          showNotification(`Error checking ${service} status: ${e.message}`, 'error');
+          setServiceLoading(serviceId, false);
+          refreshStatuses();
+        }
+      };
+      
+      // Start polling after 2 seconds
+      setTimeout(pollStatus, 2000);
+    } else {
+      showNotification(`Failed to ${action} ${service}: ${result.error || 'Unknown error'}`, 'error');
+      setServiceLoading(serviceId, false);
+    }
   }catch(e){
-    alert(`Error: ${e}`);
+    showNotification(`Error: ${e.message}`, 'error');
+    setServiceLoading(serviceId, false);
   }
 }
 function startAutoRefresh(){
@@ -233,7 +351,111 @@ function runUpdate() {
   alert('To run updates, please SSH into the VM and run: sudo ./tu-vm.sh update');
 }
 
+async function allowlistAutoEnroll(){
+  // helper_index can take a bit to come up (it installs deps on boot).
+  // Retry for a short window so first-visit bootstrap is reliable.
+  const deadline = Date.now() + 30000;
+  let delay = 500;
+  while(Date.now() < deadline){
+    try{
+      const r = await fetch('/whitelist/auto', { method:'GET', cache:'no-store' });
+      if(r.ok) return;
+    }catch(e){}
+    await new Promise(res=>setTimeout(res, delay));
+    delay = Math.min(3000, Math.floor(delay * 1.6));
+  }
+}
+
+async function fetchAllowlist(){
+  const token = localStorage.getItem('control-token')||'';
+  const r = await fetch('/whitelist', { headers: { 'X-Control-Token': token }});
+  if(!r.ok) throw new Error(await r.text());
+  return await r.json();
+}
+
+function renderAllowlist(ips){
+  const list = document.getElementById('allowlist-list');
+  if(!list) return;
+  list.innerHTML = '';
+  (ips||[]).forEach(ip=>{
+    const row = document.createElement('div');
+    row.className = 'row-inline';
+    row.style = 'justify-content:space-between';
+    row.innerHTML = `
+      <div class="mono">${ip}</div>
+      <button class="btn btn-sm" data-ip="${ip}">Remove</button>
+    `;
+    row.querySelector('button').addEventListener('click', async (ev)=>{
+      const ip = ev.target.getAttribute('data-ip');
+      await allowlistRemove(ip);
+    });
+    list.appendChild(row);
+  });
+  if((ips||[]).length===0){
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'No IPs allowed yet. The first visitor can be auto-enrolled.';
+    list.appendChild(empty);
+  }
+}
+
+async function refreshAllowlist(){
+  try{
+    const data = await fetchAllowlist();
+    renderAllowlist(data.ips||[]);
+  }catch(e){
+    // If blocked, try bootstrap once then re-try list.
+    await allowlistAutoEnroll();
+    try{
+      const data = await fetchAllowlist();
+      renderAllowlist(data.ips||[]);
+      return;
+    }catch(e2){}
+    // If still unauthorized/blocked, show minimal hint
+    const list = document.getElementById('allowlist-list');
+    if(list){
+      list.innerHTML = `<div class="muted">Allowlist unavailable (${e.message}). Check CONTROL_TOKEN and IP allowlist.</div>`;
+    }
+  }
+}
+
+async function allowlistAdd(ip){
+  const token = localStorage.getItem('control-token')||'';
+  const r = await fetch('/whitelist/add', {
+    method:'POST',
+    headers: { 'Content-Type':'application/json', 'X-Control-Token': token },
+    body: JSON.stringify({ ip })
+  });
+  if(!r.ok) throw new Error(await r.text());
+  await refreshAllowlist();
+}
+
+async function allowlistRemove(ip){
+  const token = localStorage.getItem('control-token')||'';
+  const r = await fetch('/whitelist/remove', {
+    method:'POST',
+    headers: { 'Content-Type':'application/json', 'X-Control-Token': token },
+    body: JSON.stringify({ ip })
+  });
+  if(!r.ok) throw new Error(await r.text());
+  await refreshAllowlist();
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
+  // Control token is required for service management; do not overwrite an existing token.
+  // If you haven't set one yet, set CONTROL_TOKEN in .env and then paste it into localStorage once.
+  if(localStorage.getItem('control-token') === null){
+    localStorage.setItem('control-token', '');
+  }
+  // Populate token input (if present)
+  try{
+    const tok = localStorage.getItem('control-token')||'';
+    const el = document.getElementById('control-token-input');
+    if(el) el.value = tok;
+  }catch(e){}
+  // Bootstrap: record first visitor IP (only when allowlist is empty)
+  allowlistAutoEnroll();
+  refreshAllowlist();
   startAutoRefresh();
   // Load announcements on page load
   setTimeout(() => {
@@ -371,6 +593,7 @@ function renderAnnouncementsDropdown(){
             <button id="btn-n8n-start" class="btn btn-sm" onclick="controlService('n8n','start')">Start</button>
             <button id="btn-n8n-stop" class="btn btn-sm" onclick="controlService('n8n','stop')">Stop</button>
           </div>
+          <div id="status-n8n" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
         </div>
         <div class="card">
           <span id="badge-pihole" class="badge warn">checking…</span>
@@ -381,12 +604,22 @@ function renderAnnouncementsDropdown(){
           </div>
         </div>
         <div class="card">
+          <span id="badge-ollama" class="badge warn">checking…</span>
+          <a href="https://ollama.tu.local/"><div class="name">Ollama AI</div><div class="url">ollama.tu.local</div></a>
+          <div class="row" style="margin-top:8px">
+            <button id="btn-ollama-start" class="btn btn-sm" onclick="controlService('ollama','start')">Start</button>
+            <button id="btn-ollama-stop" class="btn btn-sm" onclick="controlService('ollama','stop')">Stop</button>
+          </div>
+          <div id="status-ollama" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
+        </div>
+        <div class="card">
           <span id="badge-minio" class="badge warn">checking…</span>
           <a href="https://minio.tu.local/"><div class="name">MinIO Console</div><div class="url">minio.tu.local</div></a>
           <div class="row" style="margin-top:8px">
             <button id="btn-minio-start" class="btn btn-sm" onclick="controlService('minio','start')">Start</button>
             <button id="btn-minio-stop" class="btn btn-sm" onclick="controlService('minio','stop')">Stop</button>
           </div>
+          <div id="status-minio" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
         </div>
       </div>
       <div class="section-title">VM Access</div>
@@ -405,6 +638,30 @@ function renderAnnouncementsDropdown(){
         <div class="kpi"><div class="muted">CPU Cores</div><div id="kpi-cpu" class="name">—</div></div>
         <div class="kpi"><div class="muted">Memory</div><div id="kpi-mem" class="name">—</div></div>
         <div class="kpi"><div class="muted">Disk</div><div id="kpi-disk" class="name">—</div></div>
+      </div>
+    </div>
+
+    <div class="hero" style="margin-top:16px">
+      <div class="hero-head">
+        <div>
+          <h1 style="font-size:18px;margin:0">Access Control</h1>
+          <p class="lead">Only IPs on the allowlist can use <code>/control/*</code> and manage the allowlist.</p>
+        </div>
+      </div>
+      <div class="section-title">Control Token</div>
+      <div class="row" style="margin-top:8px">
+        <input id="control-token-input" type="text" placeholder="Paste CONTROL_TOKEN here (required for control + allowlist changes)" />
+        <button class="btn" onclick="(()=>{ const v=document.getElementById('control-token-input').value.trim(); localStorage.setItem('control-token', v); showNotification('Token saved in browser','success'); refreshAllowlist(); })()">Save</button>
+      </div>
+      <div class="section-title">IP Allowlist</div>
+      <div class="row" style="margin-top:8px">
+        <input id="allowlist-ip" type="text" placeholder="Add IP (e.g. 192.168.1.25 or 2001:db8::1)" />
+        <button class="btn" onclick="(async()=>{ const ip=document.getElementById('allowlist-ip').value.trim(); if(!ip) return; try{ await allowlistAdd(ip); document.getElementById('allowlist-ip').value=''; }catch(e){ showNotification(e.message,'error'); } })()">Add</button>
+        <button class="btn" onclick="refreshAllowlist()">Refresh</button>
+      </div>
+      <div id="allowlist-list" class="kpi" style="margin-top:10px"></div>
+      <div class="muted" style="margin-top:10px">
+        Tip: first visit from a client will auto-enroll that client IP once (via <code>/whitelist/auto</code>).
       </div>
     </div>
 

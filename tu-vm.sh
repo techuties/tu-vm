@@ -24,21 +24,194 @@ readonly ENV_FILE=".env"
 readonly BACKUP_DIR="backups"
 readonly LOG_FILE="tu-vm.log"
 
+#
 # Service configuration
-readonly SERVICES=(
-    "postgres:5432"
-    "redis:6379"
-    "qdrant:6333"
-    "ollama:11434"
-    "open-webui:8080"
-    "n8n:5678"
-    "pihole:80"
-    "nginx:80"
-    "helper_index:9001"
-    "tika:9998"
-    "minio:9000"
-    "minio:9001"
+#
+# Tier 1: expected to run for "core" platform usage (energy-friendly defaults)
+# Tier 2: on-demand services (do NOT auto-start; controlled via dashboard or tu-vm.sh)
+#
+readonly TIER1_SERVICES=(
+    "postgres"
+    "redis"
+    "qdrant"
+    "tika"
+    "open-webui"
+    "pihole"
+    "nginx"
+    "helper_index"
+    "tika_minio_processor"
 )
+
+readonly TIER2_SERVICES=(
+    "ollama"
+    "n8n"
+    "minio"
+)
+
+# Map compose service name -> container_name (when it doesn't follow ai_<service>)
+declare -A SERVICE_CONTAINER=(
+    ["postgres"]="ai_postgres"
+    ["redis"]="ai_redis"
+    ["qdrant"]="ai_qdrant"
+    ["ollama"]="ai_ollama"
+    ["open-webui"]="ai_openwebui"
+    ["n8n"]="ai_n8n"
+    ["pihole"]="ai_pihole"
+    ["nginx"]="ai_nginx"
+    ["helper_index"]="ai_helper_index"
+    ["tika"]="ai_tika"
+    ["minio"]="ai_minio"
+    ["tika_minio_processor"]="tika_minio_processor"
+)
+
+# =============================================================================
+# ACCESS CONTROL (IP ALLOWLIST)
+# =============================================================================
+
+readonly NGINX_ALLOWLIST_FILE="nginx/dynamic/control_allowlist.conf"
+
+reload_nginx() {
+    # Reload nginx config/includes without full restart
+    docker kill -s HUP ai_nginx >/dev/null 2>&1 || true
+}
+
+whitelist_list() {
+    if [[ ! -f "$NGINX_ALLOWLIST_FILE" ]]; then
+        echo "Allowlist file not found: $NGINX_ALLOWLIST_FILE"
+        return 1
+    fi
+    echo "Allowed IPs:"
+    python3 - <<'PY' "$NGINX_ALLOWLIST_FILE"
+import sys
+from pathlib import Path
+import ipaddress
+
+p = Path(sys.argv[1])
+for line in p.read_text().splitlines():
+    line = line.strip()
+    if not line.startswith("allow "):
+        continue
+    raw = line[len("allow "):].strip().rstrip(";").strip()
+    try:
+        print(str(ipaddress.ip_address(raw)))
+    except Exception:
+        continue
+PY
+}
+
+whitelist_add() {
+    local ip="${1:-}"
+    if [[ -z "$ip" ]]; then
+        # Auto-detect the local IP of the machine running this script (best effort).
+        # This is useful when running tu-vm.sh from a local terminal (non-SSH workflows).
+        ip=$(get_vm_ip 2>/dev/null || true)
+        if [[ -z "$ip" ]]; then
+            # Fallback to public IP if local detection fails
+            ip=$(curl -fsS --max-time 3 https://api.ipify.org 2>/dev/null || true)
+        fi
+        if [[ -z "$ip" ]]; then
+            error "No IP provided and could not auto-detect IP. Usage: ./$SCRIPT_NAME whitelist-add <ip>"
+        fi
+        info "Auto-detected IP: $ip"
+    fi
+
+    # Validate IP
+    if ! python3 - <<PY >/dev/null 2>&1
+import ipaddress,sys
+ipaddress.ip_address("$ip")
+PY
+    then
+        error "Invalid IP: $ip"
+    fi
+
+    mkdir -p "$(dirname "$NGINX_ALLOWLIST_FILE")"
+    python3 - <<'PY' "$NGINX_ALLOWLIST_FILE" "$ip"
+import sys
+from pathlib import Path
+import ipaddress
+
+path = Path(sys.argv[1])
+ip = str(ipaddress.ip_address(sys.argv[2]))
+
+existing = []
+if path.exists():
+    for ln in path.read_text().splitlines():
+        ln = ln.strip()
+        if ln.startswith("allow "):
+            raw = ln[len("allow "):].strip().rstrip(";").strip()
+            try:
+                existing.append(str(ipaddress.ip_address(raw)))
+            except Exception:
+                pass
+
+if ip not in existing:
+    existing.append(ip)
+
+header = [
+    "# Dynamic allowlist for sensitive endpoints (e.g. /control/, /whitelist/*)",
+    "# Managed by helper_index and/or tu-vm.sh.",
+    "#",
+    "# Format:",
+    "#   allow 192.0.2.10;",
+    "#   allow 2001:db8::1;",
+    "#   deny all;",
+    "",
+]
+tmp = path.with_suffix(path.suffix + ".tmp")
+tmp.write_text("\n".join(header + [f\"allow {x};\" for x in existing] + [\"deny all;\", \"\"]))
+tmp.replace(path)
+PY
+
+    reload_nginx
+    info "Added to allowlist: $ip (nginx reloaded)"
+}
+
+whitelist_remove() {
+    local ip="${1:-}"
+    if [[ -z "$ip" ]]; then
+        error "Usage: ./$SCRIPT_NAME whitelist-remove <ip>"
+    fi
+    if [[ ! -f "$NGINX_ALLOWLIST_FILE" ]]; then
+        error "Allowlist file not found: $NGINX_ALLOWLIST_FILE"
+    fi
+    python3 - <<'PY' "$NGINX_ALLOWLIST_FILE" "$ip"
+import sys
+from pathlib import Path
+import ipaddress
+
+path = Path(sys.argv[1])
+target = str(ipaddress.ip_address(sys.argv[2]))
+
+existing = []
+if path.exists():
+    for ln in path.read_text().splitlines():
+        ln = ln.strip()
+        if ln.startswith("allow "):
+            raw = ln[len("allow "):].strip().rstrip(";").strip()
+            try:
+                ip = str(ipaddress.ip_address(raw))
+            except Exception:
+                continue
+            if ip != target:
+                existing.append(ip)
+
+header = [
+    "# Dynamic allowlist for sensitive endpoints (e.g. /control/, /whitelist/*)",
+    "# Managed by helper_index and/or tu-vm.sh.",
+    "#",
+    "# Format:",
+    "#   allow 192.0.2.10;",
+    "#   allow 2001:db8::1;",
+    "#   deny all;",
+    "",
+]
+tmp = path.with_suffix(path.suffix + ".tmp")
+tmp.write_text("\n".join(header + [f\"allow {x};\" for x in existing] + [\"deny all;\", \"\"]))
+tmp.replace(path)
+PY
+    reload_nginx
+    info "Removed from allowlist: $ip (nginx reloaded)"
+}
 
 # =============================================================================
 # LOGGING SYSTEM
@@ -195,74 +368,85 @@ get_network_prefix() {
     echo "$vm_ip" | cut -d. -f1-3
 }
 
-# Check if service is healthy
-check_service_health() {
-    local service_name="$1"
-    local port="$2"
-    local max_attempts=5
-    local attempt=1
-    
-    debug "Checking health of $service_name..."
-    
-    while [[ $attempt -le $max_attempts ]]; do
-        # Check Docker health status first
-        local health_status=$(docker compose ps --format json | jq -r "select(.Name==\"ai_$service_name\") | .Health" 2>/dev/null)
-        
-        if [[ "$health_status" == "healthy" ]]; then
-            debug "$service_name is healthy (Docker health check)"
-            return 0
-        fi
-        
-        # Check if container is running
-        local container_status=$(docker compose ps --format json | jq -r "select(.Name==\"ai_$service_name\") | .State" 2>/dev/null)
-        
-        if [[ "$container_status" == "running" ]]; then
-            # For services without health checks, try to connect to their port
-            if [[ "$health_status" == "none" || "$health_status" == "null" ]]; then
-                if [[ -n "$port" && "$port" != "0" ]]; then
-                    if timeout 3 bash -c "echo > /dev/tcp/127.0.0.1/$port" 2>/dev/null; then
-                        debug "$service_name is running and port $port is accessible"
-                        return 0
-                    else
-                        debug "Attempt $attempt/$max_attempts: $service_name running but port $port not accessible yet..."
-                    fi
-                else
-                    debug "$service_name is running (no port check needed)"
-                    return 0
-                fi
-            else
-                debug "$service_name is running (Docker status)"
-                return 0
-            fi
-        fi
-        
-        debug "Attempt $attempt/$max_attempts: $service_name not ready yet..."
-        sleep 2
-        ((attempt++))
-    done
-    
-    warn "$service_name health check failed after $max_attempts attempts"
-    return 1
+# Get container name for a compose service
+get_container_name() {
+    local service="$1"
+    local c="${SERVICE_CONTAINER[$service]:-}"
+    if [[ -n "$c" ]]; then
+        echo "$c"
+    else
+        # Fallback: best effort
+        echo "ai_${service}"
+    fi
 }
 
-# Wait for services to be ready
+# Check if a service container is healthy (or at least running when no healthcheck exists)
+check_service_health() {
+    local service="$1"
+    local container
+    container="$(get_container_name "$service")"
+
+    debug "Checking health of $service ($container)..."
+
+    # Does the container exist?
+    if ! docker inspect "$container" >/dev/null 2>&1; then
+        debug "$service container not found: $container"
+        return 1
+    fi
+
+    local running
+    running="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo "false")"
+    if [[ "$running" != "true" ]]; then
+        return 1
+    fi
+
+    local health
+    health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container" 2>/dev/null || echo "none")"
+    case "$health" in
+        healthy|none)
+            return 0
+            ;;
+        starting)
+            return 1
+            ;;
+        unhealthy)
+            return 1
+            ;;
+        *)
+            # Unknown health state; treat running as "ok" to avoid false negatives.
+            return 0
+            ;;
+    esac
+}
+
+# Wait for a list of services to be ready
 wait_for_services() {
     info "Waiting for services to be ready..."
-    local failed_services=()
-    
-    for service_info in "${SERVICES[@]}"; do
-        IFS=':' read -r service_name port <<< "$service_info"
-        if ! check_service_health "$service_name" "$port"; then
-            failed_services+=("$service_name")
+    local -a services=("$@")
+    local -a failed_services=()
+
+    for service in "${services[@]}"; do
+        local max_attempts=10
+        local attempt=1
+        while [[ $attempt -le $max_attempts ]]; do
+            if check_service_health "$service"; then
+                break
+            fi
+            debug "Attempt $attempt/$max_attempts: $service not ready yet..."
+            sleep 2
+            ((attempt++))
+        done
+        if [[ $attempt -gt $max_attempts ]]; then
+            failed_services+=("$service")
         fi
     done
-    
+
     if [[ ${#failed_services[@]} -gt 0 ]]; then
         warn "Some services failed health checks: ${failed_services[*]}"
         return 1
     fi
-    
-    info "All services are ready!"
+
+    info "All required services are ready!"
     return 0
 }
 
@@ -309,6 +493,11 @@ show_help() {
     echo "  generate-secrets         Generate secure passwords and keys"
     echo "  validate-security        Validate security configuration"
     echo ""
+    echo -e "${WHITE}IP Allowlist:${NC}"
+    echo "  whitelist-list           List allowed IPs for control endpoints"
+    echo "  whitelist-add [ip]       Add an IP (auto-detect public IP if omitted)"
+    echo "  whitelist-remove <ip>    Remove an IP"
+    echo ""
     echo -e "${WHITE}Diagnostics:${NC}"
     echo "  health                   Check service health"
     echo "  test                     Test all service endpoints"
@@ -345,20 +534,36 @@ show_help() {
 
 # Start services
 start_services() {
-    info "Starting $PROJECT_NAME services..."
-    
+    local mode="tier1"
+    case "${1:-}" in
+        --all) mode="all"; shift ;;
+        --tier1|"") mode="tier1"; shift ;;
+    esac
+
+    if [[ "$mode" == "all" ]]; then
+        info "Starting $PROJECT_NAME services (Tier 1 + Tier 2)..."
+    else
+        info "Starting $PROJECT_NAME services (Tier 1 only - energy friendly)..."
+    fi
+
     check_docker
     check_docker_compose
     check_env_file
     
     local compose_cmd=$(get_docker_compose_cmd)
-    
-    # Start services
-    $compose_cmd up -d
-    
-    # Wait for services to be ready
-    if wait_for_services; then
-        info "All services started successfully!"
+
+    if [[ "$mode" == "all" ]]; then
+        # Start everything (Tier 2 services will be started as well)
+        $compose_cmd up -d
+    else
+        # Start only Tier 1 services, and ensure Tier 2 containers exist but remain stopped
+        $compose_cmd up -d "${TIER1_SERVICES[@]}"
+        $compose_cmd up -d --no-start "${TIER2_SERVICES[@]}" >/dev/null 2>&1 || true
+    fi
+
+    # Wait for required services to be ready
+    if wait_for_services "${TIER1_SERVICES[@]}"; then
+        info "Tier 1 services are ready!"
         
         # Note: Tika is configured as default in docker-compose.yml
         
@@ -391,13 +596,15 @@ setup_minio_buckets() {
         return 0
     fi
     
-    # Wait for MinIO to be ready
+    # Wait for MinIO to be ready (probe via mc container; MinIO server image often lacks mc)
     info "Waiting for MinIO to be ready..."
     local max_attempts=30
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if docker exec ai_minio mc version >/dev/null 2>&1; then
+        if docker run --rm --network docker_ai_network minio/mc \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local >/dev/null" \
+            >/dev/null 2>&1; then
             break
         fi
         sleep 2
@@ -409,12 +616,6 @@ setup_minio_buckets() {
         return 0
     fi
     
-    # Configure MinIO client
-    info "Configuring MinIO client..."
-    docker exec ai_minio mc alias set local "http://localhost:9000" "admin" "${MINIO_ROOT_PASSWORD:-minio123456}" 2>/dev/null || {
-        warn "MinIO client might already be configured"
-    }
-    
     # Required buckets
     local buckets=(
         "tika-pipe"
@@ -422,16 +623,21 @@ setup_minio_buckets() {
         "shared-documents"
         "thumbnails"
         "metadata"
+        "processed-documents"
     )
     
     # Create buckets
     info "Creating required MinIO buckets..."
     for bucket in "${buckets[@]}"; do
-        if docker exec ai_minio mc ls "local/$bucket" >/dev/null 2>&1; then
+        if docker run --rm --network docker_ai_network minio/mc \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/'$bucket' >/dev/null" \
+            >/dev/null 2>&1; then
             info "Bucket $bucket already exists"
         else
             info "Creating bucket: $bucket"
-            docker exec ai_minio mc mb "local/$bucket" 2>/dev/null || {
+            docker run --rm --network docker_ai_network minio/mc \
+                sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc mb local/'$bucket' >/dev/null" \
+                >/dev/null 2>&1 || {
                 warn "Failed to create bucket $bucket"
             }
         fi
@@ -439,16 +645,37 @@ setup_minio_buckets() {
     
     # Create folder structure
     info "Creating folder structure..."
-    docker exec ai_minio mc cp /dev/null "local/tika-pipe/.gitkeep" 2>/dev/null || true
-    docker exec ai_minio mc cp /dev/null "local/n8n-workflows/inputs/.gitkeep" 2>/dev/null || true
-    docker exec ai_minio mc cp /dev/null "local/n8n-workflows/outputs/.gitkeep" 2>/dev/null || true
-    docker exec ai_minio mc cp /dev/null "local/shared-documents/company/.gitkeep" 2>/dev/null || true
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/tika-pipe/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/n8n-workflows/inputs/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/n8n-workflows/outputs/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/shared-documents/company/.gitkeep >/dev/null 2>&1 || true"
     
     info "✅ MinIO buckets setup complete"
 }
 
 # Ensure rclone is installed and mount MinIO buckets to host for transparent S3 storage
 mount_minio_storage() {
+    # Only meaningful when MinIO is running (Tier 2 / on-demand)
+    if ! docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+        info "MinIO is not running; skipping rclone mount setup."
+        return 0
+    fi
+
+    # rclone mount requires root privileges (fuse config, /etc/rclone, /mnt)
+    if [[ $EUID -ne 0 ]]; then
+        warn "MinIO mount setup requires root. Run: sudo ./$SCRIPT_NAME start-service minio"
+        return 0
+    fi
+
+    # Resolve MinIO password from env/.env (used for rclone config)
+    local minio_pass="${MINIO_ROOT_PASSWORD:-}"
+    if [[ -z "$minio_pass" && -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        minio_pass="${MINIO_ROOT_PASSWORD:-}"
+    fi
+    minio_pass="${minio_pass:-minio123456}"
+
     info "Configuring transparent MinIO mount (rclone) for host access..."
     
     # Install rclone if missing
@@ -482,7 +709,7 @@ EOF
     
     # Create mount points
     local base_mount="/mnt/minio"
-    sudo mkdir -p "$base_mount/openwebui" "$base_mount/n8n" "$base_mount/shared"
+    sudo mkdir -p "$base_mount/tika-pipe" "$base_mount/n8n" "$base_mount/shared"
     
     # Mount helper (idempotent)
     mount_minio_bucket() {
@@ -505,7 +732,7 @@ EOF
     }
     
     # Attempt mounts (buckets created earlier)
-    mount_minio_bucket "openwebui-files" "$base_mount/openwebui"
+    mount_minio_bucket "tika-pipe" "$base_mount/tika-pipe"
     mount_minio_bucket "n8n-workflows" "$base_mount/n8n"
     mount_minio_bucket "shared-documents" "$base_mount/shared"
     
@@ -596,12 +823,23 @@ show_status() {
     
     # Service health
     echo -e "${WHITE}Service Health:${NC}"
-    for service_info in "${SERVICES[@]}"; do
-        IFS=':' read -r service_name port <<< "$service_info"
-        if check_service_health "$service_name" "$port" 2>/dev/null; then
-            echo -e "  ${GREEN}${ICON_SUCCESS}${NC} $service_name"
+    echo -e "  ${WHITE}Tier 1 (required):${NC}"
+    for service in "${TIER1_SERVICES[@]}"; do
+        if check_service_health "$service" 2>/dev/null; then
+            echo -e "    ${GREEN}${ICON_SUCCESS}${NC} $service"
         else
-            echo -e "  ${RED}${ICON_ERROR}${NC} $service_name"
+            echo -e "    ${RED}${ICON_ERROR}${NC} $service"
+        fi
+    done
+    echo -e "  ${WHITE}Tier 2 (on-demand):${NC}"
+    for service in "${TIER2_SERVICES[@]}"; do
+        local container running
+        container="$(get_container_name "$service")"
+        running="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo "false")"
+        if [[ "$running" == "true" ]]; then
+            echo -e "    ${GREEN}${ICON_SUCCESS}${NC} $service (running)"
+        else
+            echo -e "    ${YELLOW}${ICON_WARNING}${NC} $service (stopped)"
         fi
     done
     echo ""
@@ -623,8 +861,8 @@ show_access_info() {
     echo "  n8n:         https://n8n.tu.local (https://$vm_ip)"
     echo "  Pi-hole:     https://pihole.tu.local (https://$vm_ip)"
     echo "  Ollama API:  https://ollama.tu.local (https://$vm_ip)"
-    echo "  MinIO Console: https://minio.tu.local (https://$vm_ip:9001)"
-    echo "  MinIO API:   https://api.minio.tu.local (https://$vm_ip:9000)"
+    echo "  MinIO Console: https://minio.tu.local (https://$vm_ip)"
+    echo "  MinIO API:   https://api.minio.tu.local (https://$vm_ip)"
     echo ""
     
     # Check if services are accessible
@@ -749,6 +987,10 @@ update_system() {
     
     info "Updating $PROJECT_NAME..."
     
+    # ============================================================================
+    # PHASE 1: Preparation
+    # ============================================================================
+    
     # Create backup before update
     info "Creating backup before update..."
     local backup_name="pre_update_$(date +%Y%m%d_%H%M%S)"
@@ -764,11 +1006,15 @@ update_system() {
     apt-get autoremove -y
     apt-get autoclean
     
-    # Handle Pi-hole DNS replacement BEFORE stopping services
-    info "🌐 Handling Pi-hole DNS service..."
+    # ============================================================================
+    # PHASE 2: DNS Setup (before pulling images)
+    # ============================================================================
+    
+    # Switch to system DNS before pulling images (Pi-hole might be down)
+    info "🌐 Switching to system DNS for image pulls..."
     handle_pihole_dns_replacement "stop"
     
-    # Verify internet connectivity before proceeding
+    # Verify internet connectivity
     info "Verifying internet connectivity..."
     if ! verify_dns_connectivity; then
         error "Internet connectivity verification failed. Cannot proceed with update."
@@ -777,41 +1023,47 @@ update_system() {
     fi
     success "Internet connectivity verified"
     
-    # Defer service stop and cleanup until after user confirms update scope
+    # ============================================================================
+    # PHASE 3: Pull Images and Detect Updates
+    # ============================================================================
+    
     local compose_cmd=$(get_docker_compose_cmd)
     
-    # Pull latest images in one batch (parallel) and detect updated services from output
-    info "Pulling latest images for all services (showing live progress)..."
+    # Pull latest images and detect updated services
+    info "Pulling latest images for all services..."
     local pull_log_file="/tmp/tu-compose-pull.log"
     : > "$pull_log_file"
     local pull_cmd="$compose_cmd pull"
-    # Detect support for --progress flag and prefer it if available
+    
+    # Detect support for --progress flag
     if $compose_cmd pull --help 2>&1 | grep -q -- "--progress"; then
         pull_cmd="$compose_cmd pull --progress=plain"
     fi
-    # Stream progress to console and log to file for parsing; retry without flags on failure
+    
+    # Pull images with retry logic
     set +e
     $pull_cmd 2>&1 | tee "$pull_log_file"
     local pull_ec=${PIPESTATUS[0]}
     if [[ $pull_ec -ne 0 ]]; then
-        warn "compose pull failed with exit code $pull_ec. Retrying without extra flags..."
+        warn "compose pull failed with exit code $pull_ec. Retrying..."
         $compose_cmd pull 2>&1 | tee "$pull_log_file"
         pull_ec=${PIPESTATUS[0]}
         if [[ $pull_ec -ne 0 ]]; then
             error "Image pull failed (exit code $pull_ec). Aborting update."
+            exit 1
         fi
     fi
     set -e
-    # Build list of compose services to validate matches
+    
+    # Build list of all services for validation
     local -a all_services
     mapfile -t all_services < <($compose_cmd config --services)
-
+    
+    # Detect which services were updated
     local updated_services=()
-    # Detect lines that indicate a service "Pulled" and map to valid service names
     while IFS= read -r line; do
         if echo "$line" | grep -qE "\bPulled\b"; then
             local svc=""
-            # Handle formats like: "✔ service Pulled" or "service Pulled"
             if echo "$line" | grep -q "✔"; then
                 svc=$(echo "$line" | awk '{print $2}')
             else
@@ -822,17 +1074,19 @@ update_system() {
             fi
         fi
     done < "$pull_log_file"
-
+    
     # De-duplicate services list
     if [[ ${#updated_services[@]} -gt 0 ]]; then
         mapfile -t updated_services < <(printf "%s\n" "${updated_services[@]}" | sort -u)
         info "Services with new images: ${updated_services[*]}"
     else
-        # If pull succeeded and no updated services parsed, report up-to-date
         info "All images are already up to date."
     fi
-
-    # Ask whether to update all services or only those with updates (interactive)
+    
+    # ============================================================================
+    # PHASE 4: User Confirmation
+    # ============================================================================
+    
     local update_choice="all"
     if [[ -t 0 ]]; then
         if [[ ${#updated_services[@]} -gt 0 ]]; then
@@ -848,8 +1102,7 @@ update_system() {
                 *) update_choice="only" ;;
             esac
         else
-            # Nothing to update; allow user to proceed or skip
-            read -p "No new images detected. Start services anyway? [Y/n]: " -r choice2
+            read -p "No new images detected. Restart services anyway? [Y/n]: " -r choice2
             case "$choice2" in
                 n|N) info "Update skipped (nothing to do)."; return 0 ;;
                 *) update_choice="all" ;;
@@ -857,64 +1110,47 @@ update_system() {
         fi
     fi
     
-    # Stop services gracefully (only after user decision)
+    # ============================================================================
+    # PHASE 5: Stop Services
+    # ============================================================================
+    
     info "Stopping services for update..."
     $compose_cmd down
-
-    # Restore Pi-hole DNS BEFORE starting services: start Pi-hole first
-    info "Restoring Pi-hole DNS before starting services..."
-    # Stop systemd-resolved to free port 53
-    if command -v systemctl >/dev/null 2>&1; then
-        systemctl stop systemd-resolved 2>/dev/null || true
-        systemctl disable systemd-resolved 2>/dev/null || true
-    fi
-    # Ensure port 53 is free
-    info "Ensuring port 53 is free for Pi-hole..."
-    local port_attempts=10
-    local port_attempt=0
-    while [[ $port_attempt -lt $port_attempts ]]; do
-        if ! netstat -tuln | grep -q ":53 "; then
-            break
-        fi
-        sleep 2
-        port_attempt=$((port_attempt + 1))
-    done
-    # Start Pi-hole first
-    info "Starting Pi-hole service first..."
-    $compose_cmd up -d pihole || warn "Pi-hole failed to start"
-    # Wait briefly for Pi-hole
-    sleep 5
-    # Configure resolv.conf to use Pi-hole if available
-    chattr -i /etc/resolv.conf 2>/dev/null || true
-    cat > /etc/resolv.conf << EOF
-# Pi-hole DNS configuration
-nameserver 127.0.0.1
-nameserver 1.1.1.1
-nameserver 1.0.0.1
-EOF
-    chattr +i /etc/resolv.conf 2>/dev/null || true
-
-    # Start services according to user's choice
-    info "Starting services with updated images..."
-    if [[ "$update_choice" == "only" && ${#updated_services[@]} -gt 0 ]]; then
-        $compose_cmd up -d "${updated_services[@]}"
-    else
-        $compose_cmd up -d
-    fi
-
-    # Wait for critical services to be ready
-    info "Waiting for critical services to be ready..."
-    sleep 10
     
-    # Restore Pi-hole DNS after services are running
-    info "🌐 Restoring Pi-hole DNS service..."
+    # ============================================================================
+    # PHASE 6: Restore Pi-hole DNS and Start Services
+    # ============================================================================
+    
+    # Restore Pi-hole DNS before starting services
+    info "🌐 Restoring Pi-hole DNS configuration..."
     handle_pihole_dns_replacement "start"
     
-    # Post-update cleanup (optional): prune dangling items now that new images are in use
-    info "Performing post-update Docker cleanup..."
-    perform_docker_cleanup
+    # Start services in proper order
+    info "Starting services with updated images..."
     
-    # Wait for services to be ready
+    if [[ "$update_choice" == "only" && ${#updated_services[@]} -gt 0 ]]; then
+        # Start only updated services
+        $compose_cmd up -d "${updated_services[@]}"
+        
+        # Always recreate on-demand services (n8n, ollama, minio) in stopped state
+        # These have restart: "no" so they won't auto-start, but containers must exist
+        info "Recreating on-demand service containers (will remain stopped)..."
+        for ondemand_svc in n8n ollama minio; do
+            # Only recreate if not already in updated_services
+            if ! printf '%s\n' "${updated_services[@]}" | grep -qx "$ondemand_svc"; then
+                $compose_cmd up -d --no-start "$ondemand_svc" 2>/dev/null || warn "Failed to recreate $ondemand_svc container"
+            fi
+        done
+    else
+        # Start all services (on-demand services will be created but not started due to restart: "no")
+        $compose_cmd up -d
+    fi
+    
+    # ============================================================================
+    # PHASE 7: Wait for Services and Verify
+    # ============================================================================
+    
+    info "Waiting for services to be ready..."
     if wait_for_services; then
         info "All services started successfully after update!"
         
@@ -930,6 +1166,17 @@ EOF
         warn "Some services may not be fully ready yet."
         info "Check status with: ./$SCRIPT_NAME status"
     fi
+    
+    # ============================================================================
+    # PHASE 8: Cleanup (at the end, after everything is verified)
+    # ============================================================================
+    
+    info "Performing post-update Docker cleanup..."
+    perform_docker_cleanup
+    
+    # ============================================================================
+    # PHASE 9: Summary
+    # ============================================================================
     
     info "Update completed successfully!"
     info "Backup created: $backup_name"
@@ -959,7 +1206,9 @@ verify_data_retention() {
     fi
     
     if ! docker volume ls | grep -q "minio_data"; then
-        issues+=("MinIO data volume missing")
+        if ! docker volume ls | grep -q "docker_minio_data"; then
+            issues+=("MinIO data volume missing")
+        fi
     fi
     
     if ! docker volume ls | grep -q "n8n_data"; then
@@ -1317,7 +1566,8 @@ create_backup() {
         fi
         
         # Docker volumes
-        for volume in docker_postgres_data docker_redis_data docker_qdrant_data docker_n8n_data docker_pihole_data minio_data docker_openwebui_files docker_nginx_logs docker_pihole_dnsmasq; do
+        # Note: compose-managed volumes are usually prefixed with the project name (default: docker_*)
+        for volume in docker_postgres_data docker_redis_data docker_qdrant_data docker_n8n_data docker_pihole_data docker_minio_data docker_openwebui_files docker_nginx_logs docker_pihole_dnsmasq; do
             if docker volume inspect "$volume" >/dev/null 2>&1; then
                 docker run --rm -v "$volume":/data -v "$(pwd)/$backup_path":/backup \
                     alpine tar czf "/backup/${volume}.tar.gz" -C /data . 2>/dev/null || warn "$volume backup failed"
@@ -1327,11 +1577,12 @@ create_backup() {
         # Service-specific data backups
         info "Backing up service-specific configurations..."
         
-        # MinIO bucket configuration
-        if docker exec ai_minio mc ls local/ >/dev/null 2>&1; then
-            info "Backing up MinIO configuration..."
-            docker exec ai_minio mc admin config export local > "$backup_path/minio-config.json" 2>/dev/null || warn "MinIO config backup failed"
-            docker exec ai_minio mc ls local/ > "$backup_path/minio-buckets.txt" 2>/dev/null || warn "MinIO buckets list failed"
+        # MinIO buckets list (via mc container; MinIO server image often lacks mc)
+        if docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+            info "Backing up MinIO buckets list..."
+            docker run --rm --network docker_ai_network minio/mc \
+                sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local" \
+                > "$backup_path/minio-buckets.txt" 2>/dev/null || warn "MinIO buckets list failed"
         fi
         
         # Pi-hole configuration
@@ -1342,7 +1593,8 @@ create_backup() {
         fi
         
         # Open WebUI configuration (if accessible)
-        if docker exec ai_openwebui curl -s -f http://localhost:8080/api/health >/dev/null 2>&1; then
+        # Use backend health endpoint (not /api/health which is served by the frontend SPA)
+        if docker exec ai_openwebui curl -s -f http://localhost:8080/health/db >/dev/null 2>&1; then
             info "Backing up Open WebUI configuration..."
             docker exec ai_openwebui curl -s http://localhost:8080/api/config > "$backup_path/openwebui-config.json" 2>/dev/null || warn "Open WebUI config backup failed"
         fi
@@ -1847,11 +2099,20 @@ check_pdf_processing_status() {
     
     # Check tika-pipe bucket
     echo -e "${GREEN}📁 Tika-Pipe Bucket:${NC}"
-    if docker exec ai_minio mc ls local/tika-pipe/ >/dev/null 2>&1; then
-        local file_count=$(docker exec ai_minio mc ls local/tika-pipe/ | wc -l)
-        echo "  ✅ Bucket exists with $file_count files"
+    if docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+        if docker run --rm --network docker_ai_network minio/mc \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ >/dev/null" \
+            >/dev/null 2>&1; then
+            local file_count
+            file_count=$(docker run --rm --network docker_ai_network minio/mc \
+                sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ | wc -l" \
+            ) || file_count="0"
+            echo "  ✅ Bucket exists with $file_count files"
+        else
+            echo "  ❌ tika-pipe bucket not found"
+        fi
     else
-        echo "  ❌ tika-pipe bucket not found"
+        echo "  ⚠️  MinIO is not running (bucket check skipped)"
     fi
     echo ""
 }
@@ -1899,19 +2160,26 @@ EOF
     
     # Upload to MinIO
     info "Uploading test PDF to tika-pipe bucket..."
-    if docker run --rm -v "$test_pdf":/test.pdf -v minio_data:/data alpine sh -c "cp /test.pdf /data/tika-pipe/test-$(date +%s).pdf"; then
-        info "✅ Test PDF uploaded successfully"
+    if ! docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+        warn "MinIO is not running; start it first (dashboard or: docker compose up -d minio) then retry."
+        return 1
+    fi
+    local key="test-$(date +%s).pdf"
+    if docker run --rm --network docker_ai_network -v "$test_pdf":/test.pdf:ro minio/mc \
+        sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc mb --ignore-existing local/tika-pipe >/dev/null && mc cp /test.pdf local/tika-pipe/'$key' >/dev/null"; then
+        info "✅ Test PDF uploaded successfully as $key"
         info "⏳ Waiting for Tika processing (30 seconds)..."
         sleep 30
         
         # Check for processed file
-        if docker exec ai_minio mc ls local/tika-pipe/ | grep -q "\.txt"; then
-            info "✅ PDF processing successful - .txt file found"
+        if docker run --rm --network docker_ai_network minio/mc \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ | grep -q '\.txt'"; then
+            info "✅ PDF processing likely successful - .txt output detected"
         else
-            warn "⚠️  No .txt file found - processing may have failed"
+            warn "⚠️  No .txt output detected yet - processing may still be running or failed"
         fi
     else
-        error "❌ Failed to upload test PDF"
+        error "❌ Failed to upload test PDF to MinIO"
     fi
     
     # Cleanup
@@ -1962,13 +2230,28 @@ reset_pdf_pipeline() {
     
     # Clear tika-pipe bucket
     info "Clearing tika-pipe bucket..."
-    docker exec ai_minio mc rm --recursive --force local/tika-pipe/ 2>/dev/null || true
+    if docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
+        local minio_pass="${MINIO_ROOT_PASSWORD:-}"
+        if [[ -z "$minio_pass" && -f "$ENV_FILE" ]]; then
+            # shellcheck disable=SC1090
+            . "$ENV_FILE" 2>/dev/null || true
+            minio_pass="${MINIO_ROOT_PASSWORD:-}"
+        fi
+        minio_pass="${minio_pass:-minio123456}"
+        docker run --rm --network docker_ai_network minio/mc \
+            sh -c "mc alias set local http://ai_minio:9000 admin '$minio_pass' >/dev/null && mc rm --recursive --force local/tika-pipe/ >/dev/null 2>&1 || true" \
+            >/dev/null 2>&1 || true
+    else
+        warn "MinIO is not running; bucket cleanup skipped"
+    fi
     
     # Restart processor
     info "Restarting Tika-MinIO processor..."
     docker start tika_minio_processor 2>/dev/null || {
         info "Starting processor from docker-compose..."
-        docker compose up -d tika_minio_processor
+        local compose_cmd
+        compose_cmd=$(get_docker_compose_cmd)
+        $compose_cmd up -d tika_minio_processor
     }
     
     info "✅ PDF processing pipeline reset complete"
@@ -1984,24 +2267,38 @@ check_health() {
     
     local failed_services=()
     local healthy_services=()
-    
-    for service_info in "${SERVICES[@]}"; do
-        IFS=':' read -r service_name port <<< "$service_info"
-        if check_service_health "$service_name" "$port"; then
-            healthy_services+=("$service_name")
+    local tier2_running=()
+    local tier2_stopped=()
+
+    for service in "${TIER1_SERVICES[@]}"; do
+        if check_service_health "$service"; then
+            healthy_services+=("$service")
         else
-            failed_services+=("$service_name")
+            failed_services+=("$service")
+        fi
+    done
+
+    for service in "${TIER2_SERVICES[@]}"; do
+        local container running
+        container="$(get_container_name "$service")"
+        running="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo "false")"
+        if [[ "$running" == "true" ]]; then
+            tier2_running+=("$service")
+        else
+            tier2_stopped+=("$service")
         fi
     done
     
     echo ""
     echo -e "${WHITE}Health Summary:${NC}"
-    echo "  Healthy: ${#healthy_services[@]} services"
-    echo "  Failed:  ${#failed_services[@]} services"
+    echo "  Tier 1 healthy: ${#healthy_services[@]} services"
+    echo "  Tier 1 failed:  ${#failed_services[@]} services"
+    echo "  Tier 2 running: ${#tier2_running[@]} services"
+    echo "  Tier 2 stopped: ${#tier2_stopped[@]} services"
     echo ""
     
     if [[ ${#healthy_services[@]} -gt 0 ]]; then
-        echo -e "${GREEN}${ICON_SUCCESS}${NC} Healthy services:"
+        echo -e "${GREEN}${ICON_SUCCESS}${NC} Tier 1 healthy services:"
         for service in "${healthy_services[@]}"; do
             echo "    - $service"
         done
@@ -2009,7 +2306,7 @@ check_health() {
     fi
     
     if [[ ${#failed_services[@]} -gt 0 ]]; then
-        echo -e "${RED}${ICON_ERROR}${NC} Failed services:"
+        echo -e "${RED}${ICON_ERROR}${NC} Tier 1 failed services:"
         for service in "${failed_services[@]}"; do
             echo "    - $service"
         done
@@ -2183,6 +2480,15 @@ main() {
                     ;;
                 validate-security)
                     validate_security
+                    ;;
+                whitelist-list)
+                    whitelist_list
+                    ;;
+                whitelist-add)
+                    whitelist_add "${2:-}"
+                    ;;
+                whitelist-remove)
+                    whitelist_remove "${2:-}"
                     ;;
                 setup-minio)
                     setup_minio_buckets

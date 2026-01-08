@@ -44,8 +44,9 @@ if old_line in content:
     
     print('✅ TikaLoader fix applied successfully')
 else:
-    print('❌ Could not find PyPDFLoader section to patch')
-    exit(1)
+    # Do not fail container startup if upstream changed the file layout.
+    print('⚠️ Could not find PyPDFLoader section to patch (continuing without patch)')
+    exit(0)
 "
 
 echo "🚀 Starting Open WebUI with TikaLoader fix..."

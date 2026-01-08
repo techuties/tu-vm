@@ -67,7 +67,7 @@ temp/
 ##############################
 .vscode/
 .idea/
-,# Cursor editor artifacts
+# Cursor editor artifacts
 .cursor/
 .cursor/rules/**
 .cursor/cache/
@@ -118,6 +118,9 @@ venv.bak/
 ##############################
 nginx/ssl/
 nginx/logs/**
+nginx/dynamic/**
+nginx/conf.d/*.backup.*
+nginx/conf.d/*.backup
 
 ##############################
 # Misc

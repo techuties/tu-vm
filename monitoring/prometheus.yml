@@ -12,36 +12,38 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Node Exporter for system metrics
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['172.20.0.22:9100']
-
-  # PostgreSQL metrics (if postgres_exporter is added)
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['172.20.0.10:5432']
-
-  # Redis metrics (if redis_exporter is added)
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['172.20.0.11:6379']
-
-  # Nginx metrics (if nginx-prometheus-exporter is added)
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['172.20.0.18:9113']
-
-  # Pi-hole metrics
-  - job_name: 'pihole'
-    static_configs:
-      - targets: ['172.20.0.16:80']
-    metrics_path: '/admin/api.php'
-    params:
-      summaryRaw: ['']
-      auth: ['${PIHOLE_PASSWORD}']
-
-  # Docker container metrics
-  - job_name: 'docker'
-    static_configs:
-      - targets: ['172.20.0.1:9323']
+  # NOTE:
+  # The jobs below require exporters (Prometheus endpoints). The core services in this repo
+  # (Postgres, Redis, Nginx, Pi-hole) do NOT expose Prometheus metrics by default.
+  # Enable these only after adding the corresponding exporters to your compose/network.
+  #
+  # - node-exporter:            node_exporter on :9100
+  # - postgres:                 postgres_exporter on :9187
+  # - redis:                    redis_exporter on :9121
+  # - nginx:                    nginx-prometheus-exporter on :9113 (and Nginx stub_status enabled)
+  # - pihole:                   pihole-exporter (recommended) rather than scraping /admin/api.php
+  # - docker:                   Docker daemon metrics or cAdvisor on :8080 (depends on setup)
+  #
+  # - job_name: 'node-exporter'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+  #
+  # - job_name: 'redis'
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+  #
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx-exporter:9113']
+  #
+  # - job_name: 'pihole'
+  #   static_configs:
+  #     - targets: ['pihole-exporter:9617']
+  #
+  # - job_name: 'docker'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']

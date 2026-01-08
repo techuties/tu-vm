@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ai_platform}
       POSTGRES_USER: ${POSTGRES_USER:-ai_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ai_password_2024}
       # Performance optimization
       POSTGRES_SHARED_BUFFERS: ${POSTGRES_SHARED_BUFFERS:-256MB}
       POSTGRES_EFFECTIVE_CACHE_SIZE: ${POSTGRES_EFFECTIVE_CACHE_SIZE:-1GB}
@@ -23,7 +23,7 @@ services:
         ipv4_address: 172.20.0.10
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_admin} -d ${POSTGRES_DB:-ai_platform}"]
-      interval: 60s
+      interval: 180s  # Increased from 60s for energy efficiency
       timeout: 10s
       retries: 2
     deploy:
@@ -44,15 +44,15 @@ services:
     image: redis:7-alpine
     container_name: ai_redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru} --save "" --appendonly no --tcp-keepalive 60
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password_2024} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru} --save "" --appendonly no --tcp-keepalive 60
     volumes:
       - redis_data:/data
     networks:
       ai_network:
         ipv4_address: 172.20.0.11
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 60s
+      test: ["CMD-SHELL", "redis-cli -a \"${REDIS_PASSWORD:-redis_password_2024}\" ping | grep -q PONG || exit 1"]
+      interval: 180s  # Increased from 60s for energy efficiency
       timeout: 10s
       retries: 2
     deploy:
@@ -79,8 +79,12 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.12
-    # Healthcheck removed to avoid dependency on curl inside image.
-    # External readiness is checked by scripts/start.sh and scripts/update.sh
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"]
+      interval: 180s  # Increased for energy efficiency
+      timeout: 10s
+      retries: 2
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -94,24 +98,23 @@ services:
       - 172.20.0.16
 
 
-  # Ollama AI Models (on-demand)
+  # Ollama AI Models (on-demand - Tier 2)
   ollama:
     image: ollama/ollama:latest
     container_name: ai_ollama
-    restart: unless-stopped
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     # ports removed to enforce Nginx-only access (ollama.tu.local)
     volumes:
       - ollama_data:/root/.ollama
     networks:
       ai_network:
         ipv4_address: 172.20.0.13
-    # Healthcheck removed to avoid dependency on curl inside image.
-    # External readiness is checked by scripts/start.sh and scripts/update.sh
+    # No healthcheck for on-demand service
     deploy:
       resources:
         limits:
-          memory: 4G
-          cpus: '2.0'
+          memory: 3G  # Reduced from 4G for efficiency
+          cpus: '1.5'  # Reduced from 2.0 for efficiency
         reservations:
           memory: 1G
           cpus: '0.5'
@@ -126,14 +129,28 @@ services:
     container_name: ai_openwebui
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.local)
+      - "127.0.0.1:8080:8080"
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_BASE_URL: http://ollama:11434  # Will be dynamically checked
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-webui_secret_key_2024}
       WEBUI_JWT_SECRET_KEY: ${WEBUI_JWT_SECRET_KEY:-jwt_secret_key_2024}
       DATABASE_URL: postgresql://${POSTGRES_USER:-ai_admin}:${POSTGRES_PASSWORD:-ai_password_2024}@postgres:5432/${POSTGRES_DB:-ai_platform}
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://default:${REDIS_PASSWORD:-redis_password_2024}@redis:6379
+      # HuggingFace download stability:
+      # Open WebUI may use HuggingFace "xet" transfer which can get stuck in some environments.
+      # Disabling it forces the classic download path.
+      HF_HUB_DISABLE_XET: "1"
+      # If HuggingFace downloads are blocked/slow (or upstream endpoints change),
+      # Open WebUI can get stuck preloading the default embedding model and never bind to :8080.
+      # Setting these empty makes startup resilient; you can re-enable embeddings later.
+      RAG_EMBEDDING_MODEL: ""
+      USE_EMBEDDING_MODEL_DOCKER: ""
+      # Prevent startup hangs on pip installs for Tools/Functions dependencies
+      # (Open WebUI runs pip installs on boot; keep timeouts low if outbound access is flaky)
+      PIP_OPTIONS: "--default-timeout=10 --retries=1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
       # Mobile optimizations
       WEBUI_AUTH: "true"
       WEBUI_AUTH_SECRET: ${WEBUI_AUTH_SECRET:-auth_secret_2024}
@@ -151,12 +168,6 @@ services:
       PDF_EXTRACT_IMAGES: "false"
       # Enable Tika metadata extraction
       TIKA_METADATA_EXTRACTION: "true"
-      # MinIO Configuration for Processed Documents
-      MINIO_ENDPOINT: "ai_minio:9000"
-      MINIO_ACCESS_KEY: "admin"
-      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:-minio123456}"
-      MINIO_BUCKET: "processed-documents"
-      MINIO_USE_SSL: "false"
     volumes:
       # Shared volume for file sync between Open WebUI and MinIO
       - openwebui_files:/app/backend/data/uploads
@@ -166,11 +177,13 @@ services:
       ai_network:
         ipv4_address: 172.20.0.14
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
-      interval: 30s
+      # Use Open WebUI backend health endpoint (defined in open_webui/main.py)
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/db || exit 1"]
+      # Open WebUI can block startup while installing tool/function deps; allow extra start time.
+      interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 180s
     deploy:
       resources:
         limits:
@@ -185,13 +198,13 @@ services:
 
   
 
-  # Apache Tika for robust content extraction (used by Open WebUI)
+  # Apache Tika for robust content extraction with OCR support (used by Open WebUI)
   tika:
-    image: apache/tika:latest
+    image: apache/tika:latest-full  # Full version includes Tesseract OCR for image-based PDFs
     container_name: ai_tika
     restart: unless-stopped
     environment:
-      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m
+      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m  # Increased memory for OCR processing
     networks:
       ai_network:
         ipv4_address: 172.20.0.20
@@ -199,14 +212,15 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-  # MinIO Object Storage with GUI
+  # MinIO Object Storage with GUI (on-demand - Tier 2)
   minio:
     image: minio/minio:latest
     container_name: ai_minio
-    restart: unless-stopped
+    restart: "no"  # Manual start only via dashboard
     ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Console GUI
+      # Bind to localhost for tooling (mc/rclone/debug); primary access is via Nginx vhosts
+      - "127.0.0.1:9000:9000"  # API
+      - "127.0.0.1:9001:9001"  # Console GUI
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123456}
@@ -219,21 +233,22 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.21
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    # Healthcheck disabled for on-demand service (Tier 2)
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 5
     dns:
       - 127.0.0.11
       - 172.20.0.16
 
 
-  # n8n Workflow Automation (lightweight)
+  # n8n Workflow Automation (on-demand - Tier 2)
   n8n:
     image: n8nio/n8n:latest
     container_name: ai_n8n
-    restart: unless-stopped
+    restart: "no"  # Manual start only via dashboard
     environment:
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
@@ -275,16 +290,17 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.15
-    healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:5678/healthz', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
-      interval: 60s
-      timeout: 10s
-      retries: 2
+    # Healthcheck disabled for on-demand service (Tier 2)
+    # healthcheck:
+    #   test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:5678/healthz', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+    #   interval: 60s
+    #   timeout: 10s
+    #   retries: 2
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '0.5'
+          memory: 768M  # Reduced from 1G for efficiency
+          cpus: '0.4'   # Reduced from 0.5 for efficiency
         reservations:
           memory: 512M
           cpus: '0.25'
@@ -304,7 +320,8 @@ services:
     ports:
       - "53:53/udp"
       - "53:53/tcp"
-      - "8081:80"
+      # Admin UI should be reachable only from localhost; external access via Nginx vhost (pihole.tu.local)
+      - "127.0.0.1:8081:80"
     environment:
       TZ: 'Europe/Zurich'
       WEBPASSWORD: ${PIHOLE_PASSWORD:-'SwissPiHole2024!'}
@@ -335,7 +352,7 @@ services:
         ipv4_address: 172.20.0.16
     healthcheck:
       test: ["CMD", "dig", "+norecurse", "+retry=0", "@127.0.0.1", "pi.hole"]
-      interval: 60s
+      interval: 180s  # Increased from 60s for energy efficiency
       timeout: 10s
       retries: 2
     deploy:
@@ -359,9 +376,14 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/dynamic:/etc/nginx/dynamic:ro
       - ./nginx/html:/usr/share/nginx/html:ro
       - ./ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     networks:
       ai_network:
         ipv4_address: 172.20.0.18
@@ -369,7 +391,7 @@ services:
       - helper_index
     healthcheck:
       test: ["CMD", "nginx", "-t"]
-      interval: 60s
+      interval: 180s  # Increased from 60s for energy efficiency
       timeout: 10s
       retries: 2
     deploy:
@@ -390,10 +412,14 @@ services:
     image: python:3.11-alpine
     container_name: ai_helper_index
     restart: unless-stopped
-    command: sh -c "pip install --no-cache-dir flask requests requests-unixsocket && python -u /app/uploader.py"
+    command: sh -c "apk add --no-cache docker-cli curl && ARCH=$$(uname -m) && case $$ARCH in aarch64) ARCH=aarch64;; armv7) ARCH=armv7;; *) ARCH=x86_64;; esac && curl -fsSL \"https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-linux-$$ARCH\" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose && docker-compose --version && pip install --no-cache-dir flask requests requests-unixsocket && python -B -u /app/uploader.py"
     volumes:
       - ./helper:/app
+      - ./docker-compose.yml:/app/docker-compose.yml:ro
+      - .:/docker-project:ro  # Mount entire project for docker-compose path resolution
+      - ./nginx/dynamic:/nginx-dynamic
       - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /app
     environment:
       - HOST_IP=${HOST_IP}
       - CONTROL_TOKEN=${CONTROL_TOKEN}
@@ -407,7 +433,7 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-  # MinIO + Tika PDF Processor
+  # Universal MinIO File Processor (handles PDFs, Office docs, images, text, archives, etc.)
   tika_minio_processor:
     build: ./tika-minio-processor
     container_name: tika_minio_processor
@@ -418,13 +444,21 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minio123456}
       - UPLOADS_BUCKET=tika-pipe
       - PROCESSED_BUCKET=tika-pipe
+      - WATCH_BUCKETS=tika-pipe,n8n-workflows  # Watch multiple buckets (Open WebUI + n8n)
+      - CHECK_INTERVAL=10  # Check for new files every 10 seconds
     networks:
       - ai_network
     restart: unless-stopped
     depends_on:
       - tika
-      - minio
-    command: ["python", "auto_processor.py"]
+      # Note: MinIO is Tier 2 (on-demand), processor handles missing MinIO gracefully
+    command: ["python", "universal_auto_processor.py"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://ai_tika:9998/tika\", timeout=5)' || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   openwebui_files:

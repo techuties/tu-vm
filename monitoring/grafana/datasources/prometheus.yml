@@ -4,6 +4,7 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://172.20.0.20:9090
+    # Use service DNS (when Prometheus is deployed on the same Docker network)
+    url: http://prometheus:9090
     isDefault: true
     editable: true
