@@ -550,7 +550,7 @@ cd tu-vm
 This automatically:
 - ✅ Creates `.env` from `env.example`
 - ✅ Auto-detects and sets `HOST_IP`
-- ✅ Generates secure passwords and keys
+- ✅ Generates secure passwords and keys (including `CONTROL_TOKEN`)
 - ✅ Generates self-signed SSL certificates for HTTPS
 
 **OR** manually configure:
@@ -558,6 +558,13 @@ This automatically:
 cp env.example .env
 ./tu-vm.sh generate-secrets  # Generate secure passwords
 ```
+
+**Important**: The `CONTROL_TOKEN` is automatically generated and required for:
+- Dashboard service management (start/stop services)
+- IP allowlist management (adding/removing allowed IPs)
+- Control API endpoints (`/control/*`)
+
+After setup, find your `CONTROL_TOKEN` in `.env` and paste it into the dashboard's "Control Token" field to enable service management features.
 
 #### 4. Start Services
 ```bash
@@ -660,6 +667,7 @@ docker exec ai_openwebui curl -sf http://localhost:8080/api/health || echo "ui n
 
 ### **Dashboard Features**
 - **Service Control**: Start/stop buttons for individual services (Ollama, n8n, MinIO)
+- **Control Token Authentication**: Secure token-based access for service management and allowlist control
 - **Real-time Status Indicators**: Live service status with response times and color coding
 - **Smart Notifications**: Success/error feedback with auto-hide notifications
 - **Resource Monitoring**: Per-service CPU and memory usage display
@@ -764,4 +772,4 @@ If you plan to expose anything to the public internet, do these first:
 - **Change all default passwords** (MinIO, Pi-hole, any admin UIs).
 - **Use real TLS certificates** (not self-signed) and keep the VM updated.
 - **Keep admin ports on localhost** and only expose via Nginx with strict rules.
-- **Review the allowlist + control token** and rotate tokens if you share a browser/device.
+- **Review the allowlist + control token**: The `CONTROL_TOKEN` (in `.env`) is required for dashboard service management and IP allowlist control. Rotate it regularly if you share a browser/device. Generate a new one with `./tu-vm.sh generate-secrets`.

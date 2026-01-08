@@ -2106,6 +2106,7 @@ generate_secrets() {
     sed -i "s/CHANGE_ME_SECRET_KEY/$webui_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_JWT_SECRET_KEY/$jwt_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_AUTH_SECRET/$auth_secret/g" "$ENV_FILE"
+    sed -i "s/CHANGE_ME_CONTROL_TOKEN/$control_token/g" "$ENV_FILE"
 
     # MinIO root password (first occurrence if using template)
     sed -i "0,/CHANGE_ME_SECURE_PASSWORD/s//$minio_pass/" "$ENV_FILE"
