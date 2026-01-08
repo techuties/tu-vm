@@ -30,7 +30,7 @@ TU-VM transforms your computer into a private AI operations center. It combines 
 
 Perfect for developers and researchers who need a reliable, private environment for AI development without the complexity of manual setup or the risks of cloud services.
 
-<img width="754" height="735" alt="Bildschirmfoto 2026-01-08 um 17 57 27" src="https://github.com/user-attachments/assets/2f352fb4-eb2e-422e-971a-219be7e81ea7" />
+<img width="754" height="735" alt="tu-vm_dashboard" src="https://github.com/user-attachments/assets/8129c82c-748b-40be-95f2-d719b597d993" />
 
 The Dashboard
 
