@@ -46,14 +46,14 @@ sudo ./tu-vm.sh secure
 ## 🔧 Access Setup
 
 1. `sudo ./tu-vm.sh secure`
-2. Access at `https://10.211.55.12`
+2. Access at `https://<your-vm-ip>` or `https://tu.local` (if DNS configured)
 
 ## 🌐 Access URLs
 
-- **Landing**: `https://10.211.55.12`
-- **Open WebUI**: `https://10.211.55.12` (oweb.tu.local)
-- **n8n**: `https://10.211.55.12` (n8n.tu.local)
-- **Pi-hole**: `https://10.211.55.12` (pihole.tu.local)
+- **Landing**: `https://tu.local` or `https://<your-vm-ip>`
+- **Open WebUI**: `https://oweb.tu.local` or `https://<your-vm-ip>`
+- **n8n**: `https://n8n.tu.local` or `https://<your-vm-ip>`
+- **Pi-hole**: `https://pihole.tu.local` or `https://<your-vm-ip>`
 
 ## 🚨 Troubleshooting
 
@@ -86,7 +86,7 @@ sudo ./tu-vm.sh update
 ```
 Host Machine
     ↓ DNS queries to VM
-VM Pi-hole (10.211.55.12)
+VM Pi-hole (<your-vm-ip>)
     ↓ Ad-blocking & filtering
 Internet
 ```

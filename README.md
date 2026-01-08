@@ -509,13 +509,14 @@ Use the control script to manage the entire platform. Syntax:
 ## 🛠️ Installation
 
 ### Prerequisites
-- **Host OS**: Windows or macOS
-- **VM Software**: Parallels Desktop, VirtualBox, etc.
+- **Host OS**: Windows or macOS (for VM) OR Ubuntu Server directly
+- **VM Software**: Parallels Desktop, VirtualBox, etc. (if using VM)
 - **VM OS**: Ubuntu Server 22.04+ (latest LTS recommended)
 - **RAM**: Minimum 4GB, Recommended 8GB+
 - **Storage**: 20GB+ free space
-- **Docker**: Version 20.10+
-- **Docker Compose**: Version 2.0+
+- **Docker**: Version 20.10+ (installed via instructions below)
+- **Docker Compose**: Version 2.0+ (included with Docker)
+- **OpenSSL**: For SSL certificate generation (usually pre-installed)
 
 ### Network Requirements
 - **Ports**: 80, 443 (public/LAN), 53 (DNS) if running Pi-hole for LAN
@@ -542,21 +543,37 @@ git clone https://github.com/techuties/tu-vm.git
 cd tu-vm
 ```
 
-#### 3. Configure Environment
+#### 3. Quick Setup (Recommended - One Command)
+```bash
+./tu-vm.sh setup
+```
+This automatically:
+- ✅ Creates `.env` from `env.example`
+- ✅ Auto-detects and sets `HOST_IP`
+- ✅ Generates secure passwords and keys
+- ✅ Generates self-signed SSL certificates for HTTPS
+
+**OR** manually configure:
 ```bash
 cp env.example .env
-# Edit .env with your settings
+./tu-vm.sh generate-secrets  # Generate secure passwords
 ```
 
 #### 4. Start Services
 ```bash
 ./tu-vm.sh start
 ```
+**What happens automatically on first start:**
+- ✅ Auto-detects `HOST_IP` if not set
+- ✅ Generates SSL certificates if missing
+- ✅ Starts all Tier 1 services (energy-friendly)
+- ✅ Sets up MinIO buckets and sync jobs
 
-#### 5. Enable Secure Access
+#### 5. Enable Secure Access (Recommended)
 ```bash
 sudo ./tu-vm.sh secure
 ```
+This configures the firewall to allow access only from your local network.
 
 ## 🔍 Troubleshooting
 

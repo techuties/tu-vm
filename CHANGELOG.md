@@ -2,7 +2,7 @@
 
 All notable changes to the TechUties VM project will be documented in this file.
 
-## [2.1.0] - 2026-01-08 - Security & Stability Cleanup
+## [2.1.0] - 2026-01-08 - Installation Improvements & System Cleanup
 
 ### 🔒 Security
 - **IP allowlist for sensitive endpoints**: Locked down dashboard control endpoints with an Nginx-managed allowlist and safe defaults.

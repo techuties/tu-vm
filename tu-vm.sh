@@ -357,9 +357,103 @@ check_env_file() {
     fi
 }
 
+# Ensure HOST_IP is configured in .env (auto-detect if missing or placeholder)
+ensure_host_ip_configured() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        return 0  # Will be created by check_env_file
+    fi
+    
+    # Check if HOST_IP is missing, empty, or looks like a placeholder
+    local current_ip
+    if grep -qE "^HOST_IP=" "$ENV_FILE"; then
+        current_ip=$(grep -E "^HOST_IP=" "$ENV_FILE" | sed -E 's/^HOST_IP=//' | tr -d '"' | tr -d "'")
+    fi
+    
+    # If missing, empty, or looks like placeholder (10.211.55.x is likely a VM default)
+    if [[ -z "$current_ip" ]] || [[ "$current_ip" == "10.211.55.12" ]] || [[ "$current_ip" == "CHANGE_ME"* ]]; then
+        local detected_ip
+        detected_ip=$(get_vm_ip 2>/dev/null || echo "")
+        
+        if [[ -n "$detected_ip" ]]; then
+            info "Auto-detecting HOST_IP: $detected_ip"
+            if grep -qE "^HOST_IP=" "$ENV_FILE"; then
+                # Update existing HOST_IP
+                sed -i "s|^HOST_IP=.*|HOST_IP=$detected_ip|" "$ENV_FILE"
+            else
+                # Add HOST_IP if missing
+                echo "HOST_IP=$detected_ip" >> "$ENV_FILE"
+            fi
+            info "✅ HOST_IP configured in .env"
+        else
+            warn "Could not auto-detect HOST_IP. Please set HOST_IP in .env manually."
+        fi
+    fi
+}
+
+# Resolve MinIO root password for scripts that run outside compose env substitution.
+# Precedence:
+# 1) exported MINIO_ROOT_PASSWORD
+# 2) .env MINIO_ROOT_PASSWORD
+# 3) default fallback (minio123456)
+resolve_minio_password() {
+    local pass="${MINIO_ROOT_PASSWORD:-}"
+    if [[ -z "$pass" && -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        pass="${MINIO_ROOT_PASSWORD:-}"
+    fi
+    echo "${pass:-minio123456}"
+}
+
 # Get VM IP address
 get_vm_ip() {
     ip route get 1.1.1.1 | grep -oP 'src \K\S+' | head -1
+}
+
+# Generate self-signed SSL certificates for Nginx
+generate_ssl_certificates() {
+    local ssl_dir="ssl"
+    local cert_file="$ssl_dir/nginx.crt"
+    local key_file="$ssl_dir/nginx.key"
+    
+    # Check if certificates already exist
+    if [[ -f "$cert_file" && -f "$key_file" ]]; then
+        debug "SSL certificates already exist"
+        return 0
+    fi
+    
+    info "Generating self-signed SSL certificates for HTTPS..."
+    
+    # Create ssl directory if it doesn't exist
+    mkdir -p "$ssl_dir"
+    
+    # Get domain from .env or use default
+    local domain="${DOMAIN:-tu.local}"
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        domain="${DOMAIN:-tu.local}"
+    fi
+    
+    # Generate self-signed certificate valid for 10 years
+    # Include common domain variations for SAN
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout "$key_file" \
+        -out "$cert_file" \
+        -subj "/C=CH/ST=Zurich/L=Zurich/O=TechUties/CN=$domain" \
+        -addext "subjectAltName=DNS:$domain,DNS:*.$domain,DNS:localhost,IP:127.0.0.1" \
+        2>/dev/null || {
+        error "Failed to generate SSL certificates. Please ensure openssl is installed: sudo apt-get install openssl"
+        return 1
+    }
+    
+    # Set secure permissions
+    chmod 600 "$key_file"
+    chmod 644 "$cert_file"
+    
+    info "✅ SSL certificates generated successfully"
+    warn "⚠️  Using self-signed certificates. Browsers will show security warnings."
+    info "   For production, consider using Let's Encrypt or other CA-signed certificates."
 }
 
 # Get network prefix
@@ -468,13 +562,22 @@ show_help() {
     show_info
     echo -e "${WHITE}Usage:${NC} ./$SCRIPT_NAME [COMMAND] [OPTIONS]"
     echo ""
+    echo -e "${WHITE}Setup & Initialization:${NC}"
+    echo "  setup                    Complete first-time setup (env, SSL, secrets)"
+    echo ""
     echo -e "${WHITE}Basic Commands:${NC}"
-    echo "  start                    Start all services"
+    echo "  start                    Start all services (auto-setup on first run)"
+    echo "  start --tier1            Start Tier 1 services only (default)"
+    echo "  start --all              Start Tier 1 + Tier 2 services"
     echo "  stop                     Stop all services"
     echo "  restart                  Restart all services"
     echo "  status                   Show service status"
     echo "  logs [service]           Show service logs"
     echo "  access                   Show access URLs and information"
+    echo ""
+    echo -e "${WHITE}On-demand Service Control:${NC}"
+    echo "  start-service <service>  Start a single service (Tier 2 recommended)"
+    echo "  stop-service <service>   Stop a single service (Tier 2 recommended)"
     echo ""
     echo -e "${WHITE}Access Control:${NC}"
     echo "  secure                   Enable secure access (recommended)"
@@ -520,7 +623,10 @@ show_help() {
     echo "  ${ICON_LOCKED} LOCKED:    No external access"
     echo ""
     echo -e "${WHITE}Examples:${NC}"
-    echo "  ./$SCRIPT_NAME start                    # Start all services"
+    echo "  ./$SCRIPT_NAME start                    # Start Tier 1 services (default)"
+    echo "  ./$SCRIPT_NAME start --all              # Start Tier 1 + Tier 2 services"
+    echo "  ./$SCRIPT_NAME start-service ollama     # Start Tier 2 Ollama"
+    echo "  ./$SCRIPT_NAME stop-service ollama      # Stop Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME status                   # Check service status"
     echo "  ./$SCRIPT_NAME access                   # Show access URLs"
     echo "  ./$SCRIPT_NAME secure                   # Enable secure access"
@@ -530,6 +636,57 @@ show_help() {
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
     echo "  ./$SCRIPT_NAME version                  # Show version info"
+}
+
+# Complete first-time setup
+setup_platform() {
+    info "Running first-time setup for $PROJECT_NAME..."
+    
+    check_docker
+    check_docker_compose
+    
+    # Step 1: Create .env if missing
+    check_env_file
+    
+    # Step 2: Auto-detect HOST_IP
+    ensure_host_ip_configured
+    
+    # Step 3: Generate secrets if using defaults
+    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123" "$ENV_FILE" 2>/dev/null; then
+        info "Generating secure passwords and keys..."
+        generate_secrets
+    else
+        info "Using existing secure credentials"
+    fi
+    
+    # Step 4: Generate SSL certificates
+    generate_ssl_certificates
+    
+    info "✅ Setup complete! You can now run: ./$SCRIPT_NAME start"
+    echo ""
+    show_access_info
+}
+
+start_single_service() {
+    local svc="${1:-}"
+    if [[ -z "$svc" ]]; then
+        error "Usage: ./$SCRIPT_NAME start-service <service>"
+    fi
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd)
+    info "Starting service: $svc"
+    $compose_cmd up -d "$svc"
+}
+
+stop_single_service() {
+    local svc="${1:-}"
+    if [[ -z "$svc" ]]; then
+        error "Usage: ./$SCRIPT_NAME stop-service <service>"
+    fi
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd)
+    info "Stopping service: $svc"
+    $compose_cmd stop "$svc"
 }
 
 # Start services
@@ -549,6 +706,12 @@ start_services() {
     check_docker
     check_docker_compose
     check_env_file
+    
+    # Auto-detect and update HOST_IP in .env if needed
+    ensure_host_ip_configured
+    
+    # Generate SSL certificates if missing (required for nginx)
+    generate_ssl_certificates
     
     local compose_cmd=$(get_docker_compose_cmd)
 
@@ -595,6 +758,9 @@ setup_minio_buckets() {
         warn "MinIO container is not running, skipping bucket setup"
         return 0
     fi
+
+    local minio_pass
+    minio_pass="$(resolve_minio_password)"
     
     # Wait for MinIO to be ready (probe via mc container; MinIO server image often lacks mc)
     info "Waiting for MinIO to be ready..."
@@ -603,7 +769,7 @@ setup_minio_buckets() {
     
     while [ $attempt -lt $max_attempts ]; do
         if docker run --rm --network docker_ai_network minio/mc \
-            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local >/dev/null" \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc ls local >/dev/null" \
             >/dev/null 2>&1; then
             break
         fi
@@ -630,13 +796,13 @@ setup_minio_buckets() {
     info "Creating required MinIO buckets..."
     for bucket in "${buckets[@]}"; do
         if docker run --rm --network docker_ai_network minio/mc \
-            sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/'$bucket' >/dev/null" \
+            sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc ls local/'$bucket' >/dev/null" \
             >/dev/null 2>&1; then
             info "Bucket $bucket already exists"
         else
             info "Creating bucket: $bucket"
             docker run --rm --network docker_ai_network minio/mc \
-                sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc mb local/'$bucket' >/dev/null" \
+                sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc mb local/'$bucket' >/dev/null" \
                 >/dev/null 2>&1 || {
                 warn "Failed to create bucket $bucket"
             }
@@ -645,10 +811,10 @@ setup_minio_buckets() {
     
     # Create folder structure
     info "Creating folder structure..."
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/tika-pipe/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/n8n-workflows/inputs/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/n8n-workflows/outputs/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc cp /dev/null local/shared-documents/company/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/tika-pipe/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/n8n-workflows/inputs/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/n8n-workflows/outputs/.gitkeep >/dev/null 2>&1 || true"
+    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/shared-documents/company/.gitkeep >/dev/null 2>&1 || true"
     
     info "✅ MinIO buckets setup complete"
 }
@@ -668,13 +834,8 @@ mount_minio_storage() {
     fi
 
     # Resolve MinIO password from env/.env (used for rclone config)
-    local minio_pass="${MINIO_ROOT_PASSWORD:-}"
-    if [[ -z "$minio_pass" && -f "$ENV_FILE" ]]; then
-        # shellcheck disable=SC1090
-        . "$ENV_FILE" 2>/dev/null || true
-        minio_pass="${MINIO_ROOT_PASSWORD:-}"
-    fi
-    minio_pass="${minio_pass:-minio123456}"
+    local minio_pass
+    minio_pass="$(resolve_minio_password)"
 
     info "Configuring transparent MinIO mount (rclone) for host access..."
     
@@ -700,7 +861,7 @@ type = s3
 provider = Minio
 env_auth = false
 access_key_id = admin
-secret_access_key = ${MINIO_ROOT_PASSWORD:-minio123456}
+secret_access_key = ${minio_pass}
 endpoint = http://127.0.0.1:9000
 region = us-east-1
 EOF
@@ -1030,7 +1191,8 @@ update_system() {
     local compose_cmd=$(get_docker_compose_cmd)
     
     # Pull latest images and detect updated services
-    info "Pulling latest images for all services..."
+    # Note: With tags like :latest, :alpine, docker compose pull will always fetch the latest
+    info "Pulling latest images for all services (ensuring latest versions)..."
     local pull_log_file="/tmp/tu-compose-pull.log"
     : > "$pull_log_file"
     local pull_cmd="$compose_cmd pull"
@@ -1040,7 +1202,7 @@ update_system() {
         pull_cmd="$compose_cmd pull --progress=plain"
     fi
     
-    # Pull images with retry logic
+    # Pull images with retry logic (always pulls latest for :latest, :alpine tags)
     set +e
     $pull_cmd 2>&1 | tee "$pull_log_file"
     local pull_ec=${PIPESTATUS[0]}
@@ -1054,6 +1216,14 @@ update_system() {
         fi
     fi
     set -e
+    
+    # Rebuild custom images with --pull to get latest base images
+    # (Python packages in requirements.txt are unpinned, so pip install will get latest)
+    info "Rebuilding custom images with latest base images..."
+    if $compose_cmd config --services | grep -q "tika_minio_processor"; then
+        info "Rebuilding tika_minio_processor with latest base image (python:3-slim) and dependencies..."
+        $compose_cmd build --pull tika_minio_processor 2>&1 || warn "Failed to rebuild tika_minio_processor (continuing anyway)"
+    fi
     
     # Build list of all services for validation
     local -a all_services
@@ -2420,8 +2590,11 @@ main() {
             
             # Execute command
             case "$1" in
+                setup)
+                    setup_platform
+                    ;;
                 start)
-                    start_services
+                    start_services "${2:-}"
                     ;;
                 stop)
                     stop_services
@@ -2489,6 +2662,12 @@ main() {
                     ;;
                 whitelist-remove)
                     whitelist_remove "${2:-}"
+                    ;;
+                start-service)
+                    start_single_service "${2:-}"
+                    ;;
+                stop-service)
+                    stop_single_service "${2:-}"
                     ;;
                 setup-minio)
                     setup_minio_buckets

@@ -9,7 +9,9 @@ set -euo pipefail
 echo "[sync-openwebui-minio] Starting sync..."
 
 # Config
-ROOT_DIR="/home/tu/docker"
+# Auto-detect script directory (works from any location)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="$SCRIPT_DIR"
 ENV_FILE="$ROOT_DIR/.env"
 SRC_VOL="docker_openwebui_files"
 BUCKET="tika-pipe"

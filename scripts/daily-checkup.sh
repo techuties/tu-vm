@@ -15,10 +15,23 @@ log() {
 check_container_health() {
     local unhealthy_services=()
     local down_services=()
+    local ondemand_stopped=()
     local restart_count=0
     local health_details=""
     
+    # Tier 2 (on-demand) services are allowed to be stopped; do not treat as "down".
+    local ondemand=("ai_ollama" "ai_n8n" "ai_minio")
     local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor")
+
+    is_ondemand() {
+        local c="$1"
+        for x in "${ondemand[@]}"; do
+            if [[ "$x" == "$c" ]]; then
+                return 0
+            fi
+        done
+        return 1
+    }
     
     for container in "${containers[@]}"; do
         # Check if container exists
@@ -39,8 +52,13 @@ check_container_health() {
         
         # Check for down containers
         if [[ "$status" == "not running" ]] || [[ "$status" == *"Exited"* ]]; then
-            down_services+=("${container}")
-            health_details="${health_details}${container}: down; "
+            if is_ondemand "$container"; then
+                ondemand_stopped+=("${container}")
+                health_details="${health_details}${container}: stopped (on-demand); "
+            else
+                down_services+=("${container}")
+                health_details="${health_details}${container}: down; "
+            fi
         fi
         
         # Check for excessive restarts
@@ -55,6 +73,7 @@ check_container_health() {
 {
     "unhealthy_services": [$(printf '"%s",' "${unhealthy_services[@]}" | sed 's/,$//')],
     "down_services": [$(printf '"%s",' "${down_services[@]}" | sed 's/,$//')],
+    "ondemand_stopped": [$(printf '"%s",' "${ondemand_stopped[@]}" | sed 's/,$//')],
     "total_restarts": $restart_count,
     "last_check": "$(date -Iseconds)",
     "health_details": "$health_details",
