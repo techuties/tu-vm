@@ -352,7 +352,7 @@ The VM's Pi-hole is configured with:
 
 ## 📄 Universal MinIO File Processing Pipeline (Active)
 
-A comprehensive, production-ready pipeline that automatically processes **any file type** uploaded to MinIO, extracting text content and metadata using Apache Tika with OCR support.
+A robust home-server pipeline that automatically processes **any file type** uploaded to MinIO, extracting text content and metadata using Apache Tika with OCR support.
 
 ### 🎯 Supported File Types
 
@@ -362,7 +362,7 @@ A comprehensive, production-ready pipeline that automatically processes **any fi
 **Archives**: ZIP, TAR, TAR.GZ, GZ (extracts and processes contents)
 
 ### Quick Start
-1. Open MinIO Console at `http://localhost:9001` and log in (`admin` / `minio123456`).
+1. Open MinIO Console at `http://localhost:9001` and log in (default: `admin` / `minio123456` — **change this** in your `.env` before you rely on it).
 2. Upload **any supported file type** into the bucket `tika-pipe`.
 3. The universal processor automatically detects the file type and processes it:
    - PDFs/images → Tika with OCR
@@ -719,7 +719,7 @@ The TechUties VM provides a **secure, private AI platform** with:
 - **Easy security control** with three levels
 - **Comprehensive backup/restore** system
 - **Advanced document processing** with PyMuPDF and Apache Tika
-- **Production-ready** architecture
+- **Home-lab ready** architecture (LAN-first)
 - **⚡ Revolutionary energy optimization** - 85% CPU reduction, 2x battery life improvement
 
 ### 🚀 New in v2.0: Energy Optimization
@@ -737,3 +737,13 @@ The TechUties VM provides a **secure, private AI platform** with:
 **Security Level**: 🔒 **HIGH** - Secure access with easy control  
 **Complexity**: 🟢 **LOW** - One script for everything  
 **Maintenance**: 🟢 **EASY** - Simple commands and automatic backups 
+
+## Production notes (important)
+
+This project is designed to be **safe-by-default on a home network (LAN)**.
+
+If you plan to expose anything to the public internet, do these first:
+- **Change all default passwords** (MinIO, Pi-hole, any admin UIs).
+- **Use real TLS certificates** (not self-signed) and keep the VM updated.
+- **Keep admin ports on localhost** and only expose via Nginx with strict rules.
+- **Review the allowlist + control token** and rotate tokens if you share a browser/device.
