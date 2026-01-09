@@ -20,7 +20,7 @@ check_container_health() {
     local health_details=""
     
     # Tier 2 (on-demand) services are allowed to be stopped; do not treat as "down".
-    local ondemand=("ai_ollama" "ai_n8n" "ai_minio")
+    local ondemand=("ai_ollama" "ai_n8n" "ai_minio" "ai_qdrant" "ai_tika" "tika_minio_processor")
     local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor")
 
     is_ondemand() {

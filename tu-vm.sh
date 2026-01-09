@@ -33,19 +33,19 @@ readonly LOG_FILE="tu-vm.log"
 readonly TIER1_SERVICES=(
     "postgres"
     "redis"
-    "qdrant"
-    "tika"
     "open-webui"
     "pihole"
     "nginx"
     "helper_index"
-    "tika_minio_processor"
 )
 
 readonly TIER2_SERVICES=(
     "ollama"
     "n8n"
     "minio"
+    "qdrant"
+    "tika"
+    "tika_minio_processor"
 )
 
 # Map compose service name -> container_name (when it doesn't follow ai_<service>)
@@ -728,7 +728,7 @@ start_services() {
     if wait_for_services "${TIER1_SERVICES[@]}"; then
         info "Tier 1 services are ready!"
         
-        # Note: Tika is configured as default in docker-compose.yml
+        # Note: Tier 2 services (Qdrant, Tika, MinIO, etc.) can be started on-demand via dashboard
         
         # Setup MinIO buckets for first-time installation
         setup_minio_buckets

@@ -68,23 +68,19 @@ services:
       - 172.20.0.16
 
 
-  # Qdrant Vector Database (lightweight)
+  # Qdrant Vector Database (on-demand - Tier 2)
+  # Only needed when using embeddings/RAG features
   qdrant:
     image: qdrant/qdrant:latest
     container_name: ai_qdrant
-    restart: unless-stopped
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     # keep internal only; access via internal URLs or add an authenticated proxy if needed
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
       ai_network:
         ipv4_address: 172.20.0.12
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/health || exit 1"]
-      interval: 180s  # Increased for energy efficiency
-      timeout: 10s
-      retries: 2
-      start_period: 30s
+    # Healthcheck disabled for on-demand service (Tier 2)
     deploy:
       resources:
         limits:
@@ -113,11 +109,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3G  # Reduced from 4G for efficiency
-          cpus: '1.5'  # Reduced from 2.0 for efficiency
+          memory: 2G  # Reduced from 3G for better idle efficiency
+          cpus: '1.0'  # Reduced from 1.5 for better idle efficiency
         reservations:
-          memory: 1G
-          cpus: '0.5'
+          memory: 512M  # Reduced from 1G for better idle efficiency
+          cpus: '0.25'  # Reduced from 0.5 for better idle efficiency
     dns:
       - 127.0.0.11
       - 172.20.0.16
@@ -180,7 +176,7 @@ services:
       # Use Open WebUI backend health endpoint (defined in open_webui/main.py)
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health/db || exit 1"]
       # Open WebUI can block startup while installing tool/function deps; allow extra start time.
-      interval: 60s
+      interval: 180s  # Increased from 60s for energy efficiency
       timeout: 10s
       retries: 3
       start_period: 180s
@@ -198,11 +194,12 @@ services:
 
   
 
-  # Apache Tika for robust content extraction with OCR support (used by Open WebUI)
+  # Apache Tika for robust content extraction with OCR support (on-demand - Tier 2)
+  # Only needed when processing documents
   tika:
     image: apache/tika:latest-full  # Full version includes Tesseract OCR for image-based PDFs
     container_name: ai_tika
-    restart: unless-stopped
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     environment:
       - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m  # Increased memory for OCR processing
     networks:
@@ -433,7 +430,8 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-  # Universal MinIO File Processor (handles PDFs, Office docs, images, text, archives, etc.)
+  # Universal MinIO File Processor (on-demand - Tier 2)
+  # Only needed when MinIO and Tika are running for document processing
   tika_minio_processor:
     build: ./tika-minio-processor
     container_name: tika_minio_processor
@@ -448,17 +446,20 @@ services:
       - CHECK_INTERVAL=10  # Check for new files every 10 seconds
     networks:
       - ai_network
-    restart: unless-stopped
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh when needed
     depends_on:
       - tika
       # Note: MinIO is Tier 2 (on-demand), processor handles missing MinIO gracefully
     command: ["python", "universal_auto_processor.py"]
-    healthcheck:
-      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://ai_tika:9998/tika\", timeout=5)' || exit 1"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+    # Healthcheck disabled for on-demand service (Tier 2)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
 
 volumes:
   openwebui_files:

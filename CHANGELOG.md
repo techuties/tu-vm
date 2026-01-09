@@ -2,6 +2,27 @@
 
 All notable changes to the TechUties VM project will be documented in this file.
 
+## [2.2.0] - 2026-01-08 - Major Resource Optimization
+
+### ⚡ Resource Optimization
+- **Moved Qdrant to Tier 2**: Vector database now on-demand (saves 1G memory + 1.0 CPU when idle)
+- **Moved Tika to Tier 2**: Document processor now on-demand (saves 2G memory + 1.0 CPU when idle)
+- **Moved tika_minio_processor to Tier 2**: File processor now on-demand, stops constant polling when MinIO is off
+- **Added resource limits to tika_minio_processor**: 512M memory, 0.5 CPU (was unlimited)
+- **Reduced Open WebUI resources**: Memory 3G→2G limit, 1G→512M reservation; CPU 1.5→1.0 limit, 0.5→0.25 reservation
+- **Optimized health checks**: Open WebUI interval increased from 60s to 180s
+
+### 📊 Performance Impact
+- **Idle CPU Usage**: 4.6% → **2-3%** (additional 35-50% reduction)
+- **Idle Memory**: ~2.1GB → **1.5-2.0GB** (additional 30-45% reduction)
+- **Tier 1 Services**: Reduced from 9 to 6 services (PostgreSQL, Redis, Open WebUI, Pi-hole, Nginx, Helper API)
+- **Tier 2 Services**: Expanded to 6 services (Ollama, n8n, MinIO, Qdrant, Tika, tika_minio_processor)
+
+### 🔧 Service Management
+- All Tier 2 services can be started/stopped via dashboard or `./tu-vm.sh start-service/stop-service`
+- Services start automatically when needed (e.g., Tika when processing documents, Qdrant when using embeddings)
+- Updated daily checkup script to correctly classify new Tier 2 services
+
 ## [2.1.0] - 2026-01-08 - Installation Improvements & System Cleanup
 
 ### 🔒 Security

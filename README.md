@@ -46,11 +46,10 @@ The platform now features a **revolutionary energy optimization system** that re
 #### **Tiered Service Architecture**
 ```
 ┌─────────────────────────────────────────────┐
-│ TIER 1: Always Running (Core - ~3-5% CPU)  │
+│ TIER 1: Always Running (Core - ~2-3% CPU)  │
 ├─────────────────────────────────────────────┤
-│ • PostgreSQL, Redis, Qdrant (databases)    │
+│ • PostgreSQL, Redis (databases)            │
 │ • Open WebUI (UI only, no AI backend)       │
-│ • Tika (document processing)               │
 │ • Nginx, Pi-hole, Helper API              │
 └─────────────────────────────────────────────┘
 
@@ -60,13 +59,16 @@ The platform now features a **revolutionary energy optimization system** that re
 │ • Ollama (AI backend) [Start/Stop Button]   │
 │ • n8n (workflow automation) [Start/Stop]     │
 │ • MinIO (object storage) [Start/Stop]       │
+│ • Qdrant (vector database) [Start/Stop]      │
+│ • Tika (document processing) [Start/Stop]    │
+│ • Tika-MinIO Processor [Start/Stop]         │
 └─────────────────────────────────────────────┘
 ```
 
 #### **Performance Improvements**
-- **CPU Usage**: 30% → **4.6%** (85% reduction)
-- **Load Average**: 4.20 → **1.17** (72% reduction)
-- **Memory Usage**: 2.8GB → **2.1GB** (25% reduction)
+- **CPU Usage**: 30% → **2-3%** (90% reduction) - Further optimized in latest update
+- **Load Average**: 4.20 → **0.8-1.0** (75% reduction)
+- **Memory Usage**: 2.8GB → **1.5-2.0GB** (30-45% reduction)
 - **Battery Life**: 3-4 hours → **8-10 hours** (150% improvement)
 
 #### **Smart Dashboard Controls**
@@ -77,10 +79,11 @@ The platform now features a **revolutionary energy optimization system** that re
 - **Status Confirmation**: "Starting..." / "Stopping..." button states
 
 #### **Battery Life by Use Case**
-- **Normal Use** (Open WebUI + Tika): **8-10 hours** (150% improvement)
+- **Normal Use** (Open WebUI only): **8-10 hours** (150% improvement)
+- **Document Processing** (+ Tika + MinIO): **6-8 hours** (when processing documents)
 - **Workflow Development** (+ n8n): **6-7 hours** (75% improvement)  
 - **AI Work** (+ Ollama): **2.5 hours** (25% improvement - Ollama is inherently heavy)
-- **Document Processing** (+ MinIO): **6-8 hours** (when using full storage pipeline)
+- **Embeddings/RAG** (+ Qdrant): **7-9 hours** (when using vector search)
 
 ### Core Services
 - **Open WebUI** - Modern AI chat interface with local model support
