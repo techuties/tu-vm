@@ -395,6 +395,9 @@ CHECK_INTERVAL=10  # Check for new files every 10 seconds
 - ✅ **Idempotent processing** (skips already processed files)
 - ✅ **Metadata extraction** for all supported formats
 - ✅ **Archive extraction** with recursive text extraction
+- ✅ **Real-time dashboard notifications** with progress bars
+- ✅ **Extended timeout support** (15 minutes) for large/complex PDFs
+- ✅ **Status tracking** with detailed progress updates
 
 Notes:
 - Single-bucket mode: inputs and outputs live in `tika-pipe`.

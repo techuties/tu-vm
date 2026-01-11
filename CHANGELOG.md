@@ -2,6 +2,33 @@
 
 All notable changes to the TechUties VM project will be documented in this file.
 
+## [2.3.0] - 2026-01-11 - PDF Processing Improvements & Dashboard Notifications
+
+### 🎯 PDF Processing Enhancements
+- **Increased Tika timeout**: Extended from 5 minutes to 15 minutes for large/complex PDFs with OCR
+- **Custom Tika configuration**: Added `tika-config/tika-config.xml` with extended timeout settings
+- **Improved error handling**: Better error messages, retry status updates, and progress tracking
+- **MinIO endpoint resolution**: Fixed boto3 compatibility by resolving hostnames to IP addresses
+- **Atomic status file writes**: Prevents race conditions in status updates
+
+### 📊 Real-Time Dashboard Notifications
+- **PDF processing notifications**: Real-time progress bar notifications when PDFs are being processed
+- **Progress tracking**: Shows processing stage (downloading, processing, extracting metadata, storing)
+- **Status updates**: Updates every 2 seconds during active processing
+- **Success/error notifications**: Automatic notifications on completion or failure
+- **Persistent notifications**: Progress notifications remain visible during processing
+
+### 🔧 Code Quality Improvements
+- **Better exception handling**: Replaced bare `except:` with specific exception types
+- **Improved error messages**: More descriptive errors with context and S3 error codes
+- **Status file management**: Atomic writes, proper error handling, stale status detection
+- **Code cleanup**: Removed redundant code, improved logging, better type safety
+
+### 🛠️ Infrastructure Updates
+- **Shared status file**: `/tmp` mounted in both processor and helper containers
+- **New API endpoint**: `/status/pdf-processing` for dashboard integration
+- **Nginx route**: Added proxy route for PDF processing status endpoint
+
 ## [2.2.0] - 2026-01-08 - Major Resource Optimization
 
 ### ⚡ Resource Optimization

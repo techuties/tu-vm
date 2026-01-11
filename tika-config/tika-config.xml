@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+  <server>
+    <params>
+      <!-- Increase task timeout to 15 minutes (900000 ms) for large PDFs with OCR -->
+      <taskTimeoutMillis>900000</taskTimeoutMillis>
+    </params>
+  </server>
+  <ocr>
+    <!-- Increase OCR timeout to match task timeout -->
+    <timeout>900000</timeout>
+  </ocr>
+</properties>

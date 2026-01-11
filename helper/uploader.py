@@ -789,6 +789,71 @@ def status_minio():
     except Exception:
         return 'error', 503
 
+@app.route('/status/pdf-processing', methods=['GET'])
+def status_pdf_processing():
+    """Get current PDF processing status from tika-minio-processor"""
+    try:
+        status_file = '/tmp/tika-processing-status.json'
+        if os.path.exists(status_file):
+            try:
+                with open(status_file, 'r') as f:
+                    status = json.load(f)
+                # Check if status is recent (within last 30 minutes)
+                last_update_str = status.get('last_update') or '1970-01-01T00:00:00'
+                try:
+                    last_update = datetime.datetime.fromisoformat(last_update_str.replace('Z', '+00:00'))
+                except ValueError:
+                    # Fallback for older Python versions
+                    last_update = datetime.datetime.strptime(last_update_str.split('.')[0], '%Y-%m-%dT%H:%M:%S')
+                
+                # If status is stale (older than 30 minutes), mark as idle
+                if datetime.datetime.now() - last_update < datetime.timedelta(minutes=30):
+                    return jsonify(status)
+                else:
+                    # Stale status - return idle
+                    return jsonify({
+                        'processing': False,
+                        'current_file': None,
+                        'progress': 0,
+                        'status': 'idle',
+                        'error': None
+                    })
+            except (json.JSONDecodeError, ValueError) as e:
+                # Invalid JSON or date format
+                return jsonify({
+                    'processing': False,
+                    'current_file': None,
+                    'progress': 0,
+                    'status': 'idle',
+                    'error': f'Invalid status file format: {str(e)}'
+                })
+            except (IOError, OSError) as e:
+                # File read error
+                return jsonify({
+                    'processing': False,
+                    'current_file': None,
+                    'progress': 0,
+                    'status': 'idle',
+                    'error': f'Failed to read status file: {str(e)}'
+                })
+        
+        # Return empty status if no file
+        return jsonify({
+            'processing': False,
+            'current_file': None,
+            'progress': 0,
+            'status': 'idle',
+            'error': None
+        })
+    except Exception as e:
+        return jsonify({
+            'processing': False,
+            'current_file': None,
+            'progress': 0,
+            'status': 'idle',
+            'error': f'Unexpected error: {str(e)}'
+        }), 500
+
 @app.route('/health', methods=['GET'])
 def health():
     return 'ok', 200

@@ -75,6 +75,10 @@
   .notification-btn { background: #0e1a26; color: var(--fg); border: 1px solid #1f2937; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
   .notification-btn:hover { border-color: #374151; }
   .notification-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+  .notification-progress { margin-top: 8px; }
+  .notification-progress-bar { width: 100%; height: 6px; background: #1f2937; border-radius: 3px; overflow: hidden; }
+  .notification-progress-fill { height: 100%; background: linear-gradient(90deg, #6bb6ff, #6fe0b8); transition: width 0.3s ease; }
+  .notification-progress-text { font-size: 11px; color: var(--muted); margin-top: 4px; }
   @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
   /* Announcements dropdown */
@@ -120,7 +124,7 @@ function setBadge(id, res){
   b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
 }
 async function refreshStatuses(){
-  const [land, oweb, n8n, pih, ollama, minio, full, updates] = await Promise.all([
+  const [land, oweb, n8n, pih, ollama, minio, full, updates, pdfStatus] = await Promise.all([
     Promise.resolve({ok:true,ms:0}),
     probe('/status/oweb'),
     probe('/status/n8n'),
@@ -128,8 +132,14 @@ async function refreshStatuses(){
     probe('/status/ollama'),
     probe('/status/minio'),
     fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({})),
-    fetch('/status/updates').then(r=>r.ok?r.json():{}).catch(()=>({}))
+    fetch('/status/updates').then(r=>r.ok?r.json():{}).catch(()=>({})),
+    fetch('/status/pdf-processing').then(r=>r.ok?r.json():{}).catch(()=>({processing: false, error: null}))
   ]);
+  
+  // Check PDF processing status and show notification (handles all states)
+  if(pdfStatus) {
+    showPDFProcessingNotification(pdfStatus);
+  }
   setBadge('badge-oweb', oweb);
   setBadge('badge-n8n', n8n);
   setBadge('badge-pihole', pih);
@@ -216,16 +226,31 @@ function setServiceLoading(id, loading, action){
   }
 }
 
-function showNotification(message, type = 'info'){
+function showNotification(message, type = 'info', progress = null, persistent = false){
   // Create notification element
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
+  if(persistent) notification.setAttribute('data-persistent', 'true');
+  
+  let progressHtml = '';
+  if(progress !== null) {
+    progressHtml = `
+      <div class="notification-progress">
+        <div class="notification-progress-bar">
+          <div class="notification-progress-fill" style="width: ${progress}%"></div>
+        </div>
+        <div class="notification-progress-text">${progress}%</div>
+      </div>
+    `;
+  }
+  
   notification.innerHTML = `
     <div class="notification-header">
       <div class="notification-icon ${type}">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</div>
       <div class="notification-title">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</div>
     </div>
     <div class="notification-message">${message}</div>
+    ${progressHtml}
   `;
   
   // Add to page
@@ -234,11 +259,91 @@ function showNotification(message, type = 'info'){
   // Show notification
   setTimeout(() => notification.classList.add('show'), 100);
   
-  // Auto-hide after 3 seconds
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
+  // Auto-hide after 3 seconds (unless persistent)
+  if(!persistent) {
+    setTimeout(() => {
+      notification.classList.remove('show');
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+  
+  return notification;
+}
+
+let pdfProcessingNotification = null;
+
+function showPDFProcessingNotification(status) {
+  // Handle completion or error states
+  if(!status.processing) {
+    if(status.progress === 100 && status.status === 'completed') {
+      // Successfully completed
+      const filename = status.current_file || 'PDF file';
+      if(pdfProcessingNotification) {
+        pdfProcessingNotification.classList.remove('show');
+        setTimeout(() => {
+          if(pdfProcessingNotification) {
+            pdfProcessingNotification.remove();
+            pdfProcessingNotification = null;
+          }
+          showNotification(`PDF processed successfully: ${filename}`, 'success');
+        }, 500);
+      } else {
+        showNotification(`PDF processed successfully: ${filename}`, 'success');
+      }
+    } else if(status.error) {
+      // Error occurred
+      const errorMsg = status.error.length > 100 ? status.error.substring(0, 100) + '...' : status.error;
+      if(pdfProcessingNotification) {
+        pdfProcessingNotification.classList.remove('show');
+        setTimeout(() => {
+          if(pdfProcessingNotification) {
+            pdfProcessingNotification.remove();
+            pdfProcessingNotification = null;
+          }
+          showNotification(`PDF processing failed: ${errorMsg}`, 'error');
+        }, 500);
+      } else {
+        showNotification(`PDF processing failed: ${errorMsg}`, 'error');
+      }
+    } else if(pdfProcessingNotification) {
+      // Idle state - remove notification
+      pdfProcessingNotification.classList.remove('show');
+      setTimeout(() => {
+        if(pdfProcessingNotification) {
+          pdfProcessingNotification.remove();
+          pdfProcessingNotification = null;
+        }
+      }, 300);
+    }
+    return;
+  }
+  
+  // Processing is active
+  const filename = status.current_file || 'Unknown file';
+  const progress = Math.max(0, Math.min(100, status.progress || 0)); // Clamp to 0-100
+  const statusText = status.status || 'processing';
+  
+  if(!pdfProcessingNotification) {
+    // Create new notification
+    pdfProcessingNotification = showNotification(
+      `Processing PDF: ${filename}`,
+      'info',
+      progress,
+      true // persistent
+    );
+  } else {
+    // Update existing notification
+    const messageEl = pdfProcessingNotification.querySelector('.notification-message');
+    const progressBar = pdfProcessingNotification.querySelector('.notification-progress-fill');
+    const progressText = pdfProcessingNotification.querySelector('.notification-progress-text');
+    
+    if(messageEl) messageEl.textContent = `Processing PDF: ${filename}`;
+    if(progressBar) progressBar.style.width = `${progress}%`;
+    if(progressText) {
+      const displayText = statusText.length > 40 ? statusText.substring(0, 40) + '...' : statusText;
+      progressText.textContent = `${progress}% - ${displayText}`;
+    }
+  }
 }
 
 async function controlService(service, action){
@@ -308,6 +413,23 @@ async function controlService(service, action){
 function startAutoRefresh(){
   refreshStatuses();
   setInterval(refreshStatuses, 15000);
+  // Poll PDF processing status more frequently (every 2 seconds) when processing
+  let lastProcessingState = false;
+  setInterval(async () => {
+    try {
+      const pdfStatus = await fetch('/status/pdf-processing').then(r=>r.ok?r.json():{}).catch(()=>({processing: false}));
+      if(pdfStatus) {
+        const isProcessing = pdfStatus.processing === true;
+        // Only update if state changed or actively processing
+        if(isProcessing || isProcessing !== lastProcessingState) {
+          showPDFProcessingNotification(pdfStatus);
+          lastProcessingState = isProcessing;
+        }
+      }
+    } catch(e) {
+      // Silently fail - don't spam console
+    }
+  }, 2000);
 }
 
 // Update notification system

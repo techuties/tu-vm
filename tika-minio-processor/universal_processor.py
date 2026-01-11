@@ -25,6 +25,10 @@ import socket
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import quote
 from datetime import datetime
+from botocore.exceptions import ClientError
+
+# Status file location (shared with helper API)
+STATUS_FILE = '/tmp/tika-processing-status.json'
 
 # Setup logging
 logging.basicConfig(
@@ -113,7 +117,8 @@ class UniversalMinIOProcessor:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         
-        # Normalize endpoint URL
+        # Normalize endpoint URL - resolve hostname to IP for boto3 compatibility
+        # boto3 validates endpoint URLs and doesn't accept hostnames with underscores
         raw = minio_endpoint
         if raw.startswith("http://") or raw.startswith("https://"):
             raw = raw.split("://", 1)[1]
@@ -122,11 +127,33 @@ class UniversalMinIOProcessor:
             host, port = host_port.split(':', 1)
         else:
             host, port = host_port, '9000'
+        
+        # Resolve hostname to IP (required for boto3 endpoint validation)
+        # Try multiple resolution methods for Docker network compatibility
+        resolved_ip = None
         try:
+            # Method 1: Standard DNS resolution
             resolved_ip = socket.gethostbyname(host)
+            logger.debug(f"Resolved MinIO endpoint: {host} -> {resolved_ip}:{port}")
+        except (socket.gaierror, OSError):
+            # Method 2: Try with .local suffix (mDNS)
+            try:
+                resolved_ip = socket.gethostbyname(f"{host}.local")
+                logger.debug(f"Resolved MinIO endpoint via .local: {host} -> {resolved_ip}:{port}")
+            except (socket.gaierror, OSError):
+                # Method 3: Use known Docker network IP (from docker-compose.yml)
+                if host == 'ai_minio':
+                    resolved_ip = '172.20.0.21'  # Static IP from docker-compose
+                    logger.info(f"Using static IP for MinIO: {resolved_ip}:{port}")
+                else:
+                    raise
+        
+        if resolved_ip:
             endpoint_url = f"http://{resolved_ip}:{port}"
-        except Exception:
+        else:
+            # Fallback: use hostname (may fail with boto3 validation)
             endpoint_url = f"http://{host}:{port}"
+            logger.warning(f"⚠️ Using hostname directly (may cause boto3 validation issues): {endpoint_url}")
 
         # Initialize MinIO client
         self.s3_client = boto3.client(
@@ -143,6 +170,9 @@ class UniversalMinIOProcessor:
         
         # Health check
         self._check_tika_health()
+        
+        # Initialize status tracking
+        self._update_status(processing=False, current_file=None, progress=0, status='idle')
     
     def _ensure_buckets_exist(self):
         """Create buckets if they don't exist"""
@@ -150,12 +180,14 @@ class UniversalMinIOProcessor:
             try:
                 self.s3_client.head_bucket(Bucket=bucket)
                 logger.info(f"✅ Bucket '{bucket}' exists")
-            except:
+            except ClientError:
                 try:
                     self.s3_client.create_bucket(Bucket=bucket)
                     logger.info(f"✅ Created bucket '{bucket}'")
-                except Exception as e:
+                except ClientError as e:
                     logger.error(f"❌ Failed to create bucket '{bucket}': {e}")
+            except Exception as e:
+                logger.warning(f"⚠️ Unexpected error checking bucket '{bucket}': {e}")
     
     def _check_tika_health(self):
         """Check if Tika service is available"""
@@ -170,6 +202,28 @@ class UniversalMinIOProcessor:
         except Exception as e:
             logger.warning(f"⚠️ Tika service health check failed: {e}")
             return False
+    
+    def _update_status(self, processing: bool = False, current_file: Optional[str] = None, 
+                       progress: int = 0, status: str = 'idle', error: Optional[str] = None):
+        """Update processing status file for dashboard notifications (atomic write)"""
+        try:
+            status_data = {
+                'processing': processing,
+                'current_file': current_file,
+                'progress': max(0, min(100, progress)),  # Clamp progress to 0-100
+                'status': status,
+                'error': error,
+                'last_update': datetime.now().isoformat()
+            }
+            # Atomic write: write to temp file first, then rename
+            temp_file = f"{STATUS_FILE}.tmp"
+            with open(temp_file, 'w') as f:
+                json.dump(status_data, f, indent=2)
+            os.replace(temp_file, STATUS_FILE)  # Atomic on most filesystems
+        except (IOError, OSError, json.JSONEncodeError) as e:
+            logger.warning(f"⚠️ Failed to update status file: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ Unexpected error updating status file: {e}")
     
     def _get_file_type(self, filename: str) -> Tuple[str, Optional[str]]:
         """Determine file type and processing method"""
@@ -210,6 +264,9 @@ class UniversalMinIOProcessor:
             
             logger.info(f"🔄 Processing with Tika: {filename} ({content_type})")
             
+            # Update status: processing started
+            self._update_status(processing=True, current_file=filename, progress=10, status='processing')
+            
             # Determine if OCR should be enabled (for PDFs and images)
             enable_ocr = False
             ocr_strategy = None
@@ -227,28 +284,44 @@ class UniversalMinIOProcessor:
             }
             if enable_ocr and ocr_strategy:
                 headers['X-Tika-PDFOcrStrategy'] = ocr_strategy
+                # Set Tika timeout to 15 minutes (900000 ms) - matches server config
+                headers['X-Tika-Timeout-Millis'] = '900000'
             
             # Process with retries
+            # Use longer timeout for OCR (15 minutes) to match Tika's server timeout setting
+            request_timeout = 900 if enable_ocr else 60
             for attempt in range(self.max_retries):
                 try:
+                    # Update status: sending to Tika
+                    self._update_status(processing=True, current_file=filename, progress=30, 
+                                      status=f'processing (attempt {attempt + 1}/{self.max_retries})')
+                    
                     response = requests.put(
                         f"{self.tika_url}/tika",
                         data=file_content,
                         headers=headers,
-                        timeout=120 if enable_ocr else 60
+                        timeout=request_timeout
                     )
                     
                     if response.status_code == 200:
+                        # Update status: text extraction complete, getting metadata
+                        self._update_status(processing=True, current_file=filename, progress=70, 
+                                          status='extracting metadata')
+                        
                         text_content = response.text.strip()
                         
                         # Get metadata
                         metadata = {}
                         try:
+                            metadata_headers = {'Content-Type': content_type}
+                            if enable_ocr:
+                                # Use longer timeout for metadata extraction with OCR (15 minutes max)
+                                metadata_headers['X-Tika-Timeout-Millis'] = '900000'
                             metadata_response = requests.put(
                                 f"{self.tika_url}/meta",
                                 data=file_content,
-                                headers={'Content-Type': content_type},
-                                timeout=30
+                                headers=metadata_headers,
+                                timeout=900 if enable_ocr else 30
                             )
                             if metadata_response.status_code == 200:
                                 metadata = metadata_response.json()
@@ -262,6 +335,10 @@ class UniversalMinIOProcessor:
                             else:
                                 text_content = f"[No extractable text content found in {Path(filename).suffix} file.]"
                         
+                        # Update status: processing complete
+                        self._update_status(processing=True, current_file=filename, progress=90, 
+                                          status='finalizing')
+                        
                         return {
                             'text': text_content,
                             'metadata': metadata,
@@ -272,29 +349,69 @@ class UniversalMinIOProcessor:
                             'ocr_used': enable_ocr
                         }
                     else:
-                        logger.warning(f"⚠️ Tika returned status {response.status_code} (attempt {attempt + 1}/{self.max_retries})")
+                        error_msg = f"Tika returned status {response.status_code}"
+                        logger.warning(f"⚠️ {error_msg} (attempt {attempt + 1}/{self.max_retries})")
                         if attempt < self.max_retries - 1:
+                            # Update status with retry info
+                            self._update_status(processing=True, current_file=filename, 
+                                              progress=30 + (attempt * 5), 
+                                              status=f'retrying after error (attempt {attempt + 1}/{self.max_retries})')
                             time.sleep(self.retry_delay)
                             continue
+                        # Final attempt failed
+                        self._update_status(processing=False, current_file=None, progress=0,
+                                          status='idle', error=f"{error_msg} after {self.max_retries} attempts")
                         return None
                         
                 except requests.Timeout:
-                    logger.warning(f"⚠️ Tika timeout (attempt {attempt + 1}/{self.max_retries})")
+                    error_msg = f"Tika timeout after {request_timeout}s"
+                    logger.warning(f"⚠️ {error_msg} (attempt {attempt + 1}/{self.max_retries})")
                     if attempt < self.max_retries - 1:
+                        # Update status with retry info
+                        self._update_status(processing=True, current_file=filename,
+                                          progress=30 + (attempt * 5),
+                                          status=f'retrying after timeout (attempt {attempt + 1}/{self.max_retries})')
                         time.sleep(self.retry_delay)
                         continue
+                    # Final attempt failed
+                    self._update_status(processing=False, current_file=None, progress=0,
+                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
+                    return None
+                except (requests.RequestException, ConnectionError) as e:
+                    error_msg = f"Connection error: {str(e)}"
+                    logger.error(f"❌ {error_msg}")
+                    if attempt < self.max_retries - 1:
+                        # Update status with retry info
+                        self._update_status(processing=True, current_file=filename,
+                                          progress=30 + (attempt * 5),
+                                          status=f'retrying after connection error (attempt {attempt + 1}/{self.max_retries})')
+                        time.sleep(self.retry_delay)
+                        continue
+                    # Final attempt failed
+                    self._update_status(processing=False, current_file=None, progress=0,
+                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
                     return None
                 except Exception as e:
-                    logger.error(f"❌ Error calling Tika: {e}")
+                    error_msg = f"Unexpected error: {str(e)}"
+                    logger.error(f"❌ {error_msg}")
                     if attempt < self.max_retries - 1:
+                        self._update_status(processing=True, current_file=filename,
+                                          progress=30 + (attempt * 5),
+                                          status=f'retrying after error (attempt {attempt + 1}/{self.max_retries})')
                         time.sleep(self.retry_delay)
                         continue
+                    # Final attempt failed
+                    self._update_status(processing=False, current_file=None, progress=0,
+                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
                     return None
             
             return None
                 
         except Exception as e:
-            logger.error(f"❌ Error processing file with Tika: {e}")
+            error_msg = f"Error processing file with Tika: {str(e)}"
+            logger.error(f"❌ {error_msg}")
+            self._update_status(processing=False, current_file=None, progress=0,
+                              status='idle', error=error_msg)
             return None
     
     def _process_text_file(self, file_content: bytes, filename: str) -> Optional[Dict[str, Any]]:
@@ -302,13 +419,13 @@ class UniversalMinIOProcessor:
         try:
             logger.info(f"🔄 Processing text file: {filename}")
             
-            # Try to decode as UTF-8, fallback to latin-1
+            # Try to decode as UTF-8, fallback to latin-1, then replace errors
             try:
                 text_content = file_content.decode('utf-8')
             except UnicodeDecodeError:
                 try:
                     text_content = file_content.decode('latin-1')
-                except:
+                except UnicodeDecodeError:
                     text_content = file_content.decode('utf-8', errors='replace')
             
             return {
@@ -350,7 +467,8 @@ class UniversalMinIOProcessor:
                                     try:
                                         text = content.decode('utf-8')
                                         all_text.append(f"=== {member} ===\n{text}\n")
-                                    except:
+                                    except (UnicodeDecodeError, AttributeError):
+                                        # Skip files that can't be decoded as text
                                         pass
                             except Exception as e:
                                 logger.warning(f"⚠️ Could not extract {member}: {e}")
@@ -371,7 +489,8 @@ class UniversalMinIOProcessor:
                                     try:
                                         text = content.decode('utf-8')
                                         all_text.append(f"=== {member.name} ===\n{text}\n")
-                                    except:
+                                    except (UnicodeDecodeError, AttributeError):
+                                        # Skip files that can't be decoded as text
                                         pass
                             except Exception as e:
                                 logger.warning(f"⚠️ Could not extract {member.name}: {e}")
@@ -458,8 +577,8 @@ class UniversalMinIOProcessor:
                     if len(metadata_json) > max_len:
                         metadata_json = metadata_json[:max_len] + "...(truncated)"
                     s3_metadata['extracted-metadata'] = quote(metadata_json, safe='')
-                except:
-                    pass
+                except (TypeError, ValueError, json.JSONEncodeError) as e:
+                    logger.warning(f"⚠️ Could not serialize metadata: {e}")
             
             # Upload to MinIO
             self.s3_client.put_object(
@@ -469,9 +588,13 @@ class UniversalMinIOProcessor:
                 Metadata=s3_metadata
             )
             
-            logger.info(f"✅ Stored processed content: {object_key}")
+            logger.info(f"✅ Stored processed content: {object_key} ({len(content)} chars)")
             return True
             
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            logger.error(f"❌ Failed to store processed content (S3 error {error_code}): {e}")
+            return False
         except Exception as e:
             logger.error(f"❌ Failed to store processed content: {e}")
             return False
@@ -488,24 +611,52 @@ class UniversalMinIOProcessor:
                 self.s3_client.head_object(Bucket=self.processed_bucket, Key=output_key)
                 logger.info(f"⏭️  Skipping, already processed: {output_key}")
                 return True
-            except Exception:
+            except ClientError:
+                # File doesn't exist, proceed with processing
                 pass
+            except Exception as e:
+                logger.warning(f"⚠️ Error checking if file already processed: {e}")
+                # Continue processing anyway
+            
+            filename = Path(object_key).name
+            
+            # Update status: file detected, downloading
+            self._update_status(processing=True, current_file=filename, progress=5, 
+                              status='downloading from MinIO')
             
             # Download file from uploads bucket
-            response = self.s3_client.get_object(
-                Bucket=self.uploads_bucket,
-                Key=object_key
-            )
-            
-            file_content = response['Body'].read()
-            filename = Path(object_key).name
+            try:
+                response = self.s3_client.get_object(
+                    Bucket=self.uploads_bucket,
+                    Key=object_key
+                )
+                file_content = response['Body'].read()
+            except ClientError as e:
+                error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+                error_msg = f"Failed to download file from MinIO (S3 error {error_code}): {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                self._update_status(processing=False, current_file=None, progress=0,
+                                  status='idle', error=error_msg)
+                return False
+            except Exception as e:
+                error_msg = f"Failed to download file from MinIO: {str(e)}"
+                logger.error(f"❌ {error_msg}")
+                self._update_status(processing=False, current_file=None, progress=0,
+                                  status='idle', error=error_msg)
+                return False
             
             # Process file
             result = self.process_file(file_content, filename)
             
             if not result or result['status'] != 'success':
                 logger.error(f"❌ Processing failed for {filename}")
+                self._update_status(processing=False, current_file=None, progress=0, 
+                                  status='idle', error=f"Processing failed: {filename}")
                 return False
+            
+            # Update status: storing result
+            self._update_status(processing=True, current_file=filename, progress=95, 
+                              status='storing processed content')
             
             # Store processed content
             success = self.store_processed_content(
@@ -519,13 +670,21 @@ class UniversalMinIOProcessor:
                 logger.info(f"✅ Successfully processed: {filename}")
                 logger.info(f"📄 Text length: {len(result['text'])} characters")
                 logger.info(f"🔧 Method: {result.get('processing_method', 'unknown')}")
+                
+                # Update status: complete
+                self._update_status(processing=False, current_file=None, progress=100, 
+                                  status='completed')
                 return True
             else:
                 logger.error(f"❌ Failed to store processed content")
+                self._update_status(processing=False, current_file=None, progress=0, 
+                                  status='idle', error=f"Failed to store: {filename}")
                 return False
                 
         except Exception as e:
             logger.error(f"❌ Error processing file from MinIO: {e}")
+            self._update_status(processing=False, current_file=None, progress=0, 
+                              status='idle', error=str(e))
             return False
     
     def get_processing_stats(self) -> Dict[str, Any]:
@@ -560,7 +719,8 @@ class UniversalMinIOProcessor:
                             metadata = meta_response.get('Metadata', {})
                             method = metadata.get('processing-method', 'unknown')
                             stats['by_method'][method] = stats['by_method'].get(method, 0) + 1
-                        except:
+                        except (KeyError, TypeError, AttributeError):
+                            # Metadata key doesn't exist or wrong type, skip
                             pass
                 
                 if response.get('IsTruncated'):

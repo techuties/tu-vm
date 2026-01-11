@@ -202,6 +202,9 @@ services:
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     environment:
       - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m  # Increased memory for OCR processing
+    command: ["--config", "/tika-config/tika-config.xml"]  # Custom config with extended timeout (15 minutes)
+    volumes:
+      - ./tika-config/tika-config.xml:/tika-config/tika-config.xml:ro
     networks:
       ai_network:
         ipv4_address: 172.20.0.20
@@ -416,6 +419,7 @@ services:
       - .:/docker-project:ro  # Mount entire project for docker-compose path resolution
       - ./nginx/dynamic:/nginx-dynamic
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp:/tmp  # Share status file with tika-minio-processor for PDF processing notifications
     working_dir: /app
     environment:
       - HOST_IP=${HOST_IP}
@@ -444,6 +448,8 @@ services:
       - PROCESSED_BUCKET=tika-pipe
       - WATCH_BUCKETS=tika-pipe,n8n-workflows  # Watch multiple buckets (Open WebUI + n8n)
       - CHECK_INTERVAL=10  # Check for new files every 10 seconds
+    volumes:
+      - /tmp:/tmp  # Share status file with helper API for dashboard notifications
     networks:
       - ai_network
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh when needed
