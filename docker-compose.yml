@@ -1,7 +1,9 @@
 services:
   # PostgreSQL Database (optimized)
+  # Pinned to 15-alpine: existing volume was initialized with PostgreSQL 15; 18+ also
+  # changed data layout. Use 15 to match current data, or migrate with pg_upgrade.
   postgres:
-    image: postgres:alpine
+    image: postgres:15-alpine
     container_name: ai_postgres
     restart: unless-stopped
     environment:
@@ -124,6 +126,11 @@ services:
     image: ghcr.io/open-webui/open-webui:latest
     container_name: ai_openwebui
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     ports:
       # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.local)
       - "127.0.0.1:8080:8080"
