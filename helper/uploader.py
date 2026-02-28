@@ -715,7 +715,11 @@ def control_service(service, action):
             'helper_index': ('ai_helper_index', 'helper_index'),
             'helper-index': ('ai_helper_index', 'helper_index'),  # Alternative name
             'tika-minio-processor': ('tika_minio_processor', 'tika_minio_processor'),
-            'tika_minio_processor': ('tika_minio_processor', 'tika_minio_processor')
+            'tika_minio_processor': ('tika_minio_processor', 'tika_minio_processor'),
+            'mcp-playwright': ('mcp_playwright', 'mcp-playwright'),
+            'mcp-filesystem': ('mcp_filesystem', 'mcp-filesystem'),
+            'mcp-fetch': ('mcp_fetch', 'mcp-fetch'),
+            'mcp-memory': ('mcp_memory', 'mcp-memory')
         }
         
         container_info = name_map.get(service)

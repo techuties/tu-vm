@@ -46,6 +46,10 @@ readonly TIER2_SERVICES=(
     "qdrant"
     "tika"
     "tika_minio_processor"
+    "mcp-playwright"
+    "mcp-filesystem"
+    "mcp-fetch"
+    "mcp-memory"
 )
 
 # Map compose service name -> container_name (when it doesn't follow ai_<service>)
@@ -62,6 +66,10 @@ declare -A SERVICE_CONTAINER=(
     ["tika"]="ai_tika"
     ["minio"]="ai_minio"
     ["tika_minio_processor"]="tika_minio_processor"
+    ["mcp-playwright"]="mcp_playwright"
+    ["mcp-filesystem"]="mcp_filesystem"
+    ["mcp-fetch"]="mcp_fetch"
+    ["mcp-memory"]="mcp_memory"
 )
 
 # =============================================================================
