@@ -474,6 +474,94 @@ services:
           memory: 256M
           cpus: '0.25'
 
+  # ─── MCP Tool Servers (on-demand - Tier 2) ───────────────────────────
+  # Model Context Protocol servers for n8n AI agent workflows.
+  # Connect from n8n using the MCP Client node → SSE transport.
+
+  # Playwright: browser automation, web scraping, screenshots
+  mcp-playwright:
+    build: ./mcp-tools/playwright
+    container_name: mcp_playwright
+    restart: "no"
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.30
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # Filesystem: read/write/search files in a shared volume
+  mcp-filesystem:
+    build: ./mcp-tools/filesystem
+    container_name: mcp_filesystem
+    restart: unless-stopped
+    volumes:
+      - mcp_shared:/shared
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.31
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # Fetch: HTTP requests to external URLs with content extraction
+  mcp-fetch:
+    build: ./mcp-tools/fetch
+    container_name: mcp_fetch
+    restart: unless-stopped
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.32
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # Memory: persistent knowledge graph for agent context across sessions
+  mcp-memory:
+    build: ./mcp-tools/memory
+    container_name: mcp_memory
+    restart: unless-stopped
+    volumes:
+      - mcp_memory_data:/data
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.33
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
 volumes:
   openwebui_files:
   postgres_data:
@@ -497,6 +585,10 @@ volumes:
   pdf-uploads:
     driver: local
   pdf-processed:
+    driver: local
+  mcp_shared:
+    driver: local
+  mcp_memory_data:
     driver: local
 
 networks:

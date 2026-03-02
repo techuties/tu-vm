@@ -373,114 +373,195 @@ def check_updates():
             'last_check': datetime.datetime.now().isoformat()
         }), 500
 
+PRIORITY_ORDER = {'critical': 0, 'high': 1, 'medium': 2, 'normal': 3, 'low': 4}
+
+TIER1_CONTAINERS = {
+    'ai_postgres': 'PostgreSQL',
+    'ai_redis': 'Redis',
+    'ai_openwebui': 'Open WebUI',
+    'ai_pihole': 'Pi-hole',
+    'ai_nginx': 'Nginx',
+    'ai_helper_index': 'Helper API',
+}
+TIER2_CONTAINERS = {
+    'ai_ollama': 'Ollama',
+    'ai_n8n': 'n8n',
+    'ai_minio': 'MinIO',
+    'ai_qdrant': 'Qdrant',
+    'ai_tika': 'Tika',
+    'tika_minio_processor': 'Tika-MinIO Processor',
+}
+
+def _live_container_health():
+    """Query Docker socket for real-time container health of all known services."""
+    down = []
+    unhealthy = []
+    restarting = []
+    high_restarts = []
+    try:
+        r = docker_get("/containers/json?all=true")
+        if r.status_code != 200:
+            return down, unhealthy, restarting, high_restarts
+        containers = r.json()
+        known_names = set(TIER1_CONTAINERS) | set(TIER2_CONTAINERS)
+        name_lookup = {}
+        for c in containers:
+            for n in c.get('Names', []):
+                clean = n.lstrip('/')
+                if clean in known_names:
+                    name_lookup[clean] = c
+        for cname, label in TIER1_CONTAINERS.items():
+            c = name_lookup.get(cname)
+            if not c:
+                down.append(label)
+                continue
+            state = c.get('State', '')
+            health = (c.get('Status') or '').lower()
+            if state == 'restarting':
+                restarting.append(label)
+            elif state != 'running':
+                down.append(label)
+            elif 'unhealthy' in health:
+                unhealthy.append(label)
+        for cname, label in TIER2_CONTAINERS.items():
+            c = name_lookup.get(cname)
+            if not c:
+                continue
+            state = c.get('State', '')
+            health = (c.get('Status') or '').lower()
+            if state == 'restarting':
+                restarting.append(label)
+            elif state == 'running' and 'unhealthy' in health:
+                unhealthy.append(label)
+        for cname in list(TIER1_CONTAINERS) + list(TIER2_CONTAINERS):
+            try:
+                info = docker_inspect(cname)
+                if info and info.get('RestartCount', 0) > 5:
+                    label = TIER1_CONTAINERS.get(cname) or TIER2_CONTAINERS.get(cname, cname)
+                    high_restarts.append((label, info['RestartCount']))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return down, unhealthy, restarting, high_restarts
+
+
 @app.route('/announcements', methods=['GET'])
 def announcements():
-    """Dynamic announcements based on current VM/container state and daily update status."""
+    """Dynamic announcements based on real-time container state, resource usage, and daily status files."""
     announcements_list = []
-
     now = datetime.datetime.now()
 
-    # 1) Container health announcements (based on daily health check)
+    # ── 1) Real-time container health (live Docker socket query) ──
     try:
-        health_file = '/tmp/tu-vm-health-status.json'
-        if os.path.exists(health_file):
-            with open(health_file, 'r') as f:
-                health_status = json.load(f)
-            
-            unhealthy_services = health_status.get('unhealthy_services', [])
-            down_services = health_status.get('down_services', [])
-            total_restarts = health_status.get('total_restarts', 0)
-            
-            if down_services:
-                announcements_list.append({
-                    'title': 'Services Down',
-                    'message': f'Critical: {len(down_services)} services are down: {", ".join(down_services)}. Run "./tu-vm.sh restart" to restart services.',
-                    'type': 'critical',
-                    'timestamp': health_status.get('last_check') or now.isoformat(),
-                    'priority': 'critical'
-                })
-            
-            if unhealthy_services:
-                announcements_list.append({
-                    'title': 'Unhealthy Services',
-                    'message': f'Warning: {len(unhealthy_services)} services are unhealthy: {", ".join(unhealthy_services)}. Check service logs and consider restarting.',
-                    'type': 'warning',
-                    'timestamp': health_status.get('last_check') or now.isoformat(),
-                    'priority': 'high'
-                })
-            
-            if total_restarts > 10:
-                announcements_list.append({
-                    'title': 'Excessive Service Restarts',
-                    'message': f'Warning: Services have restarted {total_restarts} times in the last 24h. This may indicate resource issues or configuration problems.',
-                    'type': 'warning',
-                    'timestamp': health_status.get('last_check') or now.isoformat(),
-                    'priority': 'high'
-                })
+        down, unhealthy, restarting, high_restarts = _live_container_health()
+
+        if down:
+            announcements_list.append({
+                'title': 'Core Services Down',
+                'message': f'{", ".join(down)} {"is" if len(down)==1 else "are"} not running. '
+                           f'Run "./tu-vm.sh restart" or use the Start buttons above.',
+                'type': 'critical',
+                'timestamp': now.isoformat(),
+                'priority': 'critical'
+            })
+
+        if restarting:
+            announcements_list.append({
+                'title': 'Services Crash-Looping',
+                'message': f'{", ".join(restarting)} {"is" if len(restarting)==1 else "are"} restarting repeatedly. '
+                           f'Check logs: docker logs <container>',
+                'type': 'critical',
+                'timestamp': now.isoformat(),
+                'priority': 'critical'
+            })
+
+        if unhealthy:
+            announcements_list.append({
+                'title': 'Unhealthy Services',
+                'message': f'{", ".join(unhealthy)} failed health checks. '
+                           f'They may recover automatically, or check logs for errors.',
+                'type': 'warning',
+                'timestamp': now.isoformat(),
+                'priority': 'high'
+            })
+
+        if high_restarts:
+            names = ', '.join(f'{n} ({c}x)' for n, c in high_restarts)
+            announcements_list.append({
+                'title': 'Excessive Restarts',
+                'message': f'High restart counts detected: {names}. '
+                           f'This may indicate resource limits or config issues.',
+                'type': 'warning',
+                'timestamp': now.isoformat(),
+                'priority': 'high'
+            })
     except Exception:
         pass
 
-    # 2) Log errors announcement (based on daily log check)
+    # ── 2) Daily log errors (from cached status file) ──
     try:
         log_file = '/tmp/tu-vm-log-status.json'
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 log_status = json.load(f)
-            errors_found = log_status.get('errors_found', 0)
             critical_errors = log_status.get('critical_errors', 0)
             warning_errors = log_status.get('warning_errors', 0)
-            
-            if errors_found > 0:
-                error_details = log_status.get('error_details', '')
-                containers_checked = log_status.get('containers_checked', 0)
-                
-                if critical_errors > 0:
-                    announcements_list.append({
-                        'title': 'Critical Log Errors',
-                        'message': f'Critical: {critical_errors} critical errors found in logs. Sample: {error_details[:100]}... Check logs immediately.',
-                        'type': 'critical',
-                        'timestamp': log_status.get('last_check') or now.isoformat(),
-                        'priority': 'critical'
-                    })
-                elif warning_errors > 0:
-                    announcements_list.append({
-                        'title': 'Log Errors Detected',
-                        'message': f'Warning: {warning_errors} errors found in the last 24h across {containers_checked} containers. Sample: {error_details[:100]}... Check logs with "docker logs <container>".',
-                        'type': 'warning',
-                        'timestamp': log_status.get('last_check') or now.isoformat(),
-                        'priority': 'high'
-                    })
-    except Exception:
-        pass
 
-    # 2) Updates announcement (based on daily status file)
-    try:
-        status_file = '/tmp/tu-vm-update-status.json'
-        if os.path.exists(status_file):
-            with open(status_file, 'r') as f:
-                status = json.load(f)
-            updates_available = bool(status.get('updates_available'))
-            if updates_available:
-                details = status.get('details') or ''
+            if critical_errors > 0:
+                sample = (log_status.get('error_details') or '')[:120]
                 announcements_list.append({
-                    'title': 'Updates Available',
-                    'message': details or 'System and/or container updates are available. Run "sudo ./tu-vm.sh update".',
-                    'type': 'update',
-                    'timestamp': status.get('last_check') or now.isoformat(),
+                    'title': 'Critical Log Errors',
+                    'message': f'{critical_errors} critical errors in last 24 h. '
+                               f'{("Sample: " + sample) if sample else "Check logs immediately."}',
+                    'type': 'critical',
+                    'timestamp': log_status.get('last_check') or now.isoformat(),
+                    'priority': 'critical'
+                })
+            elif warning_errors > 0:
+                announcements_list.append({
+                    'title': 'Log Warnings',
+                    'message': f'{warning_errors} warnings in the last 24 h. '
+                               f'Run "docker logs <container>" to investigate.',
+                    'type': 'warning',
+                    'timestamp': log_status.get('last_check') or now.isoformat(),
                     'priority': 'high'
                 })
     except Exception:
         pass
 
-    # 3) Resource-aware announcements (laptop-friendly guidance)
+    # ── 3) Updates available (from daily status file) ──
     try:
-        # Load averages
+        status_file = '/tmp/tu-vm-update-status.json'
+        if os.path.exists(status_file):
+            with open(status_file, 'r') as f:
+                ustatus = json.load(f)
+            if bool(ustatus.get('updates_available')):
+                os_n = ustatus.get('os_updates', 0)
+                dk_n = ustatus.get('docker_updates', 0)
+                parts = []
+                if os_n:
+                    parts.append(f'{os_n} OS packages')
+                if dk_n:
+                    parts.append(f'{dk_n} Docker images')
+                detail = ' and '.join(parts) if parts else 'Updates'
+                announcements_list.append({
+                    'title': 'Updates Available',
+                    'message': f'{detail} can be updated. Run: sudo ./tu-vm.sh update',
+                    'type': 'update',
+                    'timestamp': ustatus.get('last_check') or now.isoformat(),
+                    'priority': 'high'
+                })
+    except Exception:
+        pass
+
+    # ── 4) Resource pressure (real-time) ──
+    try:
         la1, la5, la15 = (0.0, 0.0, 0.0)
         if hasattr(os, 'getloadavg'):
             la1, la5, la15 = os.getloadavg()
         cores = os.cpu_count() or 1
 
-        # Memory
         meminfo = {}
         with open('/proc/meminfo') as f:
             for line in f:
@@ -495,152 +576,108 @@ def announcements():
         avail_mb = to_mb(meminfo.get('MemAvailable', '0 kB'))
         used_mb = max(0, total_mb - avail_mb)
 
-        # Disk
         st = os.statvfs('/')
-        total_d = (st.f_blocks * st.f_frsize) // (1024*1024)
-        free_d = (st.f_bavail * st.f_frsize) // (1024*1024)
-        used_d = max(0, total_d - free_d)
+        free_d = (st.f_bavail * st.f_frsize) // (1024 * 1024)
 
-        # High CPU load announcement
-        if la5 > max(1.0, 0.9 * cores):
+        if la5 > max(1.5, cores):
             announcements_list.append({
-                'title': 'High CPU Load Detected',
-                'message': f'5‑minute load average {la5:.2f} on {cores} cores. Consider pausing heavy services (e.g., Ollama) when on battery.',
-                'type': 'info',
+                'title': 'High CPU Load',
+                'message': f'Load average {la5:.1f} on {cores} cores. '
+                           f'Stop idle Tier 2 services to reduce load.',
+                'type': 'warning',
                 'timestamp': now.isoformat(),
-                'priority': 'normal'
+                'priority': 'high'
             })
 
-        # Low memory announcement
-        if total_mb > 0 and (used_mb / max(1, total_mb)) > 0.80:
+        if total_mb > 0 and (used_mb / max(1, total_mb)) > 0.85:
             announcements_list.append({
                 'title': 'Memory Pressure',
-                'message': f'Memory usage {used_mb}/{total_mb} MB. Close unused apps or reduce service limits to save battery.',
+                'message': f'Using {used_mb}/{total_mb} MB ({100*used_mb//total_mb}%). '
+                           f'Stop unused services or increase VM memory.',
                 'type': 'warning',
                 'timestamp': now.isoformat(),
                 'priority': 'high'
             })
 
-        # Low disk space announcement
-        if free_d < 2048:  # < 2 GB
+        if free_d < 2048:
             announcements_list.append({
                 'title': 'Low Disk Space',
-                'message': f'Only {free_d} MB free on root filesystem. Consider running "./tu-vm.sh cleanup" and pruning Docker.',
+                'message': f'Only {free_d} MB free. Run: ./tu-vm.sh cleanup',
                 'type': 'warning',
                 'timestamp': now.isoformat(),
                 'priority': 'high'
             })
 
-        # Battery detection (laptop-specific)
         try:
-            # Check if running on battery
             with open('/sys/class/power_supply/BAT0/status', 'r') as f:
-                battery_status = f.read().strip()
+                bat_status = f.read().strip()
             with open('/sys/class/power_supply/BAT0/capacity', 'r') as f:
-                battery_capacity = int(f.read().strip())
-            
-            # Battery-specific warnings
-            if battery_status == 'Discharging' and battery_capacity < 20:
+                bat_cap = int(f.read().strip())
+            if bat_status == 'Discharging' and bat_cap < 20:
                 announcements_list.append({
                     'title': 'Low Battery',
-                    'message': f'Battery is at {battery_capacity}% and discharging. Consider stopping resource-intensive services like Ollama to preserve battery.',
+                    'message': f'Battery at {bat_cap}%. Stop Ollama and heavy services to extend runtime.',
                     'type': 'warning',
                     'timestamp': now.isoformat(),
                     'priority': 'high'
                 })
-            elif battery_status == 'Discharging' and battery_capacity < 50:
+            elif bat_status == 'Discharging' and bat_cap < 50:
                 announcements_list.append({
-                    'title': 'Battery Mode',
-                    'message': f'Running on battery ({battery_capacity}%). Consider stopping Ollama and other heavy services to extend battery life.',
+                    'title': 'On Battery Power',
+                    'message': f'Battery at {bat_cap}%. Tier 2 services consume extra power when running.',
                     'type': 'info',
                     'timestamp': now.isoformat(),
                     'priority': 'medium'
                 })
-        except:
+        except (FileNotFoundError, ValueError, OSError):
             pass
-
     except Exception:
         pass
 
-    # 4) Optional host-level security checks (disabled by default)
+    # ── 5) Optional host-level security checks ──
     if ENABLE_HOST_CHECKS:
         try:
-            # Check UFW firewall status (if ufw exists)
             try:
-                if os.path.exists("/usr/sbin/ufw") or os.path.exists("/sbin/ufw") or os.path.exists("/usr/bin/ufw"):
-                    ufw_status = subprocess.run(['ufw', 'status'], capture_output=True, text=True, timeout=5)
-                    if ufw_status.returncode == 0:
-                        ufw_output = (ufw_status.stdout or "").lower()
-                        if 'inactive' in ufw_output:
+                if any(os.path.exists(p) for p in ["/usr/sbin/ufw", "/sbin/ufw", "/usr/bin/ufw"]):
+                    ufw_res = subprocess.run(['ufw', 'status'], capture_output=True, text=True, timeout=5)
+                    if ufw_res.returncode == 0:
+                        out = (ufw_res.stdout or "").lower()
+                        if 'inactive' in out:
                             announcements_list.append({
                                 'title': 'Firewall Disabled',
-                                'message': 'UFW firewall is inactive. Run "sudo ./tu-vm.sh secure" to enable secure access control.',
+                                'message': 'UFW is inactive. Run: sudo ./tu-vm.sh secure',
                                 'type': 'warning',
                                 'timestamp': now.isoformat(),
                                 'priority': 'high'
                             })
-                        elif 'allow 80/tcp' in ufw_output and 'allow 443/tcp' in ufw_output:
+                        elif 'allow 80/tcp' in out and 'allow 443/tcp' in out:
                             announcements_list.append({
                                 'title': 'Public Access Enabled',
-                                'message': 'Services are accessible from the internet. Consider switching to secure mode with "sudo ./tu-vm.sh secure" for better security.',
+                                'message': 'Services reachable from the internet. '
+                                           'Switch to secure mode: sudo ./tu-vm.sh secure',
                                 'type': 'warning',
                                 'timestamp': now.isoformat(),
                                 'priority': 'medium'
                             })
             except Exception:
                 pass
-
-            # Check for failed authentication attempts in logs (if log exists)
-            try:
-                if os.path.exists('/var/log/auth.log'):
-                    auth_failures = subprocess.run(
-                        ['grep', '-i', 'failed.*auth', '/var/log/auth.log'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if auth_failures.returncode == 0 and auth_failures.stdout:
-                        failure_count = len(auth_failures.stdout.strip().split('\n'))
-                        if failure_count > 5:
-                            announcements_list.append({
-                                'title': 'Authentication Failures',
-                                'message': f'Found {failure_count} authentication failures in logs. Check for unauthorized access attempts.',
-                                'type': 'warning',
-                                'timestamp': now.isoformat(),
-                                'priority': 'high'
-                            })
-            except Exception:
-                pass
-
-            # Check SSL certificate expiration (if openssl and cert exist)
-            try:
-                cert_file = '/home/tu/docker/ssl/nginx.crt'
-                if os.path.exists(cert_file) and (os.path.exists("/usr/bin/openssl") or os.path.exists("/bin/openssl")):
-                    cert_info = subprocess.run(
-                        ['openssl', 'x509', '-in', cert_file, '-noout', '-dates'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    if cert_info.returncode == 0 and 'notAfter' in (cert_info.stdout or ''):
-                        announcements_list.append({
-                            'title': 'SSL Certificate Check',
-                            'message': 'SSL certificate status checked. Consider renewing self-signed certificates periodically.',
-                            'type': 'info',
-                            'timestamp': now.isoformat(),
-                            'priority': 'low'
-                        })
-            except Exception:
-                pass
-
         except Exception:
             pass
 
-    # 5) Default system status if nothing else
+    # ── 6) Sort by priority (critical first) then deduplicate by title ──
+    seen_titles = set()
+    unique = []
+    for a in sorted(announcements_list, key=lambda x: PRIORITY_ORDER.get(x.get('priority', 'normal'), 3)):
+        if a['title'] not in seen_titles:
+            seen_titles.add(a['title'])
+            unique.append(a)
+    announcements_list = unique
+
+    # ── 7) Default healthy status if nothing to report ──
     if not announcements_list:
         announcements_list.append({
-            'title': 'System Status',
-            'message': 'All services appear healthy. Power-saving tips: keep Ollama stopped when not using models; prefer mobile-friendly limits.',
+            'title': 'All Systems Operational',
+            'message': 'All core services are running and healthy.',
             'type': 'info',
             'timestamp': now.isoformat(),
             'priority': 'normal'
@@ -649,7 +686,7 @@ def announcements():
     return jsonify({
         'announcements': announcements_list,
         'total': len(announcements_list),
-        'last_updated': datetime.datetime.now().isoformat()
+        'last_updated': now.isoformat()
     })
 
 @app.route('/control/<service>/<action>', methods=['POST'])
@@ -678,7 +715,11 @@ def control_service(service, action):
             'helper_index': ('ai_helper_index', 'helper_index'),
             'helper-index': ('ai_helper_index', 'helper_index'),  # Alternative name
             'tika-minio-processor': ('tika_minio_processor', 'tika_minio_processor'),
-            'tika_minio_processor': ('tika_minio_processor', 'tika_minio_processor')
+            'tika_minio_processor': ('tika_minio_processor', 'tika_minio_processor'),
+            'mcp-playwright': ('mcp_playwright', 'mcp-playwright'),
+            'mcp-filesystem': ('mcp_filesystem', 'mcp-filesystem'),
+            'mcp-fetch': ('mcp_fetch', 'mcp-fetch'),
+            'mcp-memory': ('mcp_memory', 'mcp-memory')
         }
         
         container_info = name_map.get(service)
