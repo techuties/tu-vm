@@ -1,0 +1,138 @@
+TechUties Chat Context Pack
+Scope: n8n workflow patterns (easy -> advanced) + AFFiNE background + practical prompts.
+Audience: AI assistants and operators working in Open WebUI chats.
+
+============================================================
+1) PLATFORM SNAPSHOT (TU-VM)
+============================================================
+- Open WebUI: primary chat interface
+- n8n: workflow orchestration and automation
+- AFFiNE: collaborative docs/workspace
+- MCP Gateway: exposes AFFiNE tools to chat agents
+- MinIO + Tika pipeline: file ingestion and text extraction
+
+Known service URLs:
+- Open WebUI: https://oweb.tu.lan
+- n8n: https://n8n.tu.lan
+- AFFiNE: https://affine.tu.lan
+- MCP Gateway: https://oweb.tu.lan/api/mcp/
+
+============================================================
+2) N8N - QUICK MENTAL MODEL
+============================================================
+n8n workflows are directed graphs:
+Trigger -> transform/enrich -> branch -> action -> notify/log.
+
+Core node types by role:
+- Trigger: Webhook, Schedule Trigger
+- Transform: Set, Code, Merge, Item Lists
+- Control flow: IF, Switch, Split In Batches, Wait
+- Integrations: HTTP Request, Slack, Notion, Google Sheets, Email
+- Reliability: Error Trigger, retries, dead-letter patterns
+
+Design principles:
+- Keep business logic in small reusable sub-workflows
+- Validate inputs early (schema checks, required fields)
+- Make side effects idempotent (dedupe keys, upserts)
+- Add observability (execution IDs, structured logs, alerts)
+
+============================================================
+3) N8N WORKFLOW PATTERNS (EASY -> COMPLEX)
+============================================================
+Level 1 (Easy): Webhook -> Set -> Respond to Webhook
+- Use case: lightweight internal API endpoint
+- Goal: parse incoming payload and return normalized JSON
+- Best practices: validate required fields, return clear status codes
+
+Level 2 (Easy/Medium): Schedule Trigger -> HTTP Request -> IF -> Slack
+- Use case: periodic status checks and notifications
+- Goal: poll endpoint every X minutes and alert on errors
+- Best practices: timeout + retry, include concise error context
+
+Level 3 (Medium): Webhook -> Code -> Merge -> Google Sheets/Notion
+- Use case: data normalization and recording
+- Goal: clean and enrich incoming records before storage
+- Best practices: deterministic dedupe key, convert dates to ISO-8601
+
+Level 4 (Medium/Hard): Webhook -> AI classify -> Switch -> multi-channel actions
+- Use case: ticket triage (billing/bug/feature)
+- Goal: route to team-specific channels and create tasks
+- Best practices: confidence threshold, fallback queue, human override
+
+Level 5 (Hard): Event ingest -> Split In Batches -> API fan-out -> Wait -> aggregate
+- Use case: bulk enrichment over rate-limited APIs
+- Goal: process large queues safely
+- Best practices: batch size control, backoff, partial-failure recovery
+
+Level 6 (Advanced): Parent workflow orchestrating sub-workflows with compensation
+- Use case: multi-system transaction-like automation
+- Goal: reliable multi-step automation with rollback behavior
+- Best practices: store state transitions, compensation handlers, dead-letter queue
+
+============================================================
+4) AFFINE - BACKGROUND FOR CHAT ASSISTANTS
+============================================================
+AFFiNE is a collaborative workspace blending docs and knowledge management.
+In this stack it is self-hosted and reachable at affine.tu.lan.
+
+In assistant conversations, AFFiNE is useful for:
+- Project notes and decision logs
+- Knowledge base pages
+- Team collaboration artifacts
+- Structured content that can be queried or updated via MCP tools
+
+Relevant assistant operations (through MCP):
+- List/get workspaces and docs
+- Search docs and metadata
+- Create/update docs and append markdown
+- Manage comments and version history
+- Upload/delete blobs
+
+Operational caveats:
+- Ensure AFFiNE service is running before tool calls
+- Use service account style auth where possible
+- Keep sensitive secrets out of page content
+- Prefer concise, structured pages for better retrieval quality
+
+============================================================
+5) HIGH-VALUE CHAT PROMPTS
+============================================================
+n8n prompts:
+- "Design an n8n workflow to validate webhook payloads and route incidents by severity."
+- "Refactor this workflow for idempotency and retry-safe execution."
+- "Generate a test plan for each node and expected outputs."
+
+AFFiNE prompts:
+- "Summarize this workspace into a one-page architecture brief."
+- "Create a project page template with sections for goals, risks, milestones."
+- "Extract unresolved comments and generate an action checklist."
+
+Combined prompts:
+- "Use AFFiNE notes as context and propose an n8n automation roadmap."
+- "Map AFFiNE project milestones to n8n scheduled reminder workflows."
+
+============================================================
+6) DOCUMENTATION LINKS (FOR CHAT GROUNDING)
+============================================================
+n8n docs:
+- https://docs.n8n.io/
+- https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook
+- https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.scheduletrigger
+- https://docs.n8n.io/code/code-node/
+
+AFFiNE docs:
+- https://docs.affine.pro/index
+- https://docs.affine.pro/self-host-affine
+- https://docs.affine.pro/self-host-affine/install/configuration
+- https://docs.affine.pro/self-host-affine/references/environment-variables
+
+MCP concept docs:
+- https://modelcontextprotocol.io/docs/concepts/architecture
+
+============================================================
+7) SAFETY GUIDANCE FOR ASSISTANTS
+============================================================
+- Ask for confirmation before destructive actions (delete/revoke).
+- Prefer dry-run plans before executing broad workflow changes.
+- Preserve existing naming conventions in n8n and AFFiNE.
+- Record assumptions explicitly when context is incomplete.

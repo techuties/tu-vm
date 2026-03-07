@@ -46,6 +46,8 @@ readonly TIER2_SERVICES=(
     "qdrant"
     "tika"
     "tika_minio_processor"
+    "affine"
+    "mcp_gateway"
 )
 
 # Map compose service name -> container_name (when it doesn't follow ai_<service>)
@@ -62,6 +64,8 @@ declare -A SERVICE_CONTAINER=(
     ["tika"]="ai_tika"
     ["minio"]="ai_minio"
     ["tika_minio_processor"]="tika_minio_processor"
+    ["affine"]="ai_affine"
+    ["mcp_gateway"]="ai_mcp_gateway"
 )
 
 # =============================================================================
@@ -223,8 +227,19 @@ readonly LOG_LEVEL_INFO=1
 readonly LOG_LEVEL_WARN=2
 readonly LOG_LEVEL_ERROR=3
 
-# Default log level
+# Default log level (accepts either numeric or named values, e.g. "INFO")
 LOG_LEVEL=${LOG_LEVEL:-$LOG_LEVEL_INFO}
+case "${LOG_LEVEL^^}" in
+    DEBUG) LOG_LEVEL=$LOG_LEVEL_DEBUG ;;
+    INFO)  LOG_LEVEL=$LOG_LEVEL_INFO ;;
+    WARN|WARNING) LOG_LEVEL=$LOG_LEVEL_WARN ;;
+    ERROR) LOG_LEVEL=$LOG_LEVEL_ERROR ;;
+esac
+
+# Fallback to INFO if LOG_LEVEL is not numeric after normalization
+if ! [[ "$LOG_LEVEL" =~ ^[0-9]+$ ]]; then
+    LOG_LEVEL=$LOG_LEVEL_INFO
+fi
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -339,7 +354,7 @@ check_env_file() {
             info "Created .env file from env.example."
             
             # Check for default passwords and generate secrets automatically
-            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
                 warn "Default passwords detected! Generating secure secrets automatically..."
                 generate_secrets
             else
@@ -350,10 +365,24 @@ check_env_file() {
         fi
     else
         # Check existing .env file for default passwords
-        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
             warn "Default passwords detected in existing .env file!"
             warn "Run './tu-vm.sh generate-secrets' to generate secure passwords."
         fi
+    fi
+
+    # Ensure AFFiNE DB password exists because compose requires it explicitly.
+    # This keeps credentials out of git while still enabling one-command startup.
+    if ! grep -qE "^AFFINE_DB_PASSWORD=" "$ENV_FILE"; then
+        # Clean malformed inline leftovers (e.g. appended without a preceding newline)
+        # before writing a proper standalone key.
+        sed -i 's/AFFINE_DB_PASSWORD=[^[:space:]]*//g' "$ENV_FILE"
+
+        local affine_pass
+        affine_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+        printf "\nAFFINE_DB_PASSWORD=%s\n" "$affine_pass" >> "$ENV_FILE"
+        chmod 600 "$ENV_FILE" 2>/dev/null || true
+        info "Added missing AFFINE_DB_PASSWORD to .env"
     fi
 }
 
@@ -390,6 +419,30 @@ ensure_host_ip_configured() {
     fi
 }
 
+# Ensure nginx dynamic allowlist file exists for startup
+ensure_nginx_allowlist_file() {
+    mkdir -p "$(dirname "$NGINX_ALLOWLIST_FILE")" 2>/dev/null || true
+    if [[ ! -w "$(dirname "$NGINX_ALLOWLIST_FILE")" ]]; then
+        warn "Nginx dynamic dir is not writable: $(dirname "$NGINX_ALLOWLIST_FILE")"
+        warn "Skipping allowlist bootstrap from script (container may manage this file)."
+        return 0
+    fi
+    if [[ ! -f "$NGINX_ALLOWLIST_FILE" ]]; then
+        cat > "$NGINX_ALLOWLIST_FILE" <<'EOF'
+# Dynamic allowlist for sensitive endpoints (e.g. /control/, /whitelist/*)
+# Managed by helper_index and/or tu-vm.sh.
+#
+# Format:
+#   allow 192.0.2.10;
+#   allow 2001:db8::1;
+#   deny all;
+
+deny all;
+EOF
+        info "Created nginx allowlist file: $NGINX_ALLOWLIST_FILE"
+    fi
+}
+
 # Resolve MinIO root password for scripts that run outside compose env substitution.
 # Precedence:
 # 1) exported MINIO_ROOT_PASSWORD
@@ -410,6 +463,114 @@ get_vm_ip() {
     ip route get 1.1.1.1 | grep -oP 'src \K\S+' | head -1
 }
 
+# Get Tailscale IPv4 address (if tailscale is installed and connected)
+get_tailscale_ip() {
+    if command -v tailscale >/dev/null 2>&1; then
+        tailscale ip -4 2>/dev/null | head -1
+    else
+        echo ""
+    fi
+}
+
+# Ensure TAILSCALE_IP is configured in .env when available
+ensure_tailscale_ip_configured() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        return 0
+    fi
+
+    local ts_detected
+    ts_detected="$(get_tailscale_ip)"
+    if [[ -z "$ts_detected" ]]; then
+        return 0
+    fi
+
+    local current_ts=""
+    if grep -qE "^TAILSCALE_IP=" "$ENV_FILE"; then
+        current_ts=$(grep -E "^TAILSCALE_IP=" "$ENV_FILE" | sed -E 's/^TAILSCALE_IP=//' | tr -d '"' | tr -d "'")
+    fi
+
+    if [[ -z "$current_ts" ]] || [[ "$current_ts" == "CHANGE_ME"* ]]; then
+        if grep -qE "^TAILSCALE_IP=" "$ENV_FILE"; then
+            sed -i "s|^TAILSCALE_IP=.*|TAILSCALE_IP=$ts_detected|" "$ENV_FILE"
+        else
+            echo "TAILSCALE_IP=$ts_detected" >> "$ENV_FILE"
+        fi
+        info "✅ TAILSCALE_IP configured in .env: $ts_detected"
+    fi
+}
+
+# Resolve which IP should be published for *.tu.lan records in Pi-hole.
+# Priority:
+# 1) DNS_RECORD_IP in .env (manual override)
+# 2) HOST_IP in .env (keeps LAN clients working by default)
+# 3) TAILSCALE_IP in .env
+# 4) detected VM IP
+resolve_dns_record_ip() {
+    local dns_record_ip="${DNS_RECORD_IP:-}"
+    local tailscale_ip="${TAILSCALE_IP:-}"
+    local host_ip="${HOST_IP:-}"
+
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        dns_record_ip="${DNS_RECORD_IP:-$dns_record_ip}"
+        tailscale_ip="${TAILSCALE_IP:-$tailscale_ip}"
+        host_ip="${HOST_IP:-$host_ip}"
+    fi
+
+    if [[ -n "$dns_record_ip" ]]; then
+        echo "$dns_record_ip"
+    elif [[ -n "$host_ip" ]]; then
+        echo "$host_ip"
+    elif [[ -n "$tailscale_ip" ]]; then
+        echo "$tailscale_ip"
+    else
+        get_vm_ip
+    fi
+}
+
+# Sync Pi-hole local DNS records for the tu.lan service domain.
+sync_pihole_dns_records() {
+    local dns_file="pihole/01-custom.conf"
+    local target_ip
+    target_ip="$(resolve_dns_record_ip)"
+    local host_line="$target_ip tu.lan oweb.tu.lan n8n.tu.lan affine.tu.lan pihole.tu.lan ollama.tu.lan minio.tu.lan api.minio.tu.lan"
+
+    if [[ -z "$target_ip" ]]; then
+        warn "Could not determine DNS target IP. Skipping Pi-hole DNS record sync."
+        return 0
+    fi
+
+    info "Syncing Pi-hole DNS records (*.tu.lan -> $target_ip)..."
+    cat > "$dns_file" <<EOF
+# Pi-hole Custom DNS Configuration
+# Managed by tu-vm.sh sync_pihole_dns_records()
+
+# Upstream resolvers
+server=127.0.0.11
+server=1.1.1.1
+server=1.0.0.1
+
+# Local service domains (Nginx reverse proxy)
+address=/tu.lan/$target_ip
+address=/oweb.tu.lan/$target_ip
+address=/n8n.tu.lan/$target_ip
+address=/affine.tu.lan/$target_ip
+address=/pihole.tu.lan/$target_ip
+address=/ollama.tu.lan/$target_ip
+address=/minio.tu.lan/$target_ip
+address=/api.minio.tu.lan/$target_ip
+EOF
+
+    # If Pi-hole is running, also write v6 local hosts records and reload DNS.
+    if docker ps --format "{{.Names}}" | grep -q "^ai_pihole$"; then
+        docker exec ai_pihole sh -lc "mkdir -p /etc/pihole/hosts && printf '%s\n' \"$host_line\" > /etc/pihole/hosts/tu-lan.hosts" >/dev/null 2>&1 || true
+        docker exec ai_pihole pihole reloaddns >/dev/null 2>&1 || true
+    fi
+
+    info "✅ Pi-hole DNS records synced"
+}
+
 # Generate self-signed SSL certificates for Nginx
 generate_ssl_certificates() {
     local ssl_dir="ssl"
@@ -428,11 +589,11 @@ generate_ssl_certificates() {
     mkdir -p "$ssl_dir"
     
     # Get domain from .env or use default
-    local domain="${DOMAIN:-tu.local}"
+    local domain="${DOMAIN:-tu.lan}"
     if [[ -f "$ENV_FILE" ]]; then
         # shellcheck disable=SC1090
         . "$ENV_FILE" 2>/dev/null || true
-        domain="${DOMAIN:-tu.local}"
+        domain="${DOMAIN:-tu.lan}"
     fi
     
     # Generate self-signed certificate valid for 10 years
@@ -590,6 +751,7 @@ show_help() {
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
     echo "  cleanup                  Clean up old backups and logs"
+    echo "  sync-dns                 Sync Pi-hole DNS for *.tu.lan"
     echo "  setup-minio             Setup MinIO buckets for existing installation"
     echo ""
     echo -e "${WHITE}Security:${NC}"
@@ -605,6 +767,8 @@ show_help() {
     echo "  health                   Check service health"
     echo "  test                     Test all service endpoints"
     echo "  diagnose                 Run comprehensive diagnostics"
+    echo "  check-openwebui-audio    Validate Open WebUI STT config consistency"
+    echo "  fix-openwebui-audio      Repair Open WebUI STT config (DB + Redis)"
     echo "  info                     Show system information"
     echo ""
     echo -e "${WHITE}PDF Processing:${NC}"
@@ -635,6 +799,8 @@ show_help() {
     echo "  ./$SCRIPT_NAME logs nginx               # Show nginx logs"
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
+    echo "  ./$SCRIPT_NAME check-openwebui-audio    # Validate Open WebUI audio STT config"
+    echo "  ./$SCRIPT_NAME fix-openwebui-audio      # Repair Open WebUI audio STT config"
     echo "  ./$SCRIPT_NAME version                  # Show version info"
 }
 
@@ -650,16 +816,25 @@ setup_platform() {
     
     # Step 2: Auto-detect HOST_IP
     ensure_host_ip_configured
+
+    # Step 3: Auto-detect Tailscale IP when available
+    ensure_tailscale_ip_configured
     
-    # Step 3: Generate secrets if using defaults
-    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123" "$ENV_FILE" 2>/dev/null; then
+    # Step 4: Generate secrets if using defaults
+    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123\|affine_change_me" "$ENV_FILE" 2>/dev/null; then
         info "Generating secure passwords and keys..."
         generate_secrets
     else
         info "Using existing secure credentials"
     fi
     
-    # Step 4: Generate SSL certificates
+    # Step 5: Ensure nginx dynamic allowlist exists
+    ensure_nginx_allowlist_file
+
+    # Step 6: Sync Pi-hole DNS records for *.tu.lan
+    sync_pihole_dns_records
+
+    # Step 7: Generate SSL certificates
     generate_ssl_certificates
     
     info "✅ Setup complete! You can now run: ./$SCRIPT_NAME start"
@@ -706,9 +881,14 @@ start_services() {
     check_docker
     check_docker_compose
     check_env_file
+    ensure_nginx_allowlist_file
     
     # Auto-detect and update HOST_IP in .env if needed
     ensure_host_ip_configured
+    # Auto-detect Tailscale IP when available
+    ensure_tailscale_ip_configured
+    # Keep Pi-hole records aligned with current IP strategy
+    sync_pihole_dns_records
     
     # Generate SSL certificates if missing (required for nginx)
     generate_ssl_certificates
@@ -727,6 +907,8 @@ start_services() {
     # Wait for required services to be ready
     if wait_for_services "${TIER1_SERVICES[@]}"; then
         info "Tier 1 services are ready!"
+        # Re-sync now that Pi-hole is running so local hosts entries are applied live.
+        sync_pihole_dns_records
         
         # Note: Tier 2 services (Qdrant, Tika, MinIO, etc.) can be started on-demand via dashboard
         
@@ -1015,15 +1197,22 @@ show_status() {
 # Show access information
 show_access_info() {
     local vm_ip=$(get_vm_ip)
+    local tailscale_ip
+    tailscale_ip="$(get_tailscale_ip)"
     
     echo -e "${WHITE}Access URLs:${NC}"
-    echo "  Landing:     https://tu.local (https://$vm_ip)"
-    echo "  Open WebUI:  https://oweb.tu.local (https://$vm_ip)"
-    echo "  n8n:         https://n8n.tu.local (https://$vm_ip)"
-    echo "  Pi-hole:     https://pihole.tu.local (https://$vm_ip)"
-    echo "  Ollama API:  https://ollama.tu.local (https://$vm_ip)"
-    echo "  MinIO Console: https://minio.tu.local (https://$vm_ip)"
-    echo "  MinIO API:   https://api.minio.tu.local (https://$vm_ip)"
+    echo "  Landing:       https://tu.lan (IP fallback: https://$vm_ip)"
+    echo "  Open WebUI:    https://oweb.tu.lan"
+    echo "  MCP Gateway:   https://oweb.tu.lan/api/mcp/"
+    echo "  n8n:           https://n8n.tu.lan"
+    echo "  AFFiNE:        https://affine.tu.lan"
+    echo "  Pi-hole:       https://pihole.tu.lan/admin"
+    echo "  Ollama API:    https://ollama.tu.lan"
+    echo "  MinIO Console: https://minio.tu.lan"
+    echo "  MinIO API:     https://api.minio.tu.lan"
+    if [[ -n "$tailscale_ip" ]]; then
+        echo "  Tailscale IP:  https://$tailscale_ip"
+    fi
     echo ""
     
     # Check if services are accessible
@@ -1730,9 +1919,13 @@ create_backup() {
     if docker compose ps --format json | grep -q '"State":"running"'; then
         info "Backing up data volumes..."
         
-        # PostgreSQL
-        if docker compose exec -T postgres pg_isready -U ai_admin >/dev/null 2>&1; then
-            docker compose exec -T postgres pg_dump -U ai_admin ai_platform > "$backup_path/database.sql" 2>/dev/null || warn "Database backup failed"
+        # PostgreSQL (non-interactive): pass password explicitly to avoid hanging on prompt
+        local pg_password=""
+        if [[ -f "$ENV_FILE" ]]; then
+            pg_password="$(grep -E '^POSTGRES_PASSWORD=' "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+        fi
+        if docker compose exec -T -e PGPASSWORD="$pg_password" postgres pg_isready -U ai_admin >/dev/null 2>&1; then
+            docker compose exec -T -e PGPASSWORD="$pg_password" postgres pg_dump -U ai_admin ai_platform > "$backup_path/database.sql" 2>/dev/null || warn "Database backup failed"
         fi
         
         # Docker volumes
@@ -2080,11 +2273,13 @@ generate_secrets() {
     local n8n_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local pihole_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local minio_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+    local affine_db_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local webui_secret=$(openssl rand -hex 32)
     local jwt_secret=$(openssl rand -hex 32)
     local auth_secret=$(openssl rand -hex 32)
     local encryption_key=$(openssl rand -hex 32)
     local control_token=$(openssl rand -hex 32)
+    local mcp_gateway_token=$(openssl rand -hex 32)
     
     # Helper: set or update a key in .env if it is missing or equals an insecure default
     set_env_var_if_default() {
@@ -2107,6 +2302,7 @@ generate_secrets() {
     sed -i "s/CHANGE_ME_JWT_SECRET_KEY/$jwt_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_AUTH_SECRET/$auth_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_CONTROL_TOKEN/$control_token/g" "$ENV_FILE"
+    sed -i "s/CHANGE_ME_MCP_TOKEN/$mcp_gateway_token/g" "$ENV_FILE"
 
     # MinIO root password (first occurrence if using template)
     sed -i "0,/CHANGE_ME_SECURE_PASSWORD/s//$minio_pass/" "$ENV_FILE"
@@ -2122,6 +2318,8 @@ generate_secrets() {
     set_env_var_if_default "N8N_ENCRYPTION_KEY" "1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b" "$encryption_key"
     set_env_var_if_default "PIHOLE_PASSWORD" "SwissPiHole2024!" "$pihole_pass"
     set_env_var_if_default "CONTROL_TOKEN" "" "$control_token"
+    set_env_var_if_default "MCP_GATEWAY_TOKEN" "" "$mcp_gateway_token"
+    set_env_var_if_default "AFFINE_DB_PASSWORD" "affine_change_me" "$affine_db_pass"
     
     # Set proper permissions
     chmod 600 "$ENV_FILE"
@@ -2136,22 +2334,22 @@ generate_secrets() {
     echo -e "${GREEN}🔑 Service Access Credentials:${NC}"
     echo ""
     echo -e "${YELLOW}Open WebUI:${NC}"
-    echo "  URL: https://oweb.tu.local"
+    echo "  URL: https://oweb.tu.lan"
     echo "  Admin: First user to register"
     echo ""
     echo -e "${YELLOW}n8n Workflow Automation:${NC}"
-    echo "  URL: https://n8n.tu.local"
+    echo "  URL: https://n8n.tu.lan"
     echo "  Username: admin"
     echo "  Password: $n8n_pass"
     echo ""
     echo -e "${YELLOW}MinIO Object Storage:${NC}"
-    echo "  Console: https://minio.tu.local"
-    echo "  API: https://api.minio.tu.local"
+    echo "  Console: https://minio.tu.lan"
+    echo "  API: https://api.minio.tu.lan"
     echo "  Username: admin"
     echo "  Password: $minio_pass"
     echo ""
     echo -e "${YELLOW}Pi-hole DNS:${NC}"
-    echo "  URL: https://pihole.tu.local/admin"
+    echo "  URL: https://pihole.tu.lan/admin"
     echo "  Password: $pihole_pass"
     echo ""
     echo -e "${YELLOW}Database Access:${NC}"
@@ -2432,6 +2630,222 @@ reset_pdf_pipeline() {
 # DIAGNOSTIC FUNCTIONS
 # =============================================================================
 
+resolve_env_value() {
+    local key="$1"
+    local default_value="${2:-}"
+    local value="${!key:-}"
+
+    if [[ -n "$value" ]]; then
+        echo "$value"
+        return 0
+    fi
+
+    if [[ -f "$ENV_FILE" ]]; then
+        value=$(grep -E "^${key}=" "$ENV_FILE" | head -1 | sed -E "s/^${key}=//" | tr -d '"' | tr -d "'" || true)
+        if [[ -n "$value" ]]; then
+            echo "$value"
+            return 0
+        fi
+    fi
+
+    echo "$default_value"
+}
+
+normalize_json_string_value() {
+    local value="${1:-}"
+    if [[ "$value" == \"*\" ]]; then
+        value="${value#\"}"
+        value="${value%\"}"
+    fi
+    echo "$value"
+}
+
+is_container_stuck() {
+    local container="$1"
+    if ! docker inspect "$container" >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local running pid exec_err
+    running="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo "false")"
+    pid="$(docker inspect -f '{{.State.Pid}}' "$container" 2>/dev/null || echo "0")"
+
+    if [[ "$running" != "true" ]]; then
+        return 1
+    fi
+
+    if [[ "$pid" == "0" ]]; then
+        return 0
+    fi
+
+    exec_err="$(docker exec "$container" sh -c 'true' 2>&1 >/dev/null || true)"
+    if [[ "$exec_err" == *"BaseFS of container"* ]] || [[ "$exec_err" == *"unexpectedly empty"* ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+recover_openwebui_container() {
+    info "Attempting Open WebUI stuck-container recovery..."
+
+    if ! docker inspect ai_openwebui >/dev/null 2>&1; then
+        error "Container ai_openwebui not found."
+    fi
+
+    local pid compose_cmd
+    pid="$(docker inspect -f '{{.State.Pid}}' ai_openwebui 2>/dev/null || echo "0")"
+    compose_cmd="$(get_docker_compose_cmd)"
+
+    if [[ "$pid" =~ ^[0-9]+$ ]] && [[ "$pid" -gt 0 ]]; then
+        info "Attempting hard kill of host PID $pid via privileged helper..."
+        docker run --rm --privileged --pid=host alpine sh -c "kill -9 $pid" >/dev/null 2>&1 || warn "PID kill helper failed (continuing)"
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        if sudo -n true >/dev/null 2>&1; then
+            info "Restarting Docker daemon to clear stale state..."
+            sudo systemctl restart docker >/dev/null 2>&1 || warn "Docker daemon restart failed (continuing)"
+            sleep 3
+        else
+            warn "sudo requires interactive password. If recovery fails, run: sudo systemctl restart docker"
+        fi
+    fi
+
+    # Best-effort recreate. If old container cannot stop, compose may leave it untouched.
+    $compose_cmd rm -f open-webui >/dev/null 2>&1 || true
+    $compose_cmd up -d --force-recreate open-webui >/dev/null 2>&1 || true
+
+    # If compose created a replacement container but the old one is still named ai_openwebui,
+    # swap names so the healthy replacement becomes canonical.
+    if is_container_stuck "ai_openwebui"; then
+        local replacement
+        replacement="$(docker ps -a --format '{{.Names}}' | awk '/_ai_openwebui$/ {print; exit}')"
+        if [[ -n "$replacement" ]]; then
+            local stuck_name="ai_openwebui_stuck_$(date +%s)"
+            docker rename ai_openwebui "$stuck_name" >/dev/null 2>&1 || true
+            docker rename "$replacement" ai_openwebui >/dev/null 2>&1 || true
+            docker start ai_openwebui >/dev/null 2>&1 || true
+        fi
+    fi
+
+    info "Recovery attempt complete. Current Open WebUI status:"
+    $compose_cmd ps open-webui
+}
+
+check_openwebui_audio_config() {
+    info "Checking Open WebUI audio transcription configuration..."
+
+    local pg_user pg_db pg_pass redis_pass
+    pg_user="$(resolve_env_value POSTGRES_USER ai_admin)"
+    pg_db="$(resolve_env_value POSTGRES_DB ai_platform)"
+    pg_pass="$(resolve_env_value POSTGRES_PASSWORD ai_password_2024)"
+    redis_pass="$(resolve_env_value REDIS_PASSWORD redis_password_2024)"
+
+    if ! docker inspect ai_postgres >/dev/null 2>&1; then
+        warn "PostgreSQL container not found (ai_postgres)."
+        return 1
+    fi
+    if ! docker inspect ai_redis >/dev/null 2>&1; then
+        warn "Redis container not found (ai_redis)."
+        return 1
+    fi
+
+    local db_row
+    db_row="$(docker exec -e PGPASSWORD="$pg_pass" ai_postgres psql -U "$pg_user" -d "$pg_db" -At -F '|' -c "SELECT coalesce(data #>> '{audio,stt,engine}',''), coalesce(data #>> '{audio,stt,model}',''), coalesce(data #>> '{audio,stt,openai,api_base_url}',''), coalesce((data #> '{audio,stt,supported_content_types}')::text,'') FROM config WHERE id=1;" 2>/dev/null || true)"
+
+    if [[ -z "$db_row" ]]; then
+        warn "Could not read Open WebUI config row from PostgreSQL."
+        return 1
+    fi
+
+    local db_engine db_model db_base_url db_types
+    IFS='|' read -r db_engine db_model db_base_url db_types <<< "$db_row"
+
+    local redis_values redis_engine redis_model redis_base_url redis_types
+    mapfile -t redis_values < <(docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw MGET open-webui:config:STT_ENGINE open-webui:config:STT_MODEL open-webui:config:STT_OPENAI_API_BASE_URL open-webui:config:STT_SUPPORTED_CONTENT_TYPES 2>/dev/null || true)
+
+    redis_engine="${redis_values[0]:-}"
+    redis_model="$(normalize_json_string_value "${redis_values[1]:-}")"
+    redis_base_url="${redis_values[2]:-}"
+    redis_types="${redis_values[3]:-}"
+
+    echo ""
+    echo -e "${WHITE}Open WebUI STT Config:${NC}"
+    echo "  DB engine:        ${db_engine:-<empty>}"
+    echo "  DB model:         ${db_model:-<empty>}"
+    echo "  DB base URL:      ${db_base_url:-<empty>}"
+    echo "  DB content types: ${db_types:-<empty>}"
+    echo "  Redis engine:     ${redis_engine:-<empty>}"
+    echo "  Redis model:      ${redis_model:-<empty>}"
+    echo "  Redis base URL:   ${redis_base_url:-<empty>}"
+    echo "  Redis types:      ${redis_types:-<empty>}"
+    echo ""
+
+    local issues=()
+    if [[ "$db_engine" == "openai" && -z "$db_model" ]]; then
+        issues+=("DB STT model is empty while STT engine is openai")
+    fi
+    if [[ "$redis_engine" == "openai" && -z "$redis_model" ]]; then
+        issues+=("Redis STT model is empty while STT engine is openai")
+    fi
+    if [[ -n "$db_model" && -n "$redis_model" && "$db_model" != "$redis_model" ]]; then
+        issues+=("DB/Redis STT model mismatch (${db_model} != ${redis_model})")
+    fi
+    if [[ "$db_types" == "[]" || "$db_types" == "[\"\"]" || -z "$db_types" ]]; then
+        issues+=("DB STT supported content types are empty/invalid")
+    fi
+    if [[ "$redis_types" == "[]" || "$redis_types" == "[\"\"]" || -z "$redis_types" ]]; then
+        issues+=("Redis STT supported content types are empty/invalid")
+    fi
+
+    if [[ ${#issues[@]} -eq 0 ]]; then
+        info "Open WebUI STT configuration looks consistent."
+        return 0
+    fi
+
+    warn "Open WebUI STT configuration issues detected:"
+    for issue in "${issues[@]}"; do
+        warn "  - $issue"
+    done
+    warn "Run: ./$SCRIPT_NAME fix-openwebui-audio [model]"
+    return 1
+}
+
+fix_openwebui_audio_config() {
+    local desired_model="${1:-whisper-1}"
+    local desired_types='["audio/*","video/webm"]'
+
+    info "Repairing Open WebUI STT configuration (DB + Redis)..."
+    info "Target STT engine=openai, model=${desired_model}"
+
+    local pg_user pg_db pg_pass redis_pass
+    pg_user="$(resolve_env_value POSTGRES_USER ai_admin)"
+    pg_db="$(resolve_env_value POSTGRES_DB ai_platform)"
+    pg_pass="$(resolve_env_value POSTGRES_PASSWORD ai_password_2024)"
+    redis_pass="$(resolve_env_value REDIS_PASSWORD redis_password_2024)"
+
+    docker exec -e PGPASSWORD="$pg_pass" ai_postgres psql -U "$pg_user" -d "$pg_db" -c "UPDATE config
+SET data = jsonb_set(
+            jsonb_set(
+                jsonb_set(data::jsonb, '{audio,stt,engine}', '\"openai\"', true),
+                '{audio,stt,model}', '\"${desired_model}\"', true
+            ),
+            '{audio,stt,supported_content_types}', '${desired_types}'::jsonb, true
+          )::json
+WHERE id = 1;" >/dev/null
+
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_ENGINE "\"openai\"" >/dev/null
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_MODEL "\"${desired_model}\"" >/dev/null
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_SUPPORTED_CONTENT_TYPES "${desired_types}" >/dev/null
+
+    info "Restarting Open WebUI to apply repaired config..."
+    docker restart ai_openwebui >/dev/null
+    sleep 6
+
+    check_openwebui_audio_config
+}
+
 # Check service health
 check_health() {
     info "Checking service health..."
@@ -2448,6 +2862,13 @@ check_health() {
             failed_services+=("$service")
         fi
     done
+
+    if printf '%s\n' "${failed_services[@]}" | grep -qx "open-webui"; then
+        if is_container_stuck "ai_openwebui"; then
+            warn "Detected stuck Open WebUI container (Docker BaseFS/exec failure pattern)."
+            warn "Run: ./$SCRIPT_NAME recover-openwebui"
+        fi
+    fi
 
     for service in "${TIER2_SERVICES[@]}"; do
         local container running
@@ -2491,43 +2912,57 @@ check_health() {
 # Test service endpoints
 test_endpoints() {
     info "Testing service endpoints..."
-    
-    local vm_ip=$(get_vm_ip)
+
+    local vm_ip
     local failed_tests=()
-    
+    local status_code=""
+    vm_ip=$(get_vm_ip)
+
     # Test main landing page
-    if curl -k -s -o /dev/null "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Landing page accessible"
     else
-        failed_tests+=("Landing page")
+        failed_tests+=("Landing page ($status_code)")
     fi
-    
+
     # Test Open WebUI
-    if curl -k -s -o /dev/null -H "Host: oweb.tu.local" "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: oweb.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Open WebUI accessible"
     else
-        failed_tests+=("Open WebUI")
+        failed_tests+=("Open WebUI ($status_code)")
     fi
-    
+
     # Test n8n
-    if curl -k -s -o /dev/null -H "Host: n8n.tu.local" "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: n8n.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ n8n accessible"
     else
-        failed_tests+=("n8n")
+        failed_tests+=("n8n ($status_code)")
     fi
-    
-    # Test Pi-hole
-    if curl -k -s -o /dev/null -H "Host: pihole.tu.local" "https://$vm_ip"; then
+
+    # Test AFFiNE
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: affine.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
+        info "✓ AFFiNE accessible"
+    else
+        failed_tests+=("AFFiNE ($status_code)")
+    fi
+
+    # Test Pi-hole admin page (root "/" intentionally returns 403)
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: pihole.tu.lan" "https://$vm_ip/admin/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Pi-hole accessible"
     else
-        failed_tests+=("Pi-hole")
+        failed_tests+=("Pi-hole ($status_code)")
     fi
-    
+
     if [[ ${#failed_tests[@]} -gt 0 ]]; then
         warn "Failed endpoint tests: ${failed_tests[*]}"
         return 1
     fi
-    
+
     info "All endpoint tests passed!"
     return 0
 }
@@ -2542,6 +2977,12 @@ run_diagnostics() {
     
     # Service health
     check_health
+    echo ""
+
+    # Open WebUI audio STT consistency
+    if ! check_openwebui_audio_config; then
+        warn "Open WebUI STT configuration needs repair."
+    fi
     echo ""
     
     # Endpoint tests
@@ -2587,6 +3028,7 @@ main() {
             if [[ "$1" != "help" && "$1" != "version" ]]; then
                 check_docker
                 check_docker_compose
+                check_env_file
             fi
             
             # Execute command
@@ -2636,6 +3078,9 @@ main() {
                 cleanup)
                     cleanup
                     ;;
+                sync-dns)
+                    sync_pihole_dns_records
+                    ;;
                 health)
                     check_health
                     ;;
@@ -2644,6 +3089,12 @@ main() {
                     ;;
                 diagnose)
                     run_diagnostics
+                    ;;
+                check-openwebui-audio)
+                    check_openwebui_audio_config
+                    ;;
+                fix-openwebui-audio)
+                    fix_openwebui_audio_config "${2:-whisper-1}"
                     ;;
                 info)
                     show_info

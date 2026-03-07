@@ -490,6 +490,8 @@ Use the control script to manage the entire platform. Syntax:
 - health: Check service health
 - test: Test all service endpoints
 - diagnose: Run comprehensive diagnostics
+- check-openwebui-audio: Validate Open WebUI STT config consistency (DB + Redis)
+- fix-openwebui-audio [model]: Repair Open WebUI STT config drift (default model: whisper-1)
 - info: Show system information
 
 ### PDF Processing
@@ -625,6 +627,30 @@ docker compose config
 ```bash
 docker exec ai_openwebui curl -sf http://localhost:8080/api/health || echo "ui not ready"
 ```
+
+### Open WebUI STT "model parameter" Error
+
+If Conversational mode fails with:
+
+`[ERROR: 400: [ERROR: 500: Error transcribing chunk: External: you must provide a model parameter]]`
+
+this usually means Open WebUI is using OpenAI-compatible STT without a valid `audio.stt.model` at runtime.
+In practice, this can happen due to DB/Redis config drift (DB has a model, Redis override is empty).
+
+Recommended fix:
+
+```bash
+# Check current STT consistency between DB and Redis
+./tu-vm.sh check-openwebui-audio
+
+# Repair and enforce model in DB + Redis, then restart Open WebUI
+./tu-vm.sh fix-openwebui-audio whisper-1
+```
+
+Notes:
+- For OpenAI-compatible STT, a non-empty model is required (`whisper-1`, `gpt-4o-mini-transcribe`, etc.).
+- This error is not usually an audio format issue; it is most often a missing `model` parameter in the transcription request.
+- Keep STT supported MIME types non-empty (recommended: `["audio/*","video/webm"]`).
 
 ## 🚨 Security Considerations
 

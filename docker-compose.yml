@@ -101,7 +101,7 @@ services:
     image: ollama/ollama:latest
     container_name: ai_ollama
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
-    # ports removed to enforce Nginx-only access (ollama.tu.local)
+    # ports removed to enforce Nginx-only access (ollama.tu.lan)
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -132,7 +132,7 @@ services:
       redis:
         condition: service_started
     ports:
-      # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.local)
+      # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.lan)
       - "127.0.0.1:8080:8080"
     environment:
       OLLAMA_BASE_URL: http://ollama:11434  # Will be dynamically checked
@@ -232,8 +232,8 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123456}
       MINIO_CONSOLE_ADDRESS: ":9001"
-      MINIO_SERVER_URL: "https://api.minio.tu.local"
-      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.local"
+      MINIO_SERVER_URL: "https://api.minio.tu.lan"
+      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.lan"
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -260,10 +260,11 @@ services:
       N8N_BASIC_AUTH_ACTIVE: "true"
       N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
       N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin123}
-      N8N_HOST: n8n.${DOMAIN}
+      N8N_HOST: n8n.tu.lan
       N8N_PORT: 5678
       N8N_PROTOCOL: https
-      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      WEBHOOK_URL: https://n8n.tu.lan/
+      N8N_EDITOR_BASE_URL: https://n8n.tu.lan/
       GENERIC_TIMEZONE: Europe/Zurich
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b}
       # PostgreSQL Database Configuration
@@ -277,7 +278,6 @@ services:
       QDRANT_URL: http://qdrant:6333
       # Mobile optimizations
       N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
-      N8N_RUNNERS_ENABLED: "true"
       # Reduce logging for battery
       N8N_LOG_LEVEL: "warn"
       # Disable telemetry
@@ -315,6 +315,133 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
+  # AFFiNE collaborative workspace (on-demand - Tier 2)
+  affine:
+    image: ghcr.io/toeverything/affine:stable
+    container_name: ai_affine
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    depends_on:
+      affine_redis:
+        condition: service_healthy
+      affine_postgres:
+        condition: service_healthy
+      affine_migration:
+        condition: service_completed_successfully
+    environment:
+      REDIS_SERVER_HOST: affine_redis
+      REDIS_SERVER_PORT: 6379
+      DATABASE_URL: postgresql://${AFFINE_DB_USER:-affine}:${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}@affine_postgres:5432/${AFFINE_DB_NAME:-affine}
+      AFFINE_SERVER_HOST: affine.tu.lan
+      AFFINE_SERVER_HTTPS: "true"
+      AFFINE_SERVER_EXTERNAL_URL: https://affine.tu.lan
+      AFFINE_INDEXER_ENABLED: "false"
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.22
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_migration:
+    image: ghcr.io/toeverything/affine:stable
+    container_name: ai_affine_migration
+    restart: "no"  # one-shot migration job for AFFiNE
+    command: ["sh", "-c", "node ./scripts/self-host-predeploy.js"]
+    depends_on:
+      affine_redis:
+        condition: service_healthy
+      affine_postgres:
+        condition: service_healthy
+    environment:
+      REDIS_SERVER_HOST: affine_redis
+      REDIS_SERVER_PORT: 6379
+      DATABASE_URL: postgresql://${AFFINE_DB_USER:-affine}:${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}@affine_postgres:5432/${AFFINE_DB_NAME:-affine}
+      AFFINE_SERVER_HOST: affine.tu.lan
+      AFFINE_SERVER_HTTPS: "true"
+      AFFINE_SERVER_EXTERNAL_URL: https://affine.tu.lan
+      AFFINE_INDEXER_ENABLED: "false"
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.23
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai_affine_postgres
+    restart: "no"  # on-demand (Tier 2) - starts with affine service
+    environment:
+      POSTGRES_USER: ${AFFINE_DB_USER:-affine}
+      POSTGRES_PASSWORD: ${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}
+      POSTGRES_DB: ${AFFINE_DB_NAME:-affine}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - affine_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AFFINE_DB_USER:-affine} -d ${AFFINE_DB_NAME:-affine}"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.24
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_redis:
+    image: redis:alpine
+    container_name: ai_affine_redis
+    restart: "no"  # on-demand (Tier 2) - starts with affine service
+    command: redis-server --save "" --appendonly no --tcp-keepalive 60
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.25
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+
+  # MCP Gateway (on-demand - Tier 2)
+  mcp_gateway:
+    build: ./mcp-gateway
+    container_name: ai_mcp_gateway
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    environment:
+      MCP_GATEWAY_TOKEN: ${MCP_GATEWAY_TOKEN:-}
+      MCP_ALLOWED_SERVERS: ${MCP_ALLOWED_SERVERS:-affine}
+      AFFINE_MCP_ENABLED: ${AFFINE_MCP_ENABLED:-true}
+      AFFINE_BASE_URL: ${AFFINE_BASE_URL:-http://ai_affine:3010}
+      AFFINE_API_TOKEN: ${AFFINE_API_TOKEN:-}
+      AFFINE_COOKIE: ${AFFINE_COOKIE:-}
+      AFFINE_EMAIL: ${AFFINE_EMAIL:-}
+      AFFINE_PASSWORD: ${AFFINE_PASSWORD:-}
+      MCP_AFFINE_COMMAND: ${MCP_AFFINE_COMMAND:-affine-mcp}
+      MCP_AFFINE_ARGS: ${MCP_AFFINE_ARGS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.26
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9002/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
 
   # Pi-hole for Ad Blocking & DNS Security (Primary DNS on port 53)
   pihole:
@@ -325,16 +452,16 @@ services:
       - 1.1.1.1
       - 9.9.9.9
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
-      # Admin UI should be reachable only from localhost; external access via Nginx vhost (pihole.tu.local)
+      - "${HOST_IP:-127.0.0.1}:53:53/udp"
+      - "${HOST_IP:-127.0.0.1}:53:53/tcp"
+      # Admin UI should be reachable only from localhost; external access via Nginx vhost (pihole.tu.lan)
       - "127.0.0.1:8081:80"
     environment:
       TZ: 'Europe/Zurich'
       WEBPASSWORD: ${PIHOLE_PASSWORD:-'SwissPiHole2024!'}
       PIHOLE_DNS_: '1.1.1.1;9.9.9.9'
       DNSMASQ_USER: pihole
-      VIRTUAL_HOST: "pihole.tu.local"
+      VIRTUAL_HOST: "pihole.tu.lan"
       PROXY_LOCATION: "pihole"
       ServerIP: "${HOST_IP}"
       DNSMASQ_LISTENING: all
@@ -497,6 +624,12 @@ volumes:
   pdf-uploads:
     driver: local
   pdf-processed:
+    driver: local
+  affine_storage:
+    driver: local
+  affine_config:
+    driver: local
+  affine_postgres_data:
     driver: local
 
 networks:

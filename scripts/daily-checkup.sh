@@ -11,6 +11,11 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
+# Safely escape arbitrary strings for JSON values
+json_escape() {
+    python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
+}
+
 # Function to check container health and service status
 check_container_health() {
     local unhealthy_services=()
@@ -20,8 +25,8 @@ check_container_health() {
     local health_details=""
     
     # Tier 2 (on-demand) services are allowed to be stopped; do not treat as "down".
-    local ondemand=("ai_ollama" "ai_n8n" "ai_minio" "ai_qdrant" "ai_tika" "tika_minio_processor")
-    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor")
+    local ondemand=("ai_ollama" "ai_n8n" "ai_minio" "ai_qdrant" "ai_tika" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
+    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
 
     is_ondemand() {
         local c="$1"
@@ -94,7 +99,9 @@ check_log_errors() {
     local error_details=""
     local critical_errors=0
     local warning_errors=0
-    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "tika_minio_processor")
+    local openwebui_audio_stt_errors=0
+    local openwebui_audio_stt_details=""
+    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
     
     for container in "${containers[@]}"; do
         # Check if container exists and is running
@@ -117,22 +124,44 @@ check_log_errors() {
                 error_details="${error_details}${container}: ${sample_error}...; "
             fi
         fi
+
+        # Open WebUI-specific STT issues: missing model parameter / chunk transcription failures
+        if [[ "$container" == "ai_openwebui" ]]; then
+            local stt_count
+            stt_count=$(docker logs --since 24h "${container}" 2>&1 | grep -i -E "(you must provide a model parameter|Error transcribing chunk|/audio/transcriptions.*400)" | wc -l)
+            if [ "$stt_count" -gt 0 ]; then
+                openwebui_audio_stt_errors=$((openwebui_audio_stt_errors + stt_count))
+                local stt_sample
+                stt_sample=$(docker logs --since 24h "${container}" 2>&1 | grep -i -E "(you must provide a model parameter|Error transcribing chunk|/audio/transcriptions.*400)" | tail -1 | cut -c1-140)
+                if [ -n "$stt_sample" ]; then
+                    openwebui_audio_stt_details="ai_openwebui: ${stt_sample}..."
+                fi
+            fi
+        fi
     done
     
+    # Safely JSON-escape free-form log snippets
+    local error_details_json
+    local openwebui_audio_stt_details_json
+    error_details_json=$(printf "%s" "$error_details" | json_escape)
+    openwebui_audio_stt_details_json=$(printf "%s" "$openwebui_audio_stt_details" | json_escape)
+
     # Create log status file
     cat > "/tmp/tu-vm-log-status.json" << EOF
 {
     "errors_found": $error_count,
     "critical_errors": $critical_errors,
     "warning_errors": $warning_errors,
+    "openwebui_audio_stt_errors": $openwebui_audio_stt_errors,
+    "openwebui_audio_stt_details": $openwebui_audio_stt_details_json,
     "last_check": "$(date -Iseconds)",
-    "error_details": "$error_details",
+    "error_details": $error_details_json,
     "containers_checked": ${#containers[@]}
 }
 EOF
     
-    if [ "$error_count" -gt 0 ]; then
-        log "Daily log check: Found $error_count errors ($critical_errors critical, $warning_errors warnings) across containers"
+    if [ "$error_count" -gt 0 ] || [ "$openwebui_audio_stt_errors" -gt 0 ]; then
+        log "Daily log check: Found $error_count errors ($critical_errors critical, $warning_errors warnings) across containers; OpenWebUI STT issues: $openwebui_audio_stt_errors"
     else
         log "Daily log check: No errors found in container logs"
     fi
@@ -144,6 +173,13 @@ check_for_updates() {
     local message=""
     local details_msg=""
     local platform="linux/amd64"
+    local status_file_target="$STATUS_FILE"
+
+    # If status file is not writable (e.g. root-owned), use a user-local fallback.
+    if { [ -e "$STATUS_FILE" ] && [ ! -w "$STATUS_FILE" ]; } || { [ ! -e "$STATUS_FILE" ] && [ ! -w "$(dirname "$STATUS_FILE")" ]; }; then
+        status_file_target="/tmp/tu-vm-update-status-${USER}.json"
+        log "Update status file not writable at $STATUS_FILE, using fallback: $status_file_target"
+    fi
 
     case "$(uname -m)" in
         x86_64) platform="linux/amd64" ;;
@@ -170,6 +206,8 @@ check_for_updates() {
         "apache/tika:latest"
         "minio/minio:latest"
         "n8nio/n8n:latest"
+        "ghcr.io/toeverything/affine:stable"
+        "pgvector/pgvector:pg16"
         "pihole/pihole:latest"
         "nginx:alpine"
     )
@@ -196,10 +234,11 @@ check_for_updates() {
         if command -v docker >/dev/null 2>&1 && docker manifest inspect "$img" >/dev/null 2>&1; then
             local json
             json=$(docker manifest inspect "$img" 2>/dev/null)
-            python3 - "$plat" << 'PY'
+            python3 - "$plat" "$json" << 'PY'
 import json,sys
 plat=sys.argv[1]
-data=json.load(sys.stdin)
+raw=sys.argv[2]
+data=json.loads(raw)
 manifests=data.get('manifests',[])
 for m in manifests:
     platObj=m.get('platform',{})
@@ -260,7 +299,7 @@ PY
     fi
 
     # Create status JSON
-    cat > "$STATUS_FILE" << EOF
+    cat > "$status_file_target" << EOF
 {
     "updates_available": $updates_available,
     "last_check": "$(date -Iseconds)",

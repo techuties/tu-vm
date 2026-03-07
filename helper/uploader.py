@@ -147,7 +147,7 @@ def _reload_nginx():
 @app.route('/status', methods=['GET'])
 def status():
     vm_ip = os.environ.get('HOST_IP') or get_vm_ip()
-    domain = os.environ.get('DOMAIN', 'tu.local')
+    domain = os.environ.get('DOMAIN', 'tu.lan')
     
     # Check key services
     res = {
@@ -155,7 +155,9 @@ def status():
         'services': {
             'landing': f'https://{domain}',
             'openwebui': f'https://oweb.{domain}',
+            'mcp_gateway': f'https://oweb.{domain}/api/mcp/',
             'n8n': f'https://n8n.{domain}',
+            'affine': f'https://affine.{domain}',
             'pihole': f'https://pihole.{domain}'
         }
     }
@@ -665,10 +667,13 @@ def control_service(service, action):
             # Dashboard-controlled services (on-demand)
             'open-webui': ('ai_openwebui', 'open-webui'),
             'n8n': ('ai_n8n', 'n8n'),
+            'affine': ('ai_affine', 'affine'),
             'pihole': ('ai_pihole', 'pihole'),
             'minio': ('ai_minio', 'minio'),
             'ollama': ('ai_ollama', 'ollama'),
             'tika': ('ai_tika', 'tika'),
+            'mcp_gateway': ('ai_mcp_gateway', 'mcp_gateway'),
+            'mcp-gateway': ('ai_mcp_gateway', 'mcp_gateway'),
             'nginx': ('ai_nginx', 'nginx'),
             # Core services (always running, but can be controlled)
             'postgres': ('ai_postgres', 'postgres'),
@@ -757,6 +762,24 @@ def status_oweb():
 def status_n8n():
     try:
         s = socket.create_connection(('ai_n8n', 5678), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/affine', methods=['GET'])
+def status_affine():
+    try:
+        s = socket.create_connection(('ai_affine', 3010), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/mcp', methods=['GET'])
+def status_mcp():
+    try:
+        s = socket.create_connection(('ai_mcp_gateway', 9002), timeout=2)
         s.close()
         return 'ok', 200
     except Exception:
