@@ -674,6 +674,7 @@ Notes:
 ### Quick References
 - **Quick Reference**: [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
 - **Changelog**: [CHANGELOG.md](CHANGELOG.md) - Complete history of changes and new features
+- **Suggestions Archive**: [suggestions/README.md](suggestions/README.md) - Historical website and community improvement suggestions
 
 ### External References
 - [Ubuntu Server](https://ubuntu.com/server/docs)
