@@ -5,804 +5,886 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TechUties VM - Service Hub</title>
 <style>
-  :root { --bg:#0b0f14; --fg:#e6eef7; --muted:#94a3b8; --accent:#00c896; --accent2:#ff6fb1; --card:#0f151d; }
-  html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
-  .hero { background: linear-gradient(135deg, rgba(0,200,150,0.15), rgba(59,130,246,0.12)); border:1px solid #163042; border-radius:16px; padding:32px; }
-  .hero-head { display:flex; align-items:center; justify-content:space-between; gap:12px }
-  h1 { margin:0 0 8px; font-size:32px; letter-spacing:.3px }
-  p.lead { margin:0; color:var(--muted); }
-  .grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-top:12px; }
-  .card { background:var(--card); border:1px solid #1f2937; border-radius:12px; padding:18px; transition: transform .1s ease, border-color .2s ease; position:relative }
-  .card:hover { transform: translateY(-1px); border-color: #374151; }
-  .card a { color:var(--fg); text-decoration:none; display:block }
-  .name { font-weight:600; margin-bottom:6px }
-  .url { color:var(--muted); font-size:13px }
-  .thanks { margin-top: 28px }
-  .thanks h3 { margin:0 0 8px; font-size:16px; color:#b9c6d2 }
-  .footer { margin-top:32px; color:var(--muted); font-size:14px }
-  .links a { color: var(--accent); text-decoration: none; }
-  .thanks a { color: var(--accent2); font-weight:600; text-decoration:none }
-  .thanks a:hover { text-decoration: underline }
-  .status { margin-top: 8px; font-size: 13px; color: var(--muted) }
-  .badge { position:absolute; top:12px; right:12px; font-size:11px; padding:4px 8px; border-radius:999px; border:1px solid #1f2937 }
-  .ok { background:#0d1f17; color:#6fe0b8; border-color:#1b3a2d }
-  .err { background:#281215; color:#ff9aa7; border-color:#4d2228 }
-  .warn { background:#2a2314; color:#ffdd8b; border-color:#4b3d1c }
-  code { background:#101822; padding:2px 6px; border-radius:6px; border:1px solid #1f2a37 }
-  .upload { display:none }
-  /* Dashboard cards */
-  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
-  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
-  .table { width:100%; border-collapse: collapse; margin-top: 10px }
-  .table th, .table td { border:1px solid #1f2937; padding:8px; text-align:left; font-size:13px }
-  .table th { background:#0b1017; color:#b9c6d2 }
-  .copy { cursor:pointer; padding:4px 8px; border:1px solid #1f2937; border-radius:6px; background:#0e1a26; color:#e6eef7 }
-  .row-inline { display:flex; gap:8px; align-items:center; flex-wrap:wrap }
-  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center }
-  .row input[type="file"] { color:var(--muted) }
-  .row input[type="text"] { background:#0b1017; color:var(--fg); border:1px solid #1f2937; border-radius:8px; padding:8px 10px; min-width:260px }
-  .btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer }
-  .btn:hover { border-color:#374151 }
-  .btn-sm { padding:6px 8px; font-size:12px }
-  .section-title { margin:18px 0 8px; color:#b9c6d2; font-size:14px; text-transform:uppercase; letter-spacing:.08em }
-  .chips { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 4px }
-  .chip { background:#0b1017; border:1px solid #1f2937; color:#cbd5e1; border-radius:999px; padding:6px 10px; font-size:12px }
-  .chip .dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; position:relative; top:1px }
-  .dot-ok { background:#00c896 }
-  .dot-err { background:#ff6b6b }
-  .vpn-head { display:flex; align-items:center; gap:12px; margin-bottom:8px }
-  .muted { color:#9fb0c0; font-size:13px }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-  
-  /* Dashboard cards */
-  .kpis { display:grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-top:16px }
-  .kpi { background:var(--card); border:1px solid #1f2937; border-radius:10px; padding:14px }
-  
-  /* Notification system */
-  .notification { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid #1f2937; border-radius: 12px; padding: 16px; max-width: 300px; z-index: 1000; display: none; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
-  .notification.show { display: block; animation: slideIn 0.3s ease-out; }
-  .notification-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .notification-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
-  .notification-icon.success { background: #0d1f17; color: #6fe0b8; }
-  .notification-icon.error { background: #281215; color: #ff9aa7; }
-  .notification-icon.info { background: #1a2332; color: #6bb6ff; }
-  .notification-icon.update { background: #0d1f17; color: #6fe0b8; }
-  .notification-icon.warning { background: #2a2314; color: #ffdd8b; }
-  .notification-title { font-weight: 600; color: var(--fg); }
-  .notification-message { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-  .notification-actions { display: flex; gap: 8px; }
-  .notification-btn { background: #0e1a26; color: var(--fg); border: 1px solid #1f2937; border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
-  .notification-btn:hover { border-color: #374151; }
-  .notification-close { position: absolute; top: 8px; right: 8px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+  :root {
+    --bg: #080b10; --fg: #e4ecf5; --muted: #7b8da4; --accent: #38d9a9; --accent2: #748ffc;
+    --card: #0d1117; --border: #1b2433; --border-hover: #2d3b4f;
+    --success: #38d9a9; --success-bg: #0d2920; --error: #ff6b6b; --error-bg: #2d1418;
+    --warn: #fcc419; --warn-bg: #2a2314; --info: #748ffc; --info-bg: #171d30;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--fg); font-family: 'Outfit', system-ui, -apple-system, sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 40px 20px 60px; }
+
+  /* Hero */
+  .hero { background: linear-gradient(145deg, rgba(56,217,169,0.08), rgba(116,143,252,0.06), transparent 70%); border: 1px solid var(--border); border-radius: 16px; padding: 32px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(56,217,169,0.06) 0%, transparent 70%); pointer-events: none; }
+  .hero-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .hero-title { font-size: 28px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.3px; }
+  .hero-sub { color: var(--muted); margin: 0; font-weight: 300; font-size: 15px; max-width: 600px; line-height: 1.5; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); }
+  .hero-badge .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse-glow 2s ease-in-out infinite; }
+  @keyframes pulse-glow { 0%,100% { opacity: 1; box-shadow: 0 0 4px var(--success); } 50% { opacity: 0.5; box-shadow: 0 0 8px var(--success); } }
+
+  /* Sections */
+  .section { margin-top: 24px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+  .section-desc { font-size: 13px; color: var(--muted); font-weight: 300; }
+
+  /* Service grid */
+  .svc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .svc-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; transition: border-color 0.2s; position: relative; }
+  .svc-card:hover { border-color: var(--border-hover); }
+  .svc-card.svc-web { border-left: 3px solid rgba(56, 217, 169, 0.6); }
+  .svc-card.svc-internal { border-left: 3px solid rgba(116, 143, 252, 0.55); }
+  .svc-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .svc-name { font-weight: 600; font-size: 15px; }
+  .svc-name a { color: var(--fg); text-decoration: none; }
+  .svc-name a:hover { color: var(--accent); }
+  .svc-url { font-size: 12px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .reach-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 999px; border: 1px solid var(--border); padding: 3px 8px; margin-top: 8px; }
+  .reach-web { background: rgba(56, 217, 169, 0.12); color: var(--success); border-color: rgba(56, 217, 169, 0.35); }
+  .reach-internal { background: rgba(116, 143, 252, 0.12); color: var(--accent2); border-color: rgba(116, 143, 252, 0.35); }
+  .reach-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .reach-web .reach-dot { background: var(--success); }
+  .reach-internal .reach-dot { background: var(--accent2); }
+  .reach-legend { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .svc-desc { font-size: 12px; color: var(--muted); line-height: 1.4; margin: 6px 0; }
+  .svc-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+  .svc-status { font-size: 11px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Badges */
+  .badge { font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .badge-ok { background: var(--success-bg); color: var(--success); border: 1px solid #1a4a3a; }
+  .badge-err { background: var(--error-bg); color: var(--error); border: 1px solid #4d2228; }
+  .badge-warn { background: var(--warn-bg); color: var(--warn); border: 1px solid #4b3d1c; }
+  .badge-off { background: #12151a; color: #4a5568; border: 1px solid #1f2937; }
+
+  /* Buttons */
+  .btn { font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--border-hover); background: #131920; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-accent { border-color: rgba(56,217,169,0.3); color: var(--accent); }
+  .btn-accent:hover { border-color: var(--accent); background: rgba(56,217,169,0.08); }
+  .btn-group { display: flex; gap: 4px; }
+
+  /* Pipeline diagram */
+  .pipeline { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .pipeline-title { font-weight: 600; font-size: 16px; margin-bottom: 4px; }
+  .pipeline-desc { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .pipeline-flow { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 8px 0; }
+  .pipeline-node { flex: 1; min-width: 140px; background: linear-gradient(180deg, rgba(116,143,252,0.06), transparent); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 12px; text-align: center; position: relative; }
+  .pipeline-node-icon { font-size: 20px; margin-bottom: 6px; }
+  .pipeline-node-name { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  .pipeline-node-sub { font-size: 11px; color: var(--muted); }
+  .pipeline-arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 16px; padding: 0 6px; flex-shrink: 0; }
+
+  /* KPIs */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .kpi-value { font-size: 16px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  /* Update panel */
+  .update-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .update-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .update-info { flex: 1; }
+  .update-title { font-weight: 600; font-size: 14px; }
+  .update-msg { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* Internal chips */
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: var(--success); }
+  .dot-err { background: var(--error); }
+
+  /* Inputs */
+  input[type="text"] { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; outline: none; width: 100%; }
+  input[type="text"]:focus { border-color: var(--accent2); }
+  .input-row { display: flex; gap: 8px; align-items: center; }
+
+  /* Access control */
+  .access-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .access-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; }
+  .allowlist-item { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+  .allowlist-item:last-child { border-bottom: none; }
+
+  /* Notification */
+  .notification { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; max-width: 320px; z-index: 1000; display: none; box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+  .notification.show { display: block; animation: slideIn 0.25s ease-out; }
+  .notification-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .notification-icon { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+  .notification-icon.success { background: var(--success-bg); color: var(--success); }
+  .notification-icon.error { background: var(--error-bg); color: var(--error); }
+  .notification-icon.info { background: var(--info-bg); color: var(--info); }
+  .notification-title { font-weight: 600; font-size: 13px; }
+  .notification-message { color: var(--muted); font-size: 12px; line-height: 1.4; }
   .notification-progress { margin-top: 8px; }
-  .notification-progress-bar { width: 100%; height: 6px; background: #1f2937; border-radius: 3px; overflow: hidden; }
-  .notification-progress-fill { height: 100%; background: linear-gradient(90deg, #6bb6ff, #6fe0b8); transition: width 0.3s ease; }
-  .notification-progress-text { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .notification-progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .notification-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 0.3s; }
+  .notification-progress-text { font-size: 10px; color: var(--muted); margin-top: 3px; }
   @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
   /* Announcements dropdown */
-  .dropdown { position: relative; display: inline-block; }
-  .dropdown-btn { background:#0e1a26; color:#e6eef7; border:1px solid #1f2937; border-radius:8px; padding:8px 12px; cursor:pointer; min-width: 180px; display:flex; align-items:center; justify-content:space-between; gap:8px }
-  .dropdown-btn:hover { border-color:#374151 }
-  .dropdown-badge { position:absolute; top:-4px; right:-4px; width:8px; height:8px; background:#ff6b6b; border-radius:50%; display:none }
-  .dropdown-badge.show { display:block }
-  .dropdown-panel { position:absolute; top: calc(100% + 6px); right: 0; background: var(--card); border:1px solid #1f2937; border-radius:10px; width: 360px; max-width: calc(100vw - 32px); box-shadow: 0 10px 24px rgba(0,0,0,.25); display:none; z-index:100; max-height: 360px; overflow:auto }
-  .dropdown.open .dropdown-panel { display:block }
-  .ann-item { padding:10px 12px; border-bottom:1px solid #172131 }
-  .ann-item:last-child { border-bottom: 0 }
-  .ann-title { font-weight:600; font-size:14px }
-  .ann-meta { color: var(--muted); font-size:11px; margin-top:4px }
-  .ann-type { text-transform:uppercase; font-size:10px; letter-spacing:.06em; padding:2px 6px; border:1px solid #263246; border-radius:999px; margin-left:6px }
-  .ann-critical { border-left:3px solid #ff4757 }
-  .ann-warning { border-left:3px solid #ffa502 }
-  .ann-info { border-left:3px solid #3742fa }
-  .ann-update { border-left:3px solid #2ed573 }
-  .caret { transition: transform .15s ease }
-  .dropdown.open .caret { transform: rotate(180deg) }
+  .dropdown { position: relative; }
+  .dropdown-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .dropdown-toggle .count { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; border-radius: 999px; background: var(--error-bg); color: var(--error); font-size: 10px; font-weight: 700; padding: 0 5px; }
+  .dropdown-panel { position: absolute; top: calc(100% + 8px); right: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); width: 380px; max-width: calc(100vw - 40px); box-shadow: 0 12px 32px rgba(0,0,0,0.4); display: none; z-index: 100; max-height: 400px; overflow: auto; }
+  .dropdown.open .dropdown-panel { display: block; }
+  .ann-item { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .ann-item:last-child { border-bottom: none; }
+  .ann-title { font-weight: 600; font-size: 13px; }
+  .ann-meta { color: var(--muted); font-size: 10px; margin-top: 3px; }
+  .ann-msg { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .ann-critical { border-left: 3px solid var(--error); }
+  .ann-warning { border-left: 3px solid var(--warn); }
+  .ann-info { border-left: 3px solid var(--info); }
+  .ann-update { border-left: 3px solid var(--success); }
+  .caret { transition: transform 0.15s; font-size: 10px; }
+  .dropdown.open .caret { transform: rotate(180deg); }
 
-  
-  @media (max-width: 768px) { .grid { gap:12px } }
+  /* Footer */
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .footer-links a { color: var(--accent); text-decoration: none; font-size: 13px; }
+  .footer-links a:hover { text-decoration: underline; }
+  .footer-right { color: var(--muted); font-size: 12px; }
+  .footer-contrib { color: var(--muted); font-size: 12px; }
+  .footer-contrib a { color: var(--accent2); text-decoration: none; font-weight: 500; }
+
+  @media (max-width: 640px) {
+    .hero-head { flex-direction: column; }
+    .pipeline-flow { flex-direction: column; }
+    .pipeline-arrow { transform: rotate(90deg); padding: 4px 0; }
+    .svc-grid { grid-template-columns: 1fr; }
+  }
 </style>
-<script>
-async function probe(url, opts={}){
-  const t0 = performance.now();
-  try {
-    const r = await fetch(url, { method:'GET', ...opts });
-    const ms = Math.max(1, Math.round(performance.now()-t0));
-    return { ok:r.ok, status:r.status, ms };
-  } catch(e){
-    const ms = Math.max(1, Math.round(performance.now()-t0));
-    return { ok:false, status:0, ms };
-  }
-}
-function setBadge(id, res){
-  const b = document.getElementById(id);
-  if(!b) return;
-  const cls = res.ok ? 'badge ok' : 'badge err';
-  b.className = cls;
-  b.textContent = res.ok ? `healthy (${res.ms}ms)` : `down (${res.ms}ms)`;
-}
-async function refreshStatuses(){
-  const [land, oweb, n8n, pih, ollama, minio, full, updates, pdfStatus] = await Promise.all([
-    Promise.resolve({ok:true,ms:0}),
-    probe('/status/oweb'),
-    probe('/status/n8n'),
-    probe('/status/pihole'),
-    probe('/status/ollama'),
-    probe('/status/minio'),
-    fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({})),
-    fetch('/status/updates').then(r=>r.ok?r.json():{}).catch(()=>({})),
-    fetch('/status/pdf-processing').then(r=>r.ok?r.json():{}).catch(()=>({processing: false, error: null}))
-  ]);
-  
-  // Check PDF processing status and show notification (handles all states)
-  if(pdfStatus) {
-    showPDFProcessingNotification(pdfStatus);
-  }
-  setBadge('badge-oweb', oweb);
-  setBadge('badge-n8n', n8n);
-  setBadge('badge-pihole', pih);
-  setBadge('badge-ollama', ollama);
-  setBadge('badge-minio', minio);
-  // Update control buttons state
-  setServiceButtons('oweb', oweb.ok);
-  setServiceButtons('n8n', n8n.ok);
-  setServiceButtons('pihole', pih.ok);
-  setServiceButtons('ollama', ollama.ok);
-  setServiceButtons('minio', minio.ok);
-  
-  // Update status indicators
-  updateServiceStatus('oweb', oweb.ok, oweb.ms);
-  updateServiceStatus('n8n', n8n.ok, n8n.ms);
-  updateServiceStatus('pihole', pih.ok, pih.ms);
-  updateServiceStatus('ollama', ollama.ok, ollama.ms);
-  updateServiceStatus('minio', minio.ok, minio.ms);
-  
-  // Check for updates and show notification
-  checkUpdateNotifications(updates);
-  
-  try{
-    const setChip = (id, ok) => {
-      const el = document.getElementById(id);
-      if(!el) return;
-      const dot = el.querySelector('.dot');
-      if(dot){ dot.className = 'dot ' + (ok?'dot-ok':'dot-err'); }
-      el.querySelector('.label').textContent = ok ? 'healthy' : 'down';
-    };
-    setChip('chip-ollama', !!full.ollama);
-    setChip('chip-db', !!full.postgres);
-    setChip('chip-redis', !!full.redis);
-    setChip('chip-qdrant', !!full.qdrant);
-    setChip('chip-tika', !!full.tika);
-    setChip('chip-minio', !!full.minio);
-    // Update KPIs
-    const ext = (full.external_ip||full.ip||'');
-    const vmip = full.vm_ip||'';
-    const k1=document.getElementById('kpi-ext'); if(k1) k1.textContent = ext || '—';
-    const k2=document.getElementById('kpi-vm'); if(k2) k2.textContent = vmip || '—';
-    const kcpu=document.getElementById('kpi-cpu'); if(kcpu) kcpu.textContent = (full.cpu_cores||'—');
-    const km=document.getElementById('kpi-mem'); if(km && full.memory_mb){ km.textContent = `${full.memory_mb.used}/${full.memory_mb.total} MB`; }
-    const kd=document.getElementById('kpi-disk'); if(kd && full.disk_mb){ kd.textContent = `${full.disk_mb.used}/${full.disk_mb.total} MB`; }
-    const tsEl=document.getElementById('last-updated'); if(tsEl){ const d=new Date(); tsEl.textContent=d.toLocaleTimeString(); }
-  }catch(e){}
-}
-function setServiceButtons(id, running){
-  const startBtn = document.getElementById(`btn-${id}-start`);
-  const stopBtn = document.getElementById(`btn-${id}-stop`);
-  if(!startBtn||!stopBtn) return;
-  startBtn.disabled = running;
-  stopBtn.disabled = !running;
-}
-
-function updateServiceStatus(id, isRunning, responseTime){
-  const statusEl = document.getElementById(`status-${id}`);
-  if(!statusEl) return;
-  
-  if(isRunning){
-    statusEl.textContent = `Status: Running (${responseTime}ms)`;
-    statusEl.style.color = '#6fe0b8';
-  } else {
-    statusEl.textContent = `Status: Stopped`;
-    statusEl.style.color = '#ff9aa7';
-  }
-}
-
-function setServiceLoading(id, loading, action){
-  const startBtn = document.getElementById(`btn-${id}-start`);
-  const stopBtn = document.getElementById(`btn-${id}-stop`);
-  if(!startBtn||!stopBtn) return;
-  
-  if(loading){
-    startBtn.disabled = true;
-    stopBtn.disabled = true;
-    startBtn.textContent = action === 'start' ? 'Starting...' : 'Start';
-    stopBtn.textContent = action === 'stop' ? 'Stopping...' : 'Stop';
-  } else {
-    startBtn.disabled = false;
-    stopBtn.disabled = false;
-    startBtn.textContent = 'Start';
-    stopBtn.textContent = 'Stop';
-  }
-}
-
-function showNotification(message, type = 'info', progress = null, persistent = false){
-  // Create notification element
-  const notification = document.createElement('div');
-  notification.className = `notification ${type}`;
-  if(persistent) notification.setAttribute('data-persistent', 'true');
-  
-  let progressHtml = '';
-  if(progress !== null) {
-    progressHtml = `
-      <div class="notification-progress">
-        <div class="notification-progress-bar">
-          <div class="notification-progress-fill" style="width: ${progress}%"></div>
-        </div>
-        <div class="notification-progress-text">${progress}%</div>
-      </div>
-    `;
-  }
-  
-  notification.innerHTML = `
-    <div class="notification-header">
-      <div class="notification-icon ${type}">${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</div>
-      <div class="notification-title">${type === 'success' ? 'Success' : type === 'error' ? 'Error' : 'Info'}</div>
-    </div>
-    <div class="notification-message">${message}</div>
-    ${progressHtml}
-  `;
-  
-  // Add to page
-  document.body.appendChild(notification);
-  
-  // Show notification
-  setTimeout(() => notification.classList.add('show'), 100);
-  
-  // Auto-hide after 3 seconds (unless persistent)
-  if(!persistent) {
-    setTimeout(() => {
-      notification.classList.remove('show');
-      setTimeout(() => notification.remove(), 300);
-    }, 3000);
-  }
-  
-  return notification;
-}
-
-let pdfProcessingNotification = null;
-
-function showPDFProcessingNotification(status) {
-  // Handle completion or error states
-  if(!status.processing) {
-    if(status.progress === 100 && status.status === 'completed') {
-      // Successfully completed
-      const filename = status.current_file || 'PDF file';
-      if(pdfProcessingNotification) {
-        pdfProcessingNotification.classList.remove('show');
-        setTimeout(() => {
-          if(pdfProcessingNotification) {
-            pdfProcessingNotification.remove();
-            pdfProcessingNotification = null;
-          }
-          showNotification(`PDF processed successfully: ${filename}`, 'success');
-        }, 500);
-      } else {
-        showNotification(`PDF processed successfully: ${filename}`, 'success');
-      }
-    } else if(status.error) {
-      // Error occurred
-      const errorMsg = status.error.length > 100 ? status.error.substring(0, 100) + '...' : status.error;
-      if(pdfProcessingNotification) {
-        pdfProcessingNotification.classList.remove('show');
-        setTimeout(() => {
-          if(pdfProcessingNotification) {
-            pdfProcessingNotification.remove();
-            pdfProcessingNotification = null;
-          }
-          showNotification(`PDF processing failed: ${errorMsg}`, 'error');
-        }, 500);
-      } else {
-        showNotification(`PDF processing failed: ${errorMsg}`, 'error');
-      }
-    } else if(pdfProcessingNotification) {
-      // Idle state - remove notification
-      pdfProcessingNotification.classList.remove('show');
-      setTimeout(() => {
-        if(pdfProcessingNotification) {
-          pdfProcessingNotification.remove();
-          pdfProcessingNotification = null;
-        }
-      }, 300);
-    }
-    return;
-  }
-  
-  // Processing is active
-  const filename = status.current_file || 'Unknown file';
-  const progress = Math.max(0, Math.min(100, status.progress || 0)); // Clamp to 0-100
-  const statusText = status.status || 'processing';
-  
-  if(!pdfProcessingNotification) {
-    // Create new notification
-    pdfProcessingNotification = showNotification(
-      `Processing PDF: ${filename}`,
-      'info',
-      progress,
-      true // persistent
-    );
-  } else {
-    // Update existing notification
-    const messageEl = pdfProcessingNotification.querySelector('.notification-message');
-    const progressBar = pdfProcessingNotification.querySelector('.notification-progress-fill');
-    const progressText = pdfProcessingNotification.querySelector('.notification-progress-text');
-    
-    if(messageEl) messageEl.textContent = `Processing PDF: ${filename}`;
-    if(progressBar) progressBar.style.width = `${progress}%`;
-    if(progressText) {
-      const displayText = statusText.length > 40 ? statusText.substring(0, 40) + '...' : statusText;
-      progressText.textContent = `${progress}% - ${displayText}`;
-    }
-  }
-}
-
-async function controlService(service, action){
-  const serviceId = service.replace('open-webui', 'oweb').replace('ai_', '');
-  setServiceLoading(serviceId, true, action);
-  
-  try{
-    const token = localStorage.getItem('control-token')||'';
-    const r = await fetch(`/control/${service}/${action}`, {
-      method: 'POST',
-      headers: { 'X-Control-Token': token }
-    });
-    
-    if(!r.ok){
-      const t = await r.text();
-      showNotification(`Failed to ${action} ${service}: ${t}`, 'error');
-      setServiceLoading(serviceId, false);
-      return;
-    }
-    
-    const result = await r.json();
-    if(result.ok){
-      showNotification(`${service} ${action} command sent successfully`, 'success');
-      
-      // Poll for status change with timeout
-      let attempts = 0;
-      const maxAttempts = 20; // 20 seconds timeout
-      const pollStatus = async () => {
-        attempts++;
-        try {
-          const statusResponse = await fetch(`/status/${serviceId}`);
-          const isRunning = statusResponse.ok;
-          
-          if((action === 'start' && isRunning) || (action === 'stop' && !isRunning)){
-            showNotification(`${service} ${action} completed successfully`, 'success');
-            setServiceLoading(serviceId, false);
-            refreshStatuses();
-            return;
-          }
-          
-          if(attempts >= maxAttempts){
-            showNotification(`${service} ${action} taking longer than expected. Check status manually.`, 'info');
-            setServiceLoading(serviceId, false);
-            refreshStatuses();
-            return;
-          }
-          
-          setTimeout(pollStatus, 1000); // Poll every second
-        } catch(e) {
-          showNotification(`Error checking ${service} status: ${e.message}`, 'error');
-          setServiceLoading(serviceId, false);
-          refreshStatuses();
-        }
-      };
-      
-      // Start polling after 2 seconds
-      setTimeout(pollStatus, 2000);
-    } else {
-      showNotification(`Failed to ${action} ${service}: ${result.error || 'Unknown error'}`, 'error');
-      setServiceLoading(serviceId, false);
-    }
-  }catch(e){
-    showNotification(`Error: ${e.message}`, 'error');
-    setServiceLoading(serviceId, false);
-  }
-}
-function startAutoRefresh(){
-  refreshStatuses();
-  setInterval(refreshStatuses, 15000);
-  // Poll PDF processing status more frequently (every 2 seconds) when processing
-  let lastProcessingState = false;
-  setInterval(async () => {
-    try {
-      const pdfStatus = await fetch('/status/pdf-processing').then(r=>r.ok?r.json():{}).catch(()=>({processing: false}));
-      if(pdfStatus) {
-        const isProcessing = pdfStatus.processing === true;
-        // Only update if state changed or actively processing
-        if(isProcessing || isProcessing !== lastProcessingState) {
-          showPDFProcessingNotification(pdfStatus);
-          lastProcessingState = isProcessing;
-        }
-      }
-    } catch(e) {
-      // Silently fail - don't spam console
-    }
-  }, 2000);
-}
-
-// Update notification system
-function checkUpdateNotifications(updates) {
-  if (!updates || !updates.updates_available) return;
-  
-  // Check if notification was already shown today
-  const lastShown = localStorage.getItem('tu-vm-update-notification');
-  const today = new Date().toDateString();
-  
-  if (lastShown === today) return;
-  
-  showUpdateNotification(updates);
-  localStorage.setItem('tu-vm-update-notification', today);
-}
-
-function showUpdateNotification(updates) {
-  const notification = document.getElementById('update-notification');
-  if (!notification) return;
-  
-  const title = notification.querySelector('.notification-title');
-  const message = notification.querySelector('.notification-message');
-  const lastCheck = notification.querySelector('.notification-last-check');
-  
-  title.textContent = 'Updates Available';
-  message.textContent = updates.message || 'System updates are available. Run "sudo ./tu-vm.sh update" to apply them.';
-  lastCheck.textContent = `Last checked: ${new Date(updates.last_check).toLocaleString()}`;
-  
-  notification.classList.add('show');
-}
-
-function hideNotification() {
-  const notification = document.getElementById('update-notification');
-  if (notification) {
-    notification.classList.remove('show');
-  }
-}
-
-function runUpdate() {
-  // This would need to be implemented as a separate endpoint or action
-  alert('To run updates, please SSH into the VM and run: sudo ./tu-vm.sh update');
-}
-
-async function allowlistAutoEnroll(){
-  // helper_index can take a bit to come up (it installs deps on boot).
-  // Retry for a short window so first-visit bootstrap is reliable.
-  const deadline = Date.now() + 30000;
-  let delay = 500;
-  while(Date.now() < deadline){
-    try{
-      const r = await fetch('/whitelist/auto', { method:'GET', cache:'no-store' });
-      if(r.ok) return;
-    }catch(e){}
-    await new Promise(res=>setTimeout(res, delay));
-    delay = Math.min(3000, Math.floor(delay * 1.6));
-  }
-}
-
-async function fetchAllowlist(){
-  const token = localStorage.getItem('control-token')||'';
-  const r = await fetch('/whitelist', { headers: { 'X-Control-Token': token }});
-  if(!r.ok) throw new Error(await r.text());
-  return await r.json();
-}
-
-function renderAllowlist(ips){
-  const list = document.getElementById('allowlist-list');
-  if(!list) return;
-  list.innerHTML = '';
-  (ips||[]).forEach(ip=>{
-    const row = document.createElement('div');
-    row.className = 'row-inline';
-    row.style = 'justify-content:space-between';
-    row.innerHTML = `
-      <div class="mono">${ip}</div>
-      <button class="btn btn-sm" data-ip="${ip}">Remove</button>
-    `;
-    row.querySelector('button').addEventListener('click', async (ev)=>{
-      const ip = ev.target.getAttribute('data-ip');
-      await allowlistRemove(ip);
-    });
-    list.appendChild(row);
-  });
-  if((ips||[]).length===0){
-    const empty = document.createElement('div');
-    empty.className = 'muted';
-    empty.textContent = 'No IPs allowed yet. The first visitor can be auto-enrolled.';
-    list.appendChild(empty);
-  }
-}
-
-async function refreshAllowlist(){
-  try{
-    const data = await fetchAllowlist();
-    renderAllowlist(data.ips||[]);
-  }catch(e){
-    // If blocked, try bootstrap once then re-try list.
-    await allowlistAutoEnroll();
-    try{
-      const data = await fetchAllowlist();
-      renderAllowlist(data.ips||[]);
-      return;
-    }catch(e2){}
-    // If still unauthorized/blocked, show minimal hint
-    const list = document.getElementById('allowlist-list');
-    if(list){
-      list.innerHTML = `<div class="muted">Allowlist unavailable (${e.message}). Check CONTROL_TOKEN and IP allowlist.</div>`;
-    }
-  }
-}
-
-async function allowlistAdd(ip){
-  const token = localStorage.getItem('control-token')||'';
-  const r = await fetch('/whitelist/add', {
-    method:'POST',
-    headers: { 'Content-Type':'application/json', 'X-Control-Token': token },
-    body: JSON.stringify({ ip })
-  });
-  if(!r.ok) throw new Error(await r.text());
-  await refreshAllowlist();
-}
-
-async function allowlistRemove(ip){
-  const token = localStorage.getItem('control-token')||'';
-  const r = await fetch('/whitelist/remove', {
-    method:'POST',
-    headers: { 'Content-Type':'application/json', 'X-Control-Token': token },
-    body: JSON.stringify({ ip })
-  });
-  if(!r.ok) throw new Error(await r.text());
-  await refreshAllowlist();
-}
-
-window.addEventListener('DOMContentLoaded',()=>{
-  // Control token is required for service management; do not overwrite an existing token.
-  // If you haven't set one yet, set CONTROL_TOKEN in .env and then paste it into localStorage once.
-  if(localStorage.getItem('control-token') === null){
-    localStorage.setItem('control-token', '');
-  }
-  // Populate token input (if present)
-  try{
-    const tok = localStorage.getItem('control-token')||'';
-    const el = document.getElementById('control-token-input');
-    if(el) el.value = tok;
-  }catch(e){}
-  // Bootstrap: record first visitor IP (only when allowlist is empty)
-  allowlistAutoEnroll();
-  refreshAllowlist();
-  startAutoRefresh();
-  // Load announcements on page load
-  setTimeout(() => {
-    loadAnnouncements();
-  }, 2000); // Show after 2 seconds
-});
-async function copyText(t){ try{ await navigator.clipboard.writeText(t); }catch(e){} }
-
-// Announcement system (dropdown only)
-let announcements = [];
-
-function refreshAnnouncements() {
-  loadAnnouncements();
-}
-
-async function loadAnnouncements() {
-  try {
-    const response = await fetch('/status/announcements');
-    const data = await response.json();
-    announcements = data.announcements || [];
-    updateAnnouncementDisplay();
-  } catch (error) {
-    console.error('Failed to load announcements:', error);
-    announcements = [{
-      title: "System Status",
-      message: "Welcome to TechUties VM! Your AI platform is running smoothly.",
-      type: "info",
-      timestamp: new Date().toISOString()
-    }];
-    updateAnnouncementDisplay();
-  }
-}
-
-function updateAnnouncementDisplay() {
-  // Populate dropdown list
-  renderAnnouncementsDropdown();
-  // Show badge if there are announcements
-  const badge = document.querySelector('.dropdown-badge');
-  if (badge) {
-    badge.classList.toggle('show', announcements.length > 0);
-  }
-}
-
-function getTimeAgo(timestamp) {
-  const now = new Date();
-  const time = new Date(timestamp);
-  const diffMs = now - time;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-}
-
-// Dropdown logic
-function toggleAnnouncementsDropdown(ev){
-  const dd = document.getElementById('announcements-dropdown');
-  if(!dd) return;
-  const isOpen = dd.classList.contains('open');
-  document.querySelectorAll('.dropdown.open').forEach(el=>el.classList.remove('open'));
-  if(!isOpen){ dd.classList.add('open'); }
-}
-function closeAnnouncementsDropdown(){
-  const dd = document.getElementById('announcements-dropdown');
-  if(dd) dd.classList.remove('open');
-}
-function onDropdownKey(e){
-  if(e.key === 'Escape'){ closeAnnouncementsDropdown(); }
-}
-document.addEventListener('click', (e)=>{
-  const dd = document.getElementById('announcements-dropdown');
-  if(!dd) return;
-  if(!dd.contains(e.target)) closeAnnouncementsDropdown();
-});
-function renderAnnouncementsDropdown(){
-  const list = document.getElementById('announcements-list');
-  const count = document.getElementById('announcements-count');
-  if(!list) return;
-  list.innerHTML = '';
-  (announcements||[]).forEach(a=>{
-    const li = document.createElement('div');
-    li.className = `ann-item ann-${a.type || 'info'}`;
-    const when = getTimeAgo(a.timestamp);
-    const type = (a.type||'info').toUpperCase();
-    li.innerHTML = `
-      <div class="ann-title">${a.title}<span class="ann-type">${type}</span></div>
-      <div class="ann-meta">${when}</div>
-      <div class="ann-msg" style="margin-top:6px">${a.message}</div>
-    `;
-    list.appendChild(li);
-  });
-  if(count){ count.textContent = (announcements||[]).length; }
-}
-</script>
 </head>
 <body>
-  
+<div class="wrap">
 
-  <div class="wrap">
-    <div class="hero">
-      <div class="hero-head">
-        <div>
-          <h1>TechUties VM</h1>
-          <p class="lead">Private AI & Automation stack on Ubuntu Server. Secure, local‑first, and vendor‑neutral.</p>
-        </div>
-        <div id="announcements-dropdown" class="dropdown" onkeydown="onDropdownKey(event)" style="align-self:flex-start; position:relative;">
-          <button class="dropdown-btn" aria-haspopup="true" aria-expanded="false" onclick="toggleAnnouncementsDropdown(event)" title="Show all announcements">
-            <span>Announcements</span>
-            <span class="muted" style="font-size:12px">(<span id="announcements-count">0</span>)</span>
-            <span class="caret">▾</span>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-head">
+      <div>
+        <h1 class="hero-title">TechUties VM</h1>
+        <p class="hero-sub">Private AI platform with LLM-driven workflow automation, document intelligence, and RAG — running entirely on your hardware.</p>
+      </div>
+      <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
+        <span class="hero-badge"><span class="pulse"></span> <span id="service-count">—</span> services</span>
+        <div id="announcements-dropdown" class="dropdown">
+          <button class="btn dropdown-toggle" onclick="toggleDropdown()" aria-label="Announcements">
+            Alerts <span id="ann-count" class="count" style="display:none">0</span> <span class="caret">&#9662;</span>
           </button>
-          <div class="dropdown-badge"></div>
-          <div class="dropdown-panel" role="menu" aria-label="Announcements">
-            <div id="announcements-list" aria-live="polite"></div>
+          <div class="dropdown-panel">
+            <div id="announcements-list"></div>
           </div>
         </div>
       </div>
-      <div class="section-title">Host Access</div>
-      <div class="grid">
-        <div class="card">
-          <span id="badge-oweb" class="badge warn">checking…</span>
-          <a href="https://oweb.tu.lan/"><div class="name">Open WebUI</div><div class="url">oweb.tu.lan</div></a>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-oweb-start" class="btn btn-sm" onclick="controlService('open-webui','start')">Start</button>
-            <button id="btn-oweb-stop" class="btn btn-sm" onclick="controlService('open-webui','stop')">Stop</button>
-          </div>
-        </div>
-        <div class="card">
-          <span id="badge-n8n" class="badge warn">checking…</span>
-          <a href="https://n8n.tu.lan/"><div class="name">n8n</div><div class="url">n8n.tu.lan</div></a>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-n8n-start" class="btn btn-sm" onclick="controlService('n8n','start')">Start</button>
-            <button id="btn-n8n-stop" class="btn btn-sm" onclick="controlService('n8n','stop')">Stop</button>
-          </div>
-          <div id="status-n8n" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
-        </div>
-        <div class="card">
-          <span id="badge-pihole" class="badge warn">checking…</span>
-          <a href="https://pihole.tu.lan/admin"><div class="name">Pi‑hole Admin</div><div class="url">pihole.tu.lan/admin</div></a>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-pihole-start" class="btn btn-sm" onclick="controlService('pihole','start')">Start</button>
-            <button id="btn-pihole-stop" class="btn btn-sm" onclick="controlService('pihole','stop')">Stop</button>
-          </div>
-        </div>
-        <div class="card">
-          <span id="badge-ollama" class="badge warn">checking…</span>
-          <a href="https://ollama.tu.lan/"><div class="name">Ollama AI</div><div class="url">ollama.tu.lan</div></a>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-ollama-start" class="btn btn-sm" onclick="controlService('ollama','start')">Start</button>
-            <button id="btn-ollama-stop" class="btn btn-sm" onclick="controlService('ollama','stop')">Stop</button>
-          </div>
-          <div id="status-ollama" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
-        </div>
-        <div class="card">
-          <span id="badge-minio" class="badge warn">checking…</span>
-          <a href="https://minio.tu.lan/"><div class="name">MinIO Console</div><div class="url">minio.tu.lan</div></a>
-          <div class="row" style="margin-top:8px">
-            <button id="btn-minio-start" class="btn btn-sm" onclick="controlService('minio','start')">Start</button>
-            <button id="btn-minio-stop" class="btn btn-sm" onclick="controlService('minio','stop')">Stop</button>
-          </div>
-          <div id="status-minio" class="status" style="margin-top:6px; font-size:12px; color:var(--muted);">Status: Checking...</div>
-        </div>
-      </div>
-      <div class="section-title">VM Access</div>
-      <div class="chips">
-        <div id="chip-ollama" class="chip"><span class="dot dot-err"></span><code>ai_ollama:11434</code> · <span class="label">…</span></div>
-        <div id="chip-db" class="chip"><span class="dot dot-err"></span><code>ai_postgres:5432</code> · <span class="label">…</span></div>
-        <div id="chip-redis" class="chip"><span class="dot dot-err"></span><code>ai_redis:6379</code> · <span class="label">…</span></div>
-        <div id="chip-qdrant" class="chip"><span class="dot dot-err"></span><code>ai_qdrant:6333</code> · <span class="label">…</span></div>
-        <div id="chip-tika" class="chip"><span class="dot dot-err"></span><code>ai_tika:9998</code> · <span class="label">…</span></div>
-        <div id="chip-minio" class="chip"><span class="dot dot-err"></span><code>ai_minio:9000</code> · <span class="label">…</span></div>
-      </div>
-      <div class="status"><button class="btn" onclick="refreshStatuses()">Refresh</button> <span class="muted">Last updated: <span id="last-updated">–</span></span></div>
-      <div class="kpis" aria-label="Hardware exposure">
-        <div class="kpi"><div class="muted">External IP</div><div id="kpi-ext" class="name">—</div></div>
-        <div class="kpi"><div class="muted">VM IP</div><div id="kpi-vm" class="name">—</div></div>
-        <div class="kpi"><div class="muted">CPU Cores</div><div id="kpi-cpu" class="name">—</div></div>
-        <div class="kpi"><div class="muted">Memory</div><div id="kpi-mem" class="name">—</div></div>
-        <div class="kpi"><div class="muted">Disk</div><div id="kpi-disk" class="name">—</div></div>
-      </div>
-    </div>
-
-    <div class="hero" style="margin-top:16px">
-      <div class="hero-head">
-        <div>
-          <h1 style="font-size:18px;margin:0">Access Control</h1>
-          <p class="lead">Only IPs on the allowlist can use <code>/control/*</code> and manage the allowlist.</p>
-        </div>
-      </div>
-      <div class="section-title">Control Token</div>
-      <div class="row" style="margin-top:8px">
-        <input id="control-token-input" type="text" placeholder="Paste CONTROL_TOKEN here (required for control + allowlist changes)" />
-        <button class="btn" onclick="(()=>{ const v=document.getElementById('control-token-input').value.trim(); localStorage.setItem('control-token', v); showNotification('Token saved in browser','success'); refreshAllowlist(); })()">Save</button>
-      </div>
-      <div class="section-title">IP Allowlist</div>
-      <div class="row" style="margin-top:8px">
-        <input id="allowlist-ip" type="text" placeholder="Add IP (e.g. 192.168.1.25 or 2001:db8::1)" />
-        <button class="btn" onclick="(async()=>{ const ip=document.getElementById('allowlist-ip').value.trim(); if(!ip) return; try{ await allowlistAdd(ip); document.getElementById('allowlist-ip').value=''; }catch(e){ showNotification(e.message,'error'); } })()">Add</button>
-        <button class="btn" onclick="refreshAllowlist()">Refresh</button>
-      </div>
-      <div id="allowlist-list" class="kpi" style="margin-top:10px"></div>
-      <div class="muted" style="margin-top:10px">
-        Tip: first visit from a client will auto-enroll that client IP once (via <code>/whitelist/auto</code>).
-      </div>
-    </div>
-
-    
-
-    <div class="thanks">
-      <h3>Contributors</h3>
-      <p>Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer noopener">Sebastian Becker</a> for major contributions.</p>
-    </div>
-
-
-
-    <div class="footer">
-      <div class="links">Resources: 
-        <a href="https://www.techuties.com" target="_blank" rel="noreferrer noopener">TechUties</a> · 
-        <a href="https://github.com/techuties/tu-vm" target="_blank" rel="noreferrer noopener">GitHub Repo</a>
-      </div>
-      <p>Thank you for using TechUties VM. <span role="img" aria-label="sparkles">✨</span></p>
     </div>
   </div>
+
+  <!-- AI Pipeline Overview -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">AI Pipeline</span>
+      <span class="section-desc">How LLMs build and manage n8n workflows autonomously</span>
+    </div>
+    <div class="pipeline">
+      <div class="pipeline-title">LLM-to-n8n Workflow Engineering</div>
+      <div class="pipeline-desc">Open WebUI sends tool calls through the MCP Gateway, which routes them to n8n's API. Write operations pass through the LangGraph Supervisor for verification and audit.</div>
+      <div class="pipeline-flow">
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#128172;</div>
+          <div class="pipeline-node-name">Open WebUI</div>
+          <div class="pipeline-node-sub">Chat + RAG + Tools</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node" style="border-color: rgba(56,217,169,0.3);">
+          <div class="pipeline-node-icon">&#9881;</div>
+          <div class="pipeline-node-name">MCP Gateway</div>
+          <div class="pipeline-node-sub">22 tools &middot; 541 node types<br/>Validation &middot; Reference docs</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node" style="border-color: rgba(116,143,252,0.3);">
+          <div class="pipeline-node-icon">&#128274;</div>
+          <div class="pipeline-node-name">LangGraph</div>
+          <div class="pipeline-node-sub">Write verification<br/>Audit &middot; Deduplication</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#9889;</div>
+          <div class="pipeline-node-name">n8n</div>
+          <div class="pipeline-node-sub">Workflow execution<br/>500+ integrations</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:12px;">
+    <div class="pipeline">
+      <div class="pipeline-title">Document Processing Pipeline</div>
+      <div class="pipeline-desc">Files uploaded to MinIO are automatically processed by Apache Tika (with OCR), extracted text is stored back and synced to Open WebUI for RAG indexing.</div>
+      <div class="pipeline-flow">
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#128193;</div>
+          <div class="pipeline-node-name">MinIO</div>
+          <div class="pipeline-node-sub">S3-compatible storage<br/>tika-pipe bucket</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#128196;</div>
+          <div class="pipeline-node-name">Tika Processor</div>
+          <div class="pipeline-node-sub">Auto-detect file type<br/>OCR + text extraction</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#128270;</div>
+          <div class="pipeline-node-name">Apache Tika</div>
+          <div class="pipeline-node-sub">1000+ formats<br/>Tables &middot; Images &middot; OCR</div>
+        </div>
+        <div class="pipeline-arrow">&#10132;</div>
+        <div class="pipeline-node">
+          <div class="pipeline-node-icon">&#129302;</div>
+          <div class="pipeline-node-name">Open WebUI RAG</div>
+          <div class="pipeline-node-sub">Qdrant vectors<br/>Knowledge retrieval</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 1: Core Services -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">Tier 1 &mdash; Always Running</span>
+      <div class="reach-legend">
+        <span class="section-desc">Core infrastructure, low resource usage</span>
+        <span class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</span>
+        <span class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</span>
+      </div>
+    </div>
+    <div class="svc-grid" id="tier1-grid">
+      <!-- Open WebUI -->
+      <div class="svc-card svc-web" data-svc="oweb">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://oweb.tu.lan/">Open WebUI</a></div>
+          <span id="badge-oweb" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">oweb.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">AI chat interface with RAG, model profiles, and native tool calling. Connects to Ollama, Anthropic, and custom pipes.</div>
+        <div class="svc-footer">
+          <span id="status-oweb" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-oweb-start" class="btn" onclick="controlService('open-webui','start')">Start</button>
+            <button id="btn-oweb-stop" class="btn" onclick="controlService('open-webui','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PostgreSQL -->
+      <div class="svc-card svc-internal" data-svc="postgres">
+        <div class="svc-card-head">
+          <div class="svc-name">PostgreSQL</div>
+          <span id="badge-postgres" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_postgres:5432</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Primary database for Open WebUI (users, chats, settings) and n8n (workflows, credentials, executions).</div>
+        <div class="svc-footer">
+          <span id="status-postgres" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group"></div>
+        </div>
+      </div>
+
+      <!-- Redis -->
+      <div class="svc-card svc-internal" data-svc="redis">
+        <div class="svc-card-head">
+          <div class="svc-name">Redis</div>
+          <span id="badge-redis" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_redis:6379</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">In-memory cache for Open WebUI session state, config overrides, and rate limiting.</div>
+        <div class="svc-footer">
+          <span id="status-redis" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group"></div>
+        </div>
+      </div>
+
+      <!-- Nginx -->
+      <div class="svc-card svc-web" data-svc="nginx">
+        <div class="svc-card-head">
+          <div class="svc-name">Nginx</div>
+          <span class="badge badge-ok">always on</span>
+        </div>
+        <div class="svc-url">:443 / :80</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">Reverse proxy with TLS termination, vhost routing, rate limiting, and IP allowlisting.</div>
+      </div>
+
+      <!-- Pi-hole -->
+      <div class="svc-card svc-web" data-svc="pihole">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://pihole.tu.lan/admin">Pi-hole</a></div>
+          <span id="badge-pihole" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">pihole.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">DNS ad-blocking and network security. Serves as primary DNS on port 53 for the LAN.</div>
+        <div class="svc-footer">
+          <span id="status-pihole" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-pihole-start" class="btn" onclick="controlService('pihole','start')">Start</button>
+            <button id="btn-pihole-stop" class="btn" onclick="controlService('pihole','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tier 2: On-Demand Services -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">Tier 2 &mdash; On-Demand</span>
+      <span class="section-desc">Start via dashboard or <code style="font-size:11px; padding:2px 5px; background:var(--card); border:1px solid var(--border); border-radius:4px;">tu-vm.sh</code></span>
+    </div>
+    <div class="svc-grid" id="tier2-grid">
+      <!-- n8n -->
+      <div class="svc-card svc-web" data-svc="n8n">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://n8n.tu.lan/">n8n</a></div>
+          <span id="badge-n8n" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">n8n.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">Workflow automation with 500+ integrations. LLMs create and manage workflows through the MCP Gateway.</div>
+        <div class="svc-footer">
+          <span id="status-n8n" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-n8n-start" class="btn" onclick="controlService('n8n','start')">Start</button>
+            <button id="btn-n8n-stop" class="btn" onclick="controlService('n8n','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MCP Gateway -->
+      <div class="svc-card svc-internal" data-svc="mcp" style="border-color: rgba(56,217,169,0.2);">
+        <div class="svc-card-head">
+          <div class="svc-name">MCP Gateway</div>
+          <span id="badge-mcp" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_mcp_gateway:9002</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Tool router exposing 22 tools and 541 n8n node schemas via OpenAPI. Validates payloads, provides expression docs, pitfall fixes, and templates.</div>
+        <div class="svc-footer">
+          <span id="status-mcp" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-mcp-start" class="btn" onclick="controlService('mcp-gateway','start')">Start</button>
+            <button id="btn-mcp-stop" class="btn" onclick="controlService('mcp-gateway','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LangGraph Supervisor -->
+      <div class="svc-card svc-internal" data-svc="langgraph" style="border-color: rgba(116,143,252,0.2);">
+        <div class="svc-card-head">
+          <div class="svc-name">LangGraph Supervisor</div>
+          <span id="badge-langgraph" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_langgraph_supervisor:9010</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Verification layer for write operations. Ensures deterministic execution with audit logging and deduplication.</div>
+        <div class="svc-footer">
+          <span id="status-langgraph" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-langgraph-start" class="btn" onclick="controlService('langgraph-supervisor','start')">Start</button>
+            <button id="btn-langgraph-stop" class="btn" onclick="controlService('langgraph-supervisor','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ollama -->
+      <div class="svc-card svc-internal" data-svc="ollama">
+        <div class="svc-card-head">
+          <div class="svc-name">Ollama</div>
+          <span id="badge-ollama" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_ollama:11434</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Local LLM inference engine. Run open-source models (Llama, Mistral, etc.) on your hardware.</div>
+        <div class="svc-footer">
+          <span id="status-ollama" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-ollama-start" class="btn" onclick="controlService('ollama','start')">Start</button>
+            <button id="btn-ollama-stop" class="btn" onclick="controlService('ollama','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Qdrant -->
+      <div class="svc-card svc-internal" data-svc="qdrant">
+        <div class="svc-card-head">
+          <div class="svc-name">Qdrant</div>
+          <span id="badge-qdrant" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_qdrant:6333</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Vector database for RAG embeddings. Stores document chunks for semantic search and retrieval.</div>
+        <div class="svc-footer">
+          <span id="status-qdrant" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-qdrant-start" class="btn" onclick="controlService('qdrant','start')">Start</button>
+            <button id="btn-qdrant-stop" class="btn" onclick="controlService('qdrant','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MinIO -->
+      <div class="svc-card svc-web" data-svc="minio">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://minio.tu.lan/">MinIO</a></div>
+          <span id="badge-minio" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">minio.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">S3-compatible object storage. Hosts knowledge base buckets, document processing pipeline, and file uploads.</div>
+        <div class="svc-footer">
+          <span id="status-minio" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-minio-start" class="btn" onclick="controlService('minio','start')">Start</button>
+            <button id="btn-minio-stop" class="btn" onclick="controlService('minio','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tika -->
+      <div class="svc-card svc-internal" data-svc="tika">
+        <div class="svc-card-head">
+          <div class="svc-name">Apache Tika</div>
+          <span id="badge-tika" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_tika:9998</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Document extraction server with OCR support. Handles 1000+ file formats including PDF, Office docs, and images.</div>
+        <div class="svc-footer">
+          <span id="status-tika" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-tika-start" class="btn" onclick="controlService('tika','start')">Start</button>
+            <button id="btn-tika-stop" class="btn" onclick="controlService('tika','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- AFFiNE -->
+      <div class="svc-card svc-web" data-svc="affine">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://affine.tu.lan/">AFFiNE</a></div>
+          <span id="badge-affine" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">affine.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">Collaborative knowledge workspace. Docs, whiteboards, and databases with MCP integration for LLM access.</div>
+        <div class="svc-footer">
+          <span id="status-affine" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-affine-start" class="btn" onclick="controlService('affine','start')">Start</button>
+            <button id="btn-affine-stop" class="btn" onclick="controlService('affine','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Status -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">System Status</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span style="font-size:11px; color:var(--muted);">Updated: <span id="last-updated">--</span></span>
+        <button class="btn" onclick="refreshAll()">Refresh</button>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">VM IP</div><div class="kpi-value" id="kpi-vm">--</div></div>
+      <div class="kpi"><div class="kpi-label">External IP</div><div class="kpi-value" id="kpi-ext">--</div></div>
+      <div class="kpi"><div class="kpi-label">CPU Cores</div><div class="kpi-value" id="kpi-cpu">--</div></div>
+      <div class="kpi"><div class="kpi-label">Memory</div><div class="kpi-value" id="kpi-mem">--</div></div>
+      <div class="kpi"><div class="kpi-label">Disk</div><div class="kpi-value" id="kpi-disk">--</div></div>
+    </div>
+  </div>
+
+  <!-- Update Management -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">Update Management</span>
+    </div>
+    <div class="update-panel">
+      <div class="update-row">
+        <div class="update-info">
+          <div class="update-title" id="update-title">Checking for updates...</div>
+          <div class="update-msg" id="update-msg">Update status is refreshed daily at 09:00 or on demand.</div>
+        </div>
+        <div class="btn-group" style="flex-shrink:0;">
+          <button class="btn btn-accent" id="btn-update-check" onclick="checkUpdates()">Check Now</button>
+        </div>
+      </div>
+      <div id="update-details" style="margin-top:12px; display:none;">
+        <div style="font-size:12px; color:var(--muted); margin-bottom:8px;">To apply updates safely with backup and rollback:</div>
+        <code style="display:block; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px 12px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--accent); user-select:all;">./scripts/safe-update.sh --apply</code>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">This backs up the database, pulls new images, restarts services one-by-one, and verifies the pipeline.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Access Control -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-label">Access Control</span>
+      <span class="section-desc">Token + IP allowlist for <code style="font-size:11px; padding:2px 5px; background:var(--card); border:1px solid var(--border); border-radius:4px;">/control/*</code></span>
+    </div>
+    <div class="access-panel">
+      <div class="access-label">Control Token</div>
+      <div class="input-row">
+        <input id="control-token-input" type="text" placeholder="Paste CONTROL_TOKEN from .env" style="max-width:400px;" />
+        <button class="btn" onclick="saveToken()">Save</button>
+      </div>
+      <div style="margin-top:16px;">
+        <div class="access-label">IP Allowlist</div>
+        <div class="input-row" style="margin-bottom:8px;">
+          <input id="allowlist-ip" type="text" placeholder="e.g. 192.168.1.25" style="max-width:280px;" />
+          <button class="btn" onclick="addIP()">Add</button>
+          <button class="btn" onclick="refreshAllowlist()">Refresh</button>
+        </div>
+        <div id="allowlist-list" style="max-height:160px; overflow-y:auto;"></div>
+        <div style="font-size:11px; color:var(--muted); margin-top:6px;">First visitor is auto-enrolled when the allowlist is empty.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-links">
+      <a href="https://www.techuties.com" target="_blank" rel="noreferrer">TechUties</a> &nbsp;&middot;&nbsp;
+      <a href="https://github.com/techuties/tu-vm" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+    <div class="footer-contrib">Thanks to <a href="https://www.linkedin.com/in/sebastianbecke/" target="_blank" rel="noreferrer">Sebastian Becker</a></div>
+    <div class="footer-right">TechUties VM &mdash; Private AI Platform</div>
+  </div>
+
+</div>
+
+<script>
+const SERVICES = [
+  {id:'oweb',    ctrl:'open-webui'},
+  {id:'n8n',     ctrl:'n8n'},
+  {id:'pihole',  ctrl:'pihole'},
+  {id:'ollama',  ctrl:'ollama'},
+  {id:'minio',   ctrl:'minio'},
+  {id:'mcp',     ctrl:'mcp-gateway'},
+  {id:'langgraph',ctrl:'langgraph-supervisor'},
+  {id:'qdrant',  ctrl:'qdrant'},
+  {id:'tika',    ctrl:'tika'},
+  {id:'affine',  ctrl:'affine'},
+];
+const INTERNAL_CHIPS = ['postgres','redis'];
+
+async function probe(url) {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, {method:'GET'});
+    return {ok:r.ok, ms:Math.round(performance.now()-t0)};
+  } catch(e) {
+    return {ok:false, ms:Math.round(performance.now()-t0)};
+  }
+}
+
+function setBadge(id, ok, ms) {
+  const el = document.getElementById('badge-'+id);
+  if (!el) return;
+  if (ok) { el.className='badge badge-ok'; el.textContent=ms+'ms'; }
+  else    { el.className='badge badge-err'; el.textContent='offline'; }
+}
+
+function setStatus(id, ok, ms) {
+  const el = document.getElementById('status-'+id);
+  if (!el) return;
+  el.textContent = ok ? `Running (${ms}ms)` : 'Stopped';
+  el.style.color = ok ? 'var(--success)' : 'var(--error)';
+}
+
+function setButtons(id, running) {
+  const start = document.getElementById('btn-'+id+'-start');
+  const stop  = document.getElementById('btn-'+id+'-stop');
+  if (start) start.disabled = running;
+  if (stop)  stop.disabled  = !running;
+}
+
+async function refreshServices() {
+  let up = 0;
+  const results = await Promise.all(
+    SERVICES.map(s => probe('/status/'+s.id).then(r => ({...s, ...r})))
+  );
+  results.forEach(r => {
+    setBadge(r.id, r.ok, r.ms);
+    setStatus(r.id, r.ok, r.ms);
+    setButtons(r.id, r.ok);
+    if (r.ok) up++;
+  });
+
+  const full = await fetch('/status/full').then(r=>r.ok?r.json():{}).catch(()=>({}));
+  INTERNAL_CHIPS.forEach(c => {
+    const el = document.getElementById('badge-'+c);
+    if (!el) return;
+    const ok = !!full[c];
+    el.className = ok ? 'badge badge-ok' : 'badge badge-err';
+    el.textContent = ok ? 'healthy' : 'offline';
+    const st = document.getElementById('status-'+c);
+    if (st) { st.textContent = ok ? 'Running' : 'Stopped'; st.style.color = ok ? 'var(--success)' : 'var(--error)'; }
+    if (ok) up++;
+  });
+
+  document.getElementById('service-count').textContent = up + '/' + (SERVICES.length + INTERNAL_CHIPS.length);
+
+  if (full.external_ip||full.ip) document.getElementById('kpi-ext').textContent = full.external_ip||full.ip||'--';
+  if (full.vm_ip) document.getElementById('kpi-vm').textContent = full.vm_ip;
+  if (full.cpu_cores) document.getElementById('kpi-cpu').textContent = full.cpu_cores;
+  if (full.memory_mb) document.getElementById('kpi-mem').textContent = full.memory_mb.used+'/'+full.memory_mb.total+' MB';
+  if (full.disk_mb) document.getElementById('kpi-disk').textContent = full.disk_mb.used+'/'+full.disk_mb.total+' MB';
+  document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+}
+
+async function refreshUpdates() {
+  try {
+    const data = await fetch('/status/updates').then(r=>r.ok?r.json():{});
+    const title = document.getElementById('update-title');
+    const msg = document.getElementById('update-msg');
+    const details = document.getElementById('update-details');
+    if (data.updates_available) {
+      title.textContent = 'Updates Available';
+      title.style.color = 'var(--warn)';
+      msg.textContent = data.message || data.details || 'System updates are available.';
+      details.style.display = 'block';
+    } else {
+      title.textContent = 'System Up to Date';
+      title.style.color = 'var(--success)';
+      msg.textContent = data.message || 'No updates available.';
+      if (data.last_check) msg.textContent += ' Last checked: ' + new Date(data.last_check).toLocaleString();
+      details.style.display = 'none';
+    }
+  } catch(e) {
+    document.getElementById('update-title').textContent = 'Update check unavailable';
+  }
+}
+
+async function checkUpdates() {
+  const btn = document.getElementById('btn-update-check');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  await refreshUpdates();
+  btn.disabled = false; btn.textContent = 'Check Now';
+}
+
+let announcements = [];
+async function refreshAnnouncements() {
+  try {
+    const data = await fetch('/status/announcements').then(r=>r.ok?r.json():{});
+    announcements = data.announcements || [];
+  } catch(e) {
+    announcements = [{title:'System Running', message:'Welcome to TechUties VM.', type:'info', timestamp:new Date().toISOString()}];
+  }
+  renderAnnouncements();
+}
+
+function renderAnnouncements() {
+  const list = document.getElementById('announcements-list');
+  const count = document.getElementById('ann-count');
+  if (!list) return;
+  list.innerHTML = '';
+  announcements.forEach(a => {
+    const li = document.createElement('div');
+    li.className = 'ann-item ann-'+(a.type||'info');
+    const ago = timeAgo(a.timestamp);
+    li.innerHTML = '<div class="ann-title">'+a.title+'</div><div class="ann-meta">'+ago+'</div><div class="ann-msg">'+a.message+'</div>';
+    list.appendChild(li);
+  });
+  if (count) {
+    count.textContent = announcements.length;
+    count.style.display = announcements.length > 0 ? 'inline-flex' : 'none';
+  }
+}
+
+function timeAgo(ts) {
+  const d = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (d < 60) return 'just now';
+  if (d < 3600) return Math.floor(d/60)+'m ago';
+  if (d < 86400) return Math.floor(d/3600)+'h ago';
+  return Math.floor(d/86400)+'d ago';
+}
+
+function toggleDropdown() {
+  document.getElementById('announcements-dropdown').classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  const dd = document.getElementById('announcements-dropdown');
+  if (dd && !dd.contains(e.target)) dd.classList.remove('open');
+});
+
+function showNotification(message, type='info', progress=null, persistent=false) {
+  const n = document.createElement('div');
+  n.className = 'notification';
+  if (persistent) n.setAttribute('data-persistent','true');
+  let pHtml = '';
+  if (progress !== null) {
+    pHtml = '<div class="notification-progress"><div class="notification-progress-bar"><div class="notification-progress-fill" style="width:'+progress+'%"></div></div><div class="notification-progress-text">'+progress+'%</div></div>';
+  }
+  const icon = type==='success'?'&#10003;':type==='error'?'&#10007;':'&#8505;';
+  const label = type==='success'?'Success':type==='error'?'Error':'Info';
+  n.innerHTML = '<div class="notification-header"><div class="notification-icon '+type+'">'+icon+'</div><div class="notification-title">'+label+'</div></div><div class="notification-message">'+message+'</div>'+pHtml;
+  document.body.appendChild(n);
+  setTimeout(()=>n.classList.add('show'), 50);
+  if (!persistent) setTimeout(()=>{n.classList.remove('show');setTimeout(()=>n.remove(),300);},3000);
+  return n;
+}
+
+let pdfNotification = null;
+async function checkPDF() {
+  try {
+    const s = await fetch('/status/pdf-processing').then(r=>r.ok?r.json():{});
+    if (!s) return;
+    if (s.processing) {
+      const file = s.current_file||'file';
+      const pct = Math.max(0,Math.min(100,s.progress||0));
+      if (!pdfNotification) { pdfNotification = showNotification('Processing: '+file,'info',pct,true); }
+      else {
+        const m=pdfNotification.querySelector('.notification-message'); if(m) m.textContent='Processing: '+file;
+        const b=pdfNotification.querySelector('.notification-progress-fill'); if(b) b.style.width=pct+'%';
+        const t=pdfNotification.querySelector('.notification-progress-text'); if(t) t.textContent=pct+'%';
+      }
+    } else if (pdfNotification) {
+      pdfNotification.classList.remove('show');
+      setTimeout(()=>{if(pdfNotification){pdfNotification.remove();pdfNotification=null;}},300);
+      if (s.progress===100&&s.status==='completed') showNotification('Processed: '+(s.current_file||'file'),'success');
+      else if (s.error) showNotification('Processing failed','error');
+    }
+  } catch(e){}
+}
+
+async function controlService(service, action) {
+  const idMap = {'open-webui':'oweb','mcp-gateway':'mcp','langgraph-supervisor':'langgraph'};
+  const id = idMap[service] || service;
+  const startBtn = document.getElementById('btn-'+id+'-start');
+  const stopBtn = document.getElementById('btn-'+id+'-stop');
+  if (startBtn) { startBtn.disabled=true; if(action==='start') startBtn.textContent='Starting...'; }
+  if (stopBtn) { stopBtn.disabled=true; if(action==='stop') stopBtn.textContent='Stopping...'; }
+
+  try {
+    const token = localStorage.getItem('control-token')||'';
+    const r = await fetch('/control/'+service+'/'+action, {method:'POST', headers:{'X-Control-Token':token}});
+    if (!r.ok) { showNotification('Failed: '+(await r.text()),'error'); resetButtons(id); return; }
+    const res = await r.json();
+    if (res.ok) {
+      showNotification(service+' '+action+' sent','success');
+      let tries = 0;
+      const poll = async () => {
+        tries++;
+        const st = await probe('/status/'+id);
+        if ((action==='start'&&st.ok)||(action==='stop'&&!st.ok)||tries>=15) {
+          resetButtons(id); refreshServices(); return;
+        }
+        setTimeout(poll, 1500);
+      };
+      setTimeout(poll, 2000);
+    } else { showNotification(res.error||'Unknown error','error'); resetButtons(id); }
+  } catch(e) { showNotification(e.message,'error'); resetButtons(id); }
+}
+
+function resetButtons(id) {
+  const s=document.getElementById('btn-'+id+'-start');
+  const t=document.getElementById('btn-'+id+'-stop');
+  if(s){s.disabled=false;s.textContent='Start';}
+  if(t){t.disabled=false;t.textContent='Stop';}
+}
+
+function saveToken() {
+  const v = document.getElementById('control-token-input').value.trim();
+  localStorage.setItem('control-token', v);
+  showNotification('Token saved','success');
+  refreshAllowlist();
+}
+
+async function fetchAllowlist() {
+  const token = localStorage.getItem('control-token')||'';
+  const r = await fetch('/whitelist', {headers:{'X-Control-Token':token}});
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function renderAllowlist(ips) {
+  const el = document.getElementById('allowlist-list');
+  if (!el) return;
+  el.innerHTML = '';
+  (ips||[]).forEach(ip => {
+    const row = document.createElement('div');
+    row.className = 'allowlist-item';
+    row.innerHTML = '<span>'+ip+'</span><button class="btn" style="font-size:11px;padding:3px 8px;" onclick="removeIP(\''+ip+'\')">Remove</button>';
+    el.appendChild(row);
+  });
+  if (!(ips||[]).length) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0;">No IPs. First visitor auto-enrolls.</div>'; }
+}
+
+async function refreshAllowlist() {
+  try { const d = await fetchAllowlist(); renderAllowlist(d.ips||[]); }
+  catch(e) {
+    await allowlistAutoEnroll();
+    try { const d = await fetchAllowlist(); renderAllowlist(d.ips||[]); }
+    catch(e2) { document.getElementById('allowlist-list').innerHTML='<div style="font-size:12px;color:var(--muted);">Unavailable. Check token.</div>'; }
+  }
+}
+
+async function addIP() {
+  const input = document.getElementById('allowlist-ip');
+  const ip = input.value.trim();
+  if (!ip) return;
+  const token = localStorage.getItem('control-token')||'';
+  try {
+    const r = await fetch('/whitelist/add', {method:'POST', headers:{'Content-Type':'application/json','X-Control-Token':token}, body:JSON.stringify({ip})});
+    if (!r.ok) throw new Error(await r.text());
+    input.value = '';
+    refreshAllowlist();
+  } catch(e) { showNotification(e.message,'error'); }
+}
+
+async function removeIP(ip) {
+  const token = localStorage.getItem('control-token')||'';
+  try {
+    await fetch('/whitelist/remove', {method:'POST', headers:{'Content-Type':'application/json','X-Control-Token':token}, body:JSON.stringify({ip})});
+    refreshAllowlist();
+  } catch(e) { showNotification(e.message,'error'); }
+}
+
+async function allowlistAutoEnroll() {
+  const deadline = Date.now()+15000; let delay=500;
+  while (Date.now()<deadline) {
+    try { const r=await fetch('/whitelist/auto',{cache:'no-store'}); if(r.ok) return; } catch(e){}
+    await new Promise(r=>setTimeout(r,delay)); delay=Math.min(3000,delay*1.6);
+  }
+}
+
+function refreshAll() { refreshServices(); refreshUpdates(); refreshAnnouncements(); checkPDF(); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('control-token')===null) localStorage.setItem('control-token','');
+  const tok=document.getElementById('control-token-input');
+  if(tok) tok.value=localStorage.getItem('control-token')||'';
+  allowlistAutoEnroll();
+  refreshAllowlist();
+  refreshAll();
+  setInterval(refreshServices, 15000);
+  setInterval(checkPDF, 3000);
+  setInterval(refreshAnnouncements, 60000);
+});
+</script>
 </body>
 </html>

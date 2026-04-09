@@ -79,9 +79,6 @@ SUPPORTED_EXTENSIONS = {
     '.tar': 'archive',
     '.tar.gz': 'archive',
     '.tgz': 'archive',
-    '.gz': 'archive',
-    '.rar': 'archive',
-    '.7z': 'archive',
 }
 
 # Skip these extensions (already processed or not processable)
@@ -114,8 +111,21 @@ class UniversalMinIOProcessor:
         minio_secret_key = minio_secret_key or os.getenv("MINIO_SECRET_KEY", "minio123456")
         self.uploads_bucket = uploads_bucket or os.getenv("UPLOADS_BUCKET", "tika-pipe")
         self.processed_bucket = processed_bucket or os.getenv("PROCESSED_BUCKET", "tika-pipe")
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
+        self.max_retries = int(os.getenv("PROCESSOR_MAX_RETRIES", str(max_retries)))
+        self.retry_delay = int(os.getenv("PROCESSOR_RETRY_DELAY_SECONDS", str(retry_delay)))
+        # Keep processing responsive: OCR can be very slow on scanned PDFs.
+        # Default off for PDFs unless explicitly enabled via env.
+        self.enable_pdf_ocr = os.getenv("PDF_ENABLE_OCR", "true").strip().lower() in {"1", "true", "yes", "on"}
+        self.enable_image_ocr = os.getenv("IMAGE_ENABLE_OCR", "true").strip().lower() in {"1", "true", "yes", "on"}
+        self.tika_timeout_no_ocr = int(os.getenv("TIKA_TIMEOUT_NO_OCR_SECONDS", "120"))
+        self.tika_timeout_ocr = int(os.getenv("TIKA_TIMEOUT_OCR_SECONDS", "300"))
+        self.tika_metadata_timeout_no_ocr = int(os.getenv("TIKA_METADATA_TIMEOUT_NO_OCR_SECONDS", "30"))
+        self.tika_metadata_timeout_ocr = int(os.getenv("TIKA_METADATA_TIMEOUT_OCR_SECONDS", "120"))
+        self.tika_timeout_max = int(os.getenv("TIKA_TIMEOUT_MAX_SECONDS", "3600"))
+        self.tika_timeout_per_mb_no_ocr = float(os.getenv("TIKA_TIMEOUT_PER_MB_NO_OCR_SECONDS", "1.5"))
+        self.tika_timeout_per_mb_ocr = float(os.getenv("TIKA_TIMEOUT_PER_MB_OCR_SECONDS", "4.0"))
+        self.pdf_ocr_fallback_enabled = os.getenv("PDF_OCR_FALLBACK_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+        self.pdf_min_text_chars_without_ocr = int(os.getenv("PDF_MIN_TEXT_CHARS_WITHOUT_OCR", "120"))
         
         # Normalize endpoint URL - resolve hostname to IP for boto3 compatibility
         # boto3 validates endpoint URLs and doesn't accept hostnames with underscores
@@ -253,165 +263,174 @@ class UniversalMinIOProcessor:
         logger.warning(f"⚠️ Unknown file type for {filename}, attempting Tika processing")
         return 'tika', path.suffix
     
-    def _process_with_tika(self, file_content: bytes, filename: str, 
+    def _process_with_tika(self, file_content: bytes, filename: str,
                           content_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Process file using Tika service"""
+        """Process file using Tika with staged fallbacks for large/complex documents."""
         try:
-            # Determine content type
             if not content_type:
                 mime_type, _ = mimetypes.guess_type(filename)
                 content_type = mime_type or 'application/octet-stream'
-            
+
             logger.info(f"🔄 Processing with Tika: {filename} ({content_type})")
-            
-            # Update status: processing started
             self._update_status(processing=True, current_file=filename, progress=10, status='processing')
-            
-            # Determine if OCR should be enabled (for PDFs and images)
-            enable_ocr = False
-            ocr_strategy = None
+
+            size_mb = max(1.0, len(file_content) / (1024.0 * 1024.0))
+
+            def adaptive_timeout(base: int, per_mb: float) -> int:
+                computed = int(base + (size_mb * per_mb))
+                return max(base, min(computed, self.tika_timeout_max))
+
+            stages: List[Dict[str, Any]] = []
             if content_type == 'application/pdf':
-                enable_ocr = True
-                ocr_strategy = 'ocr_and_text_extraction'
+                stages.append({
+                    "name": "pdf-no-ocr",
+                    "use_ocr": False,
+                    "timeout": adaptive_timeout(self.tika_timeout_no_ocr, self.tika_timeout_per_mb_no_ocr),
+                })
+                if self.enable_pdf_ocr and self.pdf_ocr_fallback_enabled:
+                    stages.append({
+                        "name": "pdf-ocr-fallback",
+                        "use_ocr": True,
+                        "timeout": adaptive_timeout(self.tika_timeout_ocr, self.tika_timeout_per_mb_ocr),
+                    })
             elif content_type.startswith('image/'):
-                enable_ocr = True
-                ocr_strategy = 'ocr_and_text_extraction'
-            
-            # Prepare headers
-            headers = {
-                'Content-Type': content_type,
-                'Accept': 'text/plain'
-            }
-            if enable_ocr and ocr_strategy:
-                headers['X-Tika-PDFOcrStrategy'] = ocr_strategy
-                # Set Tika timeout to 15 minutes (900000 ms) - matches server config
-                headers['X-Tika-Timeout-Millis'] = '900000'
-            
-            # Process with retries
-            # Use longer timeout for OCR (15 minutes) to match Tika's server timeout setting
-            request_timeout = 900 if enable_ocr else 60
-            for attempt in range(self.max_retries):
-                try:
-                    # Update status: sending to Tika
-                    self._update_status(processing=True, current_file=filename, progress=30, 
-                                      status=f'processing (attempt {attempt + 1}/{self.max_retries})')
-                    
-                    response = requests.put(
-                        f"{self.tika_url}/tika",
-                        data=file_content,
-                        headers=headers,
-                        timeout=request_timeout
-                    )
-                    
-                    if response.status_code == 200:
-                        # Update status: text extraction complete, getting metadata
-                        self._update_status(processing=True, current_file=filename, progress=70, 
-                                          status='extracting metadata')
-                        
+                stages.append({
+                    "name": "image-ocr",
+                    "use_ocr": self.enable_image_ocr,
+                    "timeout": adaptive_timeout(self.tika_timeout_ocr, self.tika_timeout_per_mb_ocr),
+                })
+            else:
+                stages.append({
+                    "name": "default-no-ocr",
+                    "use_ocr": False,
+                    "timeout": adaptive_timeout(self.tika_timeout_no_ocr, self.tika_timeout_per_mb_no_ocr),
+                })
+
+            for stage_idx, stage in enumerate(stages, start=1):
+                stage_name = str(stage["name"])
+                use_ocr = bool(stage["use_ocr"])
+                request_timeout = int(stage["timeout"])
+                has_next_stage = stage_idx < len(stages)
+
+                headers = {"Content-Type": content_type, "Accept": "text/plain"}
+                if use_ocr:
+                    headers["X-Tika-PDFOcrStrategy"] = "ocr_and_text_extraction"
+                    headers["X-Tika-Timeout-Millis"] = str(request_timeout * 1000)
+
+                logger.info(
+                    f"🔄 Tika stage {stage_idx}/{len(stages)} for {filename}: "
+                    f"{stage_name}, timeout={request_timeout}s, ocr={use_ocr}"
+                )
+
+                for attempt in range(self.max_retries):
+                    try:
+                        self._update_status(
+                            processing=True,
+                            current_file=filename,
+                            progress=30,
+                            status=f"processing {stage_name} (attempt {attempt + 1}/{self.max_retries})",
+                        )
+
+                        response = requests.put(
+                            f"{self.tika_url}/tika",
+                            data=file_content,
+                            headers=headers,
+                            timeout=request_timeout,
+                        )
+                        if response.status_code != 200:
+                            raise requests.RequestException(f"Tika returned status {response.status_code}")
+
                         text_content = response.text.strip()
-                        
-                        # Get metadata
+
+                        if (
+                            content_type == "application/pdf"
+                            and not use_ocr
+                            and has_next_stage
+                            and len(text_content) < self.pdf_min_text_chars_without_ocr
+                        ):
+                            logger.info(
+                                f"↪️ Non-OCR PDF extraction produced {len(text_content)} chars "
+                                f"(threshold {self.pdf_min_text_chars_without_ocr}); escalating to OCR fallback."
+                            )
+                            break
+
+                        self._update_status(processing=True, current_file=filename, progress=70, status="extracting metadata")
                         metadata = {}
                         try:
-                            metadata_headers = {'Content-Type': content_type}
-                            if enable_ocr:
-                                # Use longer timeout for metadata extraction with OCR (15 minutes max)
-                                metadata_headers['X-Tika-Timeout-Millis'] = '900000'
+                            metadata_headers = {"Content-Type": content_type}
+                            metadata_timeout = self.tika_metadata_timeout_ocr if use_ocr else self.tika_metadata_timeout_no_ocr
+                            if use_ocr:
+                                metadata_headers["X-Tika-Timeout-Millis"] = str(metadata_timeout * 1000)
                             metadata_response = requests.put(
                                 f"{self.tika_url}/meta",
                                 data=file_content,
                                 headers=metadata_headers,
-                                timeout=900 if enable_ocr else 30
+                                timeout=metadata_timeout,
                             )
                             if metadata_response.status_code == 200:
                                 metadata = metadata_response.json()
                         except Exception as e:
                             logger.warning(f"⚠️ Could not fetch metadata: {e}")
-                        
-                        # Check for empty content
+
                         if not text_content or len(text_content) < 10:
-                            if enable_ocr:
-                                text_content = f"[No extractable text found. OCR was attempted but may require better image quality or different language support.]"
+                            if use_ocr:
+                                text_content = "[No extractable text found. OCR was attempted but content remained minimal.]"
                             else:
                                 text_content = f"[No extractable text content found in {Path(filename).suffix} file.]"
-                        
-                        # Update status: processing complete
-                        self._update_status(processing=True, current_file=filename, progress=90, 
-                                          status='finalizing')
-                        
+
+                        self._update_status(processing=True, current_file=filename, progress=90, status="finalizing")
                         return {
-                            'text': text_content,
-                            'metadata': metadata,
-                            'status': 'success',
-                            'filename': filename,
-                            'content_type': content_type,
-                            'processing_method': 'tika',
-                            'ocr_used': enable_ocr
+                            "text": text_content,
+                            "metadata": metadata,
+                            "status": "success",
+                            "filename": filename,
+                            "content_type": content_type,
+                            "processing_method": "tika",
+                            "ocr_used": use_ocr,
+                            "tika_stage": stage_name,
+                            "tika_timeout_seconds": request_timeout,
                         }
-                    else:
-                        error_msg = f"Tika returned status {response.status_code}"
-                        logger.warning(f"⚠️ {error_msg} (attempt {attempt + 1}/{self.max_retries})")
-                        if attempt < self.max_retries - 1:
-                            # Update status with retry info
-                            self._update_status(processing=True, current_file=filename, 
-                                              progress=30 + (attempt * 5), 
-                                              status=f'retrying after error (attempt {attempt + 1}/{self.max_retries})')
-                            time.sleep(self.retry_delay)
-                            continue
-                        # Final attempt failed
-                        self._update_status(processing=False, current_file=None, progress=0,
-                                          status='idle', error=f"{error_msg} after {self.max_retries} attempts")
-                        return None
-                        
-                except requests.Timeout:
-                    error_msg = f"Tika timeout after {request_timeout}s"
-                    logger.warning(f"⚠️ {error_msg} (attempt {attempt + 1}/{self.max_retries})")
+
+                    except requests.Timeout:
+                        logger.warning(
+                            f"⚠️ Tika timeout after {request_timeout}s in {stage_name} "
+                            f"(attempt {attempt + 1}/{self.max_retries})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"⚠️ Tika stage error in {stage_name}: {e} "
+                            f"(attempt {attempt + 1}/{self.max_retries})"
+                        )
+
                     if attempt < self.max_retries - 1:
-                        # Update status with retry info
-                        self._update_status(processing=True, current_file=filename,
-                                          progress=30 + (attempt * 5),
-                                          status=f'retrying after timeout (attempt {attempt + 1}/{self.max_retries})')
+                        self._update_status(
+                            processing=True,
+                            current_file=filename,
+                            progress=30 + (attempt * 5),
+                            status=f"retrying {stage_name} (attempt {attempt + 1}/{self.max_retries})",
+                        )
                         time.sleep(self.retry_delay)
                         continue
-                    # Final attempt failed
-                    self._update_status(processing=False, current_file=None, progress=0,
-                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
-                    return None
-                except (requests.RequestException, ConnectionError) as e:
-                    error_msg = f"Connection error: {str(e)}"
-                    logger.error(f"❌ {error_msg}")
-                    if attempt < self.max_retries - 1:
-                        # Update status with retry info
-                        self._update_status(processing=True, current_file=filename,
-                                          progress=30 + (attempt * 5),
-                                          status=f'retrying after connection error (attempt {attempt + 1}/{self.max_retries})')
-                        time.sleep(self.retry_delay)
-                        continue
-                    # Final attempt failed
-                    self._update_status(processing=False, current_file=None, progress=0,
-                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
-                    return None
-                except Exception as e:
-                    error_msg = f"Unexpected error: {str(e)}"
-                    logger.error(f"❌ {error_msg}")
-                    if attempt < self.max_retries - 1:
-                        self._update_status(processing=True, current_file=filename,
-                                          progress=30 + (attempt * 5),
-                                          status=f'retrying after error (attempt {attempt + 1}/{self.max_retries})')
-                        time.sleep(self.retry_delay)
-                        continue
-                    # Final attempt failed
-                    self._update_status(processing=False, current_file=None, progress=0,
-                                      status='idle', error=f"{error_msg} after {self.max_retries} attempts")
-                    return None
-            
+
+                if has_next_stage:
+                    logger.warning(f"⚠️ Stage {stage_name} failed; trying next stage.")
+                    continue
+
+                self._update_status(
+                    processing=False,
+                    current_file=None,
+                    progress=0,
+                    status="idle",
+                    error=f"Tika processing failed in stage '{stage_name}'",
+                )
+                return None
+
             return None
-                
+
         except Exception as e:
             error_msg = f"Error processing file with Tika: {str(e)}"
             logger.error(f"❌ {error_msg}")
-            self._update_status(processing=False, current_file=None, progress=0,
-                              status='idle', error=error_msg)
+            self._update_status(processing=False, current_file=None, progress=0, status='idle', error=error_msg)
             return None
     
     def _process_text_file(self, file_content: bytes, filename: str) -> Optional[Dict[str, Any]]:
@@ -423,10 +442,7 @@ class UniversalMinIOProcessor:
             try:
                 text_content = file_content.decode('utf-8')
             except UnicodeDecodeError:
-                try:
-                    text_content = file_content.decode('latin-1')
-                except UnicodeDecodeError:
-                    text_content = file_content.decode('utf-8', errors='replace')
+                text_content = file_content.decode('latin-1')
             
             return {
                 'text': text_content.strip(),
@@ -479,7 +495,10 @@ class UniversalMinIOProcessor:
                     for member in tar_ref.getmembers():
                         if member.isfile():
                             try:
-                                content = tar_ref.extractfile(member).read()
+                                fobj = tar_ref.extractfile(member)
+                                if fobj is None:
+                                    continue
+                                content = fobj.read()
                                 extracted_files.append({
                                     'name': member.name,
                                     'size': len(content)

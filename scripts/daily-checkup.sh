@@ -25,8 +25,8 @@ check_container_health() {
     local health_details=""
     
     # Tier 2 (on-demand) services are allowed to be stopped; do not treat as "down".
-    local ondemand=("ai_ollama" "ai_n8n" "ai_minio" "ai_qdrant" "ai_tika" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
-    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
+    local ondemand=("ai_ollama" "ai_n8n" "ai_minio" "ai_qdrant" "ai_tika" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway" "ai_langgraph_supervisor")
+    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway" "ai_langgraph_supervisor")
 
     is_ondemand() {
         local c="$1"
@@ -73,7 +73,9 @@ check_container_health() {
         fi
     done
     
-    # Create health status file
+    local health_details_json
+    health_details_json=$(printf "%s" "$health_details" | json_escape)
+
     cat > "/tmp/tu-vm-health-status.json" << EOF
 {
     "unhealthy_services": [$(printf '"%s",' "${unhealthy_services[@]}" | sed 's/,$//')],
@@ -81,7 +83,7 @@ check_container_health() {
     "ondemand_stopped": [$(printf '"%s",' "${ondemand_stopped[@]}" | sed 's/,$//')],
     "total_restarts": $restart_count,
     "last_check": "$(date -Iseconds)",
-    "health_details": "$health_details",
+    "health_details": $health_details_json,
     "containers_checked": ${#containers[@]}
 }
 EOF
@@ -101,7 +103,7 @@ check_log_errors() {
     local warning_errors=0
     local openwebui_audio_stt_errors=0
     local openwebui_audio_stt_details=""
-    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway")
+    local containers=("ai_postgres" "ai_redis" "ai_qdrant" "ai_ollama" "ai_openwebui" "ai_n8n" "ai_tika" "ai_minio" "ai_pihole" "ai_nginx" "ai_helper_index" "tika_minio_processor" "ai_affine" "ai_affine_postgres" "ai_affine_redis" "ai_mcp_gateway" "ai_langgraph_supervisor")
     
     for container in "${containers[@]}"; do
         # Check if container exists and is running
@@ -199,7 +201,7 @@ check_for_updates() {
     # Images to check
     local docker_images=(
         "postgres:15-alpine"
-        "redis:7-alpine"
+        "redis:alpine"
         "qdrant/qdrant:latest"
         "ollama/ollama:latest"
         "ghcr.io/open-webui/open-webui:latest"
@@ -298,13 +300,16 @@ PY
         fi
     fi
 
-    # Create status JSON
+    local message_json details_json
+    message_json=$(printf "%s" "$message" | json_escape)
+    details_json=$(printf "%s" "$details_msg" | json_escape)
+
     cat > "$status_file_target" << EOF
 {
     "updates_available": $updates_available,
     "last_check": "$(date -Iseconds)",
-    "message": "$message",
-    "details": "$details_msg",
+    "message": $message_json,
+    "details": $details_json,
     "os_updates": $os_updates_num,
     "docker_updates": $docker_updates,
     "docker_outdated": $updates_json
@@ -318,9 +323,85 @@ EOF
     fi
 }
 
+# Refresh n8n node type definitions if containers are running
+refresh_node_types() {
+    if docker inspect ai_n8n --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+        if docker inspect ai_mcp_gateway --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+            log "Refreshing n8n node type definitions..."
+            if "$SCRIPT_DIR/scripts/extract-n8n-node-types.sh" >> "$LOG_FILE" 2>&1; then
+                local GW_TOKEN
+                GW_TOKEN=$(docker exec ai_mcp_gateway printenv MCP_GATEWAY_TOKEN 2>/dev/null)
+                if [ -n "$GW_TOKEN" ]; then
+                    docker exec ai_mcp_gateway curl -sf -X POST http://localhost:9002/admin/reload-node-types \
+                        -H "Authorization: Bearer $GW_TOKEN" >> "$LOG_FILE" 2>&1
+                    log "Node types refreshed and reloaded in MCP Gateway"
+                fi
+            else
+                log "WARNING: Node type extraction failed"
+            fi
+        fi
+    fi
+}
+
+check_pipeline_integrity() {
+    if ! docker inspect ai_mcp_gateway --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+        return
+    fi
+
+    log "Checking pipeline integrity..."
+    local issues=0
+
+    local gw_health
+    gw_health=$(docker exec ai_mcp_gateway curl -sf http://localhost:9002/health 2>/dev/null || echo '{}')
+    local node_count
+    node_count=$(echo "$gw_health" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('nodeTypesCount',0))" 2>/dev/null || echo "0")
+    if [ "$node_count" -lt 100 ]; then
+        log "WARNING: MCP Gateway has only $node_count node types (expected 400+). Refreshing..."
+        refresh_node_types
+        issues=$((issues + 1))
+    fi
+
+    local rag_sync
+    rag_sync=$(docker exec ai_postgres psql -U ai_admin -d ai_platform -t -A -c "
+        SELECT data::jsonb->'rag'->'embedding_engine' FROM config WHERE id=1;" 2>/dev/null)
+    if [ "$rag_sync" = '"ollama"' ]; then
+        log "WARNING: RAG config in DB still points to ollama. Fixing..."
+        docker exec ai_postgres psql -U ai_admin -d ai_platform -c "
+            UPDATE config SET data = (jsonb_set(jsonb_set(data::jsonb,
+                '{rag,embedding_engine}', '\"\"'::jsonb),
+                '{rag,embedding_model}', '\"sentence-transformers/all-MiniLM-L6-v2\"'::jsonb))::json
+            WHERE id = 1;" >/dev/null 2>&1
+        issues=$((issues + 1))
+    fi
+
+    local model_ok
+    model_ok=$(docker exec ai_postgres psql -U ai_admin -d ai_platform -t -A -c "
+        SELECT count(*) FROM model WHERE id='workflow-operator' AND base_model_id IS NOT NULL;" 2>/dev/null)
+    if [ "$model_ok" != "1" ]; then
+        log "WARNING: workflow-operator model profile is missing or has no base_model_id"
+        issues=$((issues + 1))
+    fi
+
+    local pipe_ok
+    pipe_ok=$(docker exec ai_postgres psql -U ai_admin -d ai_platform -t -A -c "
+        SELECT count(*) FROM function WHERE id='anthropic' AND is_active=true;" 2>/dev/null)
+    if [ "$pipe_ok" != "1" ]; then
+        log "WARNING: Anthropic pipe function is missing or inactive"
+        issues=$((issues + 1))
+    fi
+
+    if [ "$issues" -eq 0 ]; then
+        log "Pipeline integrity: OK"
+    else
+        log "Pipeline integrity: $issues issue(s) detected"
+    fi
+}
+
 # Main execution
 log "Starting daily checkup..."
 check_container_health
 check_log_errors
 check_for_updates
+refresh_node_types
+check_pipeline_integrity
 log "Daily checkup completed"

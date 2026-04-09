@@ -23,6 +23,7 @@ readonly DOCKER_COMPOSE_FILE="docker-compose.yml"
 readonly ENV_FILE=".env"
 readonly BACKUP_DIR="backups"
 readonly LOG_FILE="tu-vm.log"
+readonly UPDATE_STATUS_FILE="/tmp/tu-vm-update-status.json"
 
 #
 # Service configuration
@@ -48,6 +49,52 @@ readonly TIER2_SERVICES=(
     "tika_minio_processor"
     "affine"
     "mcp_gateway"
+    "langgraph_supervisor"
+    "browserless"
+)
+
+# Services that require local image builds (and therefore reliable external DNS)
+readonly BUILD_REQUIRED_SERVICES=(
+    "mcp_gateway"
+    "langgraph_supervisor"
+    "tika_minio_processor"
+)
+
+# Official upstream services that are safe to auto-update from registries.
+# Custom/self-managed services are intentionally excluded.
+readonly OFFICIAL_UPDATE_SERVICES=(
+    "postgres"
+    "redis"
+    "qdrant"
+    "ollama"
+    "open-webui"
+    "n8n"
+    "tika"
+    "minio"
+    "affine"
+    "affine_migration"
+    "affine_postgres"
+    "affine_redis"
+    "browserless"
+    "pihole"
+    "nginx"
+)
+
+# Service -> upstream tag + compose image base used to refresh pinned digests during update.
+readonly OFFICIAL_UPDATE_IMAGE_PAIRS=(
+    "postgres|postgres:15-alpine|postgres"
+    "redis|redis:alpine|redis"
+    "qdrant|qdrant/qdrant:latest|qdrant/qdrant"
+    "ollama|ollama/ollama:latest|ollama/ollama"
+    "open-webui|ghcr.io/open-webui/open-webui:latest|ghcr.io/open-webui/open-webui"
+    "n8n|n8nio/n8n:latest|n8nio/n8n"
+    "tika|apache/tika:latest|apache/tika"
+    "minio|minio/minio:latest|minio/minio"
+    "affine|ghcr.io/toeverything/affine:stable|ghcr.io/toeverything/affine"
+    "affine_postgres|pgvector/pgvector:pg16|pgvector/pgvector"
+    "browserless|ghcr.io/browserless/chromium:v2.46.0|ghcr.io/browserless/chromium"
+    "pihole|pihole/pihole:latest|pihole/pihole"
+    "nginx|nginx:alpine|nginx"
 )
 
 # Map compose service name -> container_name (when it doesn't follow ai_<service>)
@@ -66,6 +113,8 @@ declare -A SERVICE_CONTAINER=(
     ["tika_minio_processor"]="tika_minio_processor"
     ["affine"]="ai_affine"
     ["mcp_gateway"]="ai_mcp_gateway"
+    ["langgraph_supervisor"]="ai_langgraph_supervisor"
+    ["browserless"]="ai_browserless"
 )
 
 # =============================================================================
@@ -336,6 +385,74 @@ check_docker_compose() {
     fi
 }
 
+is_build_required_service() {
+    local svc="${1:-}"
+    for s in "${BUILD_REQUIRED_SERVICES[@]}"; do
+        if [[ "$s" == "$svc" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+print_dns_recovery_hint() {
+    cat <<EOF
+Run this host-level DNS fix:
+  sudo rm -f /etc/resolv.conf && printf "nameserver ${HOST_IP:-127.0.0.1}\nnameserver 1.1.1.1\nnameserver 9.9.9.9\n" | sudo tee /etc/resolv.conf >/dev/null && sudo systemctl restart docker
+EOF
+}
+
+check_dns_resolver_guard() {
+    local strict="${1:-false}" # true|false
+
+    if [[ "${TU_VM_SKIP_DNS_GUARD:-0}" == "1" ]]; then
+        warn "DNS guard skipped (TU_VM_SKIP_DNS_GUARD=1)"
+        return 0
+    fi
+
+    local issue=0
+    local resolv="/etc/resolv.conf"
+    local nameserver_count=0
+    local linked_target=""
+    local resolved_target=""
+
+    if [[ -L "$resolv" ]]; then
+        linked_target="$(readlink "$resolv" 2>/dev/null || true)"
+        resolved_target="$(readlink -f "$resolv" 2>/dev/null || true)"
+        if [[ -z "$resolved_target" ]] || [[ ! -e "$resolved_target" ]]; then
+            issue=1
+            warn "DNS resolver appears broken: $resolv -> ${linked_target:-<unknown>} (missing target)"
+        fi
+    elif [[ ! -f "$resolv" ]]; then
+        issue=1
+        warn "DNS resolver file not found: $resolv"
+    fi
+
+    if [[ -f "$resolv" ]]; then
+        nameserver_count="$(awk '/^nameserver[[:space:]]+/ {c++} END {print c+0}' "$resolv" 2>/dev/null || echo 0)"
+        if [[ "$nameserver_count" -eq 0 ]]; then
+            issue=1
+            warn "No nameserver entries found in $resolv"
+        fi
+    fi
+
+    # Probe public DNS resolution used during image pulls/builds.
+    if ! getent hosts registry-1.docker.io >/dev/null 2>&1; then
+        issue=1
+        warn "Cannot resolve registry-1.docker.io from host resolver"
+    fi
+
+    if [[ "$issue" -eq 1 ]]; then
+        warn "Image pulls/builds may fail due to DNS resolver issues."
+        print_dns_recovery_hint
+        if [[ "$strict" == "true" ]]; then
+            error "Aborting due to DNS resolver guard (set TU_VM_SKIP_DNS_GUARD=1 to bypass)."
+        fi
+    fi
+
+    return 0
+}
+
 # Get Docker Compose command
 get_docker_compose_cmd() {
     if command -v docker-compose >/dev/null 2>&1; then
@@ -393,7 +510,7 @@ ensure_host_ip_configured() {
     fi
     
     # Check if HOST_IP is missing, empty, or looks like a placeholder
-    local current_ip
+    local current_ip=""
     if grep -qE "^HOST_IP=" "$ENV_FILE"; then
         current_ip=$(grep -E "^HOST_IP=" "$ENV_FILE" | sed -E 's/^HOST_IP=//' | tr -d '"' | tr -d "'")
     fi
@@ -727,9 +844,16 @@ show_help() {
     echo "  setup                    Complete first-time setup (env, SSL, secrets)"
     echo ""
     echo -e "${WHITE}Basic Commands:${NC}"
-    echo "  start                    Start all services (auto-setup on first run)"
-    echo "  start --tier1            Start Tier 1 services only (default)"
-    echo "  start --all              Start Tier 1 + Tier 2 services"
+    echo "  start                    Start in portable mode (default, low resource)"
+    echo "  start --portable         Start portable mode (Tier 1 only, low resource)"
+    echo "  start --server           Start server mode (Tier 1 + Tier 2, full stack)"
+    echo "  start --tier1            Alias for --portable"
+    echo "  start --all              Alias for --server"
+    echo -e "${WHITE}Runtime Modes:${NC}"
+    echo "  portable                 Shortcut for: start --portable"
+    echo "  server                   Shortcut for: start --server"
+    echo ""
+
     echo "  stop                     Stop all services"
     echo "  restart                  Restart all services"
     echo "  status                   Show service status"
@@ -746,7 +870,10 @@ show_help() {
     echo "  lock                     Block all external access"
     echo ""
     echo -e "${WHITE}Maintenance:${NC}"
-    echo "  update                   Update system and services"
+    echo "  update                   Unified safe update (recommended)"
+    echo "  update-check             Check available updates (no changes)"
+    echo "  update-rollback          Roll back to latest safe-update snapshot"
+    echo "  legacy-update            Run legacy in-script update flow"
     echo "  test-update              Test update process (dry run)"
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
@@ -787,8 +914,10 @@ show_help() {
     echo "  ${ICON_LOCKED} LOCKED:    No external access"
     echo ""
     echo -e "${WHITE}Examples:${NC}"
-    echo "  ./$SCRIPT_NAME start                    # Start Tier 1 services (default)"
-    echo "  ./$SCRIPT_NAME start --all              # Start Tier 1 + Tier 2 services"
+    echo "  ./$SCRIPT_NAME start                    # Start in portable mode (default)"
+    echo "  ./$SCRIPT_NAME start --portable         # Start in portable mode"
+    echo "  ./$SCRIPT_NAME start --server           # Start in server mode"
+    echo "  ./$SCRIPT_NAME start --all              # Alias for server mode"
     echo "  ./$SCRIPT_NAME start-service ollama     # Start Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME stop-service ollama      # Stop Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME status                   # Check service status"
@@ -799,6 +928,9 @@ show_help() {
     echo "  ./$SCRIPT_NAME logs nginx               # Show nginx logs"
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
+    echo "  ./$SCRIPT_NAME update-check             # Check what can be updated"
+    echo "  ./$SCRIPT_NAME update                   # Apply safe update flow"
+    echo "  ./$SCRIPT_NAME update-rollback          # Roll back latest update"
     echo "  ./$SCRIPT_NAME check-openwebui-audio    # Validate Open WebUI audio STT config"
     echo "  ./$SCRIPT_NAME fix-openwebui-audio      # Repair Open WebUI audio STT config"
     echo "  ./$SCRIPT_NAME version                  # Show version info"
@@ -849,6 +981,11 @@ start_single_service() {
     fi
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd)
+    if is_build_required_service "$svc"; then
+        check_dns_resolver_guard true
+    else
+        check_dns_resolver_guard false
+    fi
     info "Starting service: $svc"
     $compose_cmd up -d "$svc"
 }
@@ -866,20 +1003,39 @@ stop_single_service() {
 
 # Start services
 start_services() {
-    local mode="tier1"
-    case "${1:-}" in
-        --all) mode="all"; shift ;;
-        --tier1|"") mode="tier1"; shift ;;
+    local default_mode
+    default_mode="$(resolve_env_value TU_VM_DEFAULT_MODE portable)"
+    default_mode="${default_mode,,}"
+
+    local mode="portable"
+    case "$default_mode" in
+        server|all) mode="server" ;;
+        portable|tier1|"") mode="portable" ;;
+        *)
+            warn "Invalid TU_VM_DEFAULT_MODE='$default_mode' in $ENV_FILE; falling back to portable"
+            mode="portable"
+            ;;
     esac
 
-    if [[ "$mode" == "all" ]]; then
-        info "Starting $PROJECT_NAME services (Tier 1 + Tier 2)..."
+    case "${1:-}" in
+        --server|server|--all) mode="server"; shift ;;
+        --portable|portable|--tier1) mode="portable"; shift ;;
+        "") ;;
+        *)
+            error "Unknown start mode: ${1:-}"
+            echo "Usage: ./$SCRIPT_NAME start [--portable|--server]"
+            ;;
+    esac
+
+    if [[ "$mode" == "server" ]]; then
+        info "Starting $PROJECT_NAME services in SERVER mode (full stack)..."
     else
-        info "Starting $PROJECT_NAME services (Tier 1 only - energy friendly)..."
+        info "Starting $PROJECT_NAME services in PORTABLE mode (low-resource core)..."
     fi
 
     check_docker
     check_docker_compose
+    check_dns_resolver_guard false
     check_env_file
     ensure_nginx_allowlist_file
     
@@ -895,7 +1051,7 @@ start_services() {
     
     local compose_cmd=$(get_docker_compose_cmd)
 
-    if [[ "$mode" == "all" ]]; then
+    if [[ "$mode" == "server" ]]; then
         # Start everything (Tier 2 services will be started as well)
         $compose_cmd up -d
     else
@@ -1204,6 +1360,7 @@ show_access_info() {
     echo "  Landing:       https://tu.lan (IP fallback: https://$vm_ip)"
     echo "  Open WebUI:    https://oweb.tu.lan"
     echo "  MCP Gateway:   https://oweb.tu.lan/api/mcp/"
+    echo "  LangGraph API: https://oweb.tu.lan/api/langgraph/"
     echo "  n8n:           https://n8n.tu.lan"
     echo "  AFFiNE:        https://affine.tu.lan"
     echo "  Pi-hole:       https://pihole.tu.lan/admin"
@@ -1334,6 +1491,16 @@ lock_access() {
 # Update system
 update_system() {
     check_root "update"
+
+    # Unified update entrypoint: prefer safe-update workflow.
+    # Set TU_VM_USE_LEGACY_UPDATE=1 to force legacy in-script update logic.
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ "${TU_VM_USE_LEGACY_UPDATE:-0}" != "1" ]] && [[ -x "$safe_update_script" ]]; then
+        info "Using unified safe update workflow..."
+        "$safe_update_script" --apply
+        return $?
+    fi
+    warn "safe-update.sh not executable or legacy mode enabled; using legacy update logic."
     
     info "Updating $PROJECT_NAME..."
     
@@ -1379,12 +1546,12 @@ update_system() {
     
     local compose_cmd=$(get_docker_compose_cmd)
     
-    # Pull latest images and detect updated services
-    # Note: With tags like :latest, :alpine, docker compose pull will always fetch the latest
-    info "Pulling latest images for all services (ensuring latest versions)..."
+    # Pull latest official images and detect updated services.
+    # Custom/self-managed services are excluded from auto update on purpose.
+    info "Pulling latest official service images..."
     local pull_log_file="/tmp/tu-compose-pull.log"
     : > "$pull_log_file"
-    local pull_cmd="$compose_cmd pull"
+    local pull_cmd="$compose_cmd pull ${OFFICIAL_UPDATE_SERVICES[*]}"
     
     # Detect support for --progress flag
     if $compose_cmd pull --help 2>&1 | grep -q -- "--progress"; then
@@ -1397,7 +1564,7 @@ update_system() {
     local pull_ec=${PIPESTATUS[0]}
     if [[ $pull_ec -ne 0 ]]; then
         warn "compose pull failed with exit code $pull_ec. Retrying..."
-        $compose_cmd pull 2>&1 | tee "$pull_log_file"
+        $compose_cmd pull "${OFFICIAL_UPDATE_SERVICES[@]}" 2>&1 | tee "$pull_log_file"
         pull_ec=${PIPESTATUS[0]}
         if [[ $pull_ec -ne 0 ]]; then
             error "Image pull failed (exit code $pull_ec). Aborting update."
@@ -1405,14 +1572,53 @@ update_system() {
         fi
     fi
     set -e
+
+    # Refresh pinned image digests in compose so official services can actually move forward
+    # even when docker-compose.yml uses tag@sha256 references.
+    info "Refreshing pinned digests for official services..."
+    local digest_changed_services=()
+    for pair in "${OFFICIAL_UPDATE_IMAGE_PAIRS[@]}"; do
+        local svc="${pair%%|*}"
+        local rest="${pair#*|}"
+        local img="${rest%%|*}"
+        local compose_base="${pair##*|}"
+
+        # Pull upstream tag explicitly (independent of pinned digest in compose)
+        if ! docker pull "$img" >/dev/null 2>&1; then
+            warn "Failed to pull upstream image for $svc ($img); keeping current pinned digest."
+            continue
+        fi
+
+        local new_ref=""
+        new_ref=$(docker image inspect "$img" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+        if [[ -z "$new_ref" ]]; then
+            continue
+        fi
+
+        # Replace only when digest differs; keep tag semantics stable.
+        if ! grep -qF "$new_ref" "$DOCKER_COMPOSE_FILE"; then
+            python3 - <<PY
+import re
+path = "$DOCKER_COMPOSE_FILE"
+compose_base = "$compose_base"
+new_ref = "$new_ref"
+text = open(path, "r", encoding="utf-8").read()
+# Match:
+# - repo
+# - repo:tag
+# - repo@sha256:...
+# - repo:tag@sha256:...
+pattern = re.escape(compose_base) + r'(?::[^@\\s]+)?(?:@sha256:[a-f0-9]+)?'
+new_text, n = re.subn(pattern, new_ref, text)
+if n:
+    open(path, "w", encoding="utf-8").write(new_text)
+PY
+            digest_changed_services+=("$svc")
+            info "Pinned $svc -> $new_ref"
+        fi
+    done
     
-    # Rebuild custom images with --pull to get latest base images
-    # (Python packages in requirements.txt are unpinned, so pip install will get latest)
-    info "Rebuilding custom images with latest base images..."
-    if $compose_cmd config --services | grep -q "tika_minio_processor"; then
-        info "Rebuilding tika_minio_processor with latest base image (python:3-slim) and dependencies..."
-        $compose_cmd build --pull tika_minio_processor 2>&1 || warn "Failed to rebuild tika_minio_processor (continuing anyway)"
-    fi
+    info "Skipping auto-rebuild of custom services (self-managed policy)."
     
     # Build list of all services for validation
     local -a all_services
@@ -1434,6 +1640,11 @@ update_system() {
         fi
     done < "$pull_log_file"
     
+    # Merge with services that changed due to digest refresh.
+    if [[ ${#digest_changed_services[@]} -gt 0 ]]; then
+        updated_services+=("${digest_changed_services[@]}")
+    fi
+
     # De-duplicate services list
     if [[ ${#updated_services[@]} -gt 0 ]]; then
         mapfile -t updated_services < <(printf "%s\n" "${updated_services[@]}" | sort -u)
@@ -1515,7 +1726,17 @@ update_system() {
         
         # Verify data retention
         info "Verifying data retention..."
-        verify_data_retention
+        if verify_data_retention; then
+            write_update_notification_entry \
+                false \
+                "Update completed successfully" \
+                "All required services are running and data volumes are accessible."
+        else
+            write_update_notification_entry \
+                false \
+                "Update completed with warnings" \
+                "Services started, but data-retention checks reported warnings. Review tu-vm.log for details."
+        fi
         
         # Show update summary
         show_update_summary
@@ -1524,6 +1745,10 @@ update_system() {
     else
         warn "Some services may not be fully ready yet."
         info "Check status with: ./$SCRIPT_NAME status"
+        write_update_notification_entry \
+            true \
+            "Update may be incomplete" \
+            "Some services were not ready after update. Run './$SCRIPT_NAME status' and inspect logs."
     fi
     
     # ============================================================================
@@ -1541,36 +1766,92 @@ update_system() {
     info "Backup created: $backup_name"
 }
 
+update_check() {
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ -x "$safe_update_script" ]]; then
+        "$safe_update_script" --check
+    else
+        error "Missing executable: $safe_update_script"
+    fi
+}
+
+update_rollback() {
+    check_root "update-rollback"
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ -x "$safe_update_script" ]]; then
+        "$safe_update_script" --rollback
+    else
+        error "Missing executable: $safe_update_script"
+    fi
+}
+
+# Write status for dashboard/announcement system immediately after update.
+write_update_notification_entry() {
+    local updates_available="$1"
+    local message="$2"
+    local details="$3"
+    local status_file_target="$UPDATE_STATUS_FILE"
+
+    if { [ -e "$UPDATE_STATUS_FILE" ] && [ ! -w "$UPDATE_STATUS_FILE" ]; } || { [ ! -e "$UPDATE_STATUS_FILE" ] && [ ! -w "$(dirname "$UPDATE_STATUS_FILE")" ]; }; then
+        status_file_target="/tmp/tu-vm-update-status-${USER}.json"
+        warn "Update status file not writable at $UPDATE_STATUS_FILE, using fallback: $status_file_target"
+    fi
+
+    local message_json details_json
+    message_json=$(printf "%s" "$message" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+    details_json=$(printf "%s" "$details" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+
+    cat > "$status_file_target" << EOF
+{
+    "updates_available": $updates_available,
+    "last_check": "$(date -Iseconds)",
+    "message": $message_json,
+    "details": $details_json,
+    "os_updates": 0,
+    "docker_updates": 0,
+    "docker_outdated": []
+}
+EOF
+    info "Update notification entry written: $status_file_target"
+}
+
 # Verify data retention after update
 verify_data_retention() {
     info "Verifying data retention..."
     
     local issues=()
+    local volume_names
+    volume_names="$(docker volume ls --format '{{.Name}}' 2>/dev/null || true)"
+    has_volume() {
+        local suffix="$1"
+        if printf "%s\n" "$volume_names" | grep -Eq "(^|_)${suffix}$"; then
+            return 0
+        fi
+        return 1
+    }
     
     # Check Docker volumes
-    if ! docker volume ls | grep -q "postgres_data"; then
+    if ! has_volume "postgres_data"; then
         issues+=("PostgreSQL data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "redis_data"; then
+    if ! has_volume "redis_data"; then
         issues+=("Redis data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "qdrant_data"; then
+    if ! has_volume "qdrant_data"; then
         issues+=("Qdrant data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "ollama_data"; then
+    if ! has_volume "ollama_data"; then
         issues+=("Ollama data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "minio_data"; then
-        if ! docker volume ls | grep -q "docker_minio_data"; then
-            issues+=("MinIO data volume missing")
-        fi
+    if ! has_volume "minio_data"; then
+        issues+=("MinIO data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "n8n_data"; then
+    if ! has_volume "n8n_data"; then
         issues+=("n8n data volume missing")
     fi
     
@@ -1585,12 +1866,14 @@ verify_data_retention() {
     
     if [ ${#issues[@]} -eq 0 ]; then
         info "✅ All data volumes and services are accessible"
+        return 0
     else
         warn "⚠️  Data retention issues detected:"
         for issue in "${issues[@]}"; do
             warn "  - $issue"
         done
         warn "Consider restoring from backup if issues persist"
+        return 1
     fi
 }
 
@@ -1753,7 +2036,20 @@ EOF
             local port_attempt=0
             
             while [ $port_attempt -lt $port_attempts ]; do
-                if ! netstat -tuln | grep -q ":53 "; then
+                local port_in_use=1
+                if command -v ss >/dev/null 2>&1; then
+                    ss -tuln 2>/dev/null | grep -Eq "[:.]53[[:space:]]" || port_in_use=0
+                elif command -v netstat >/dev/null 2>&1; then
+                    netstat -tuln 2>/dev/null | grep -Eq "[:.]53[[:space:]]" || port_in_use=0
+                elif command -v lsof >/dev/null 2>&1; then
+                    lsof -nP -i :53 >/dev/null 2>&1 || port_in_use=0
+                else
+                    # If no socket inspection tool exists, do not fail update flow.
+                    warn "No port inspection tool found (ss/netstat/lsof); skipping strict port 53 wait."
+                    port_in_use=0
+                fi
+
+                if [ "$port_in_use" -eq 0 ]; then
                     info "Port 53 is now free"
                     break
                 fi
@@ -1975,16 +2271,16 @@ create_backup() {
     tar czf "${backup_path}.tar.gz" -C "$BACKUP_DIR" "$(basename "$backup_path")"
     rm -rf "$backup_path"
     
-    # Automatic backup rotation - keep only last 10 backups
-    info "Managing backup rotation (keeping last 10 backups)..."
+    # Automatic backup rotation - keep only latest backup
+    info "Managing backup rotation (keeping latest backup only)..."
     local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
     
-    if [[ $backup_count -gt 10 ]]; then
-        local backups_to_remove=$((backup_count - 10))
+    if [[ $backup_count -gt 1 ]]; then
+        local backups_to_remove=$((backup_count - 1))
         info "Removing $backups_to_remove old backup(s)..."
         
         # Sort by modification time (oldest first) and remove excess
-        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
+        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +2 | while read -r old_backup; do
             if [[ -f "$old_backup" ]]; then
                 info "Removing old backup: $(basename "$old_backup")"
                 rm -f "$old_backup"
@@ -1995,6 +2291,9 @@ create_backup() {
     else
         info "✅ No rotation needed (current backups: $backup_count)"
     fi
+
+    # Remove leftover extracted backup directories from interrupted runs
+    find "$BACKUP_DIR" -maxdepth 1 -type d \( -name 'backup_*' -o -name 'pre_update_*' -o -name 'restore_*' \) -exec rm -rf {} + 2>/dev/null || true
     
     info "Backup created: ${backup_path}.tar.gz"
 }
@@ -2057,15 +2356,15 @@ restore_backup() {
 cleanup() {
     info "Cleaning up old backups and logs..."
     
-    # Clean up old backups (keep last 10)
+    # Clean up old backups (keep latest only)
     if [[ -d "$BACKUP_DIR" ]]; then
         local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
-        if [[ $backup_count -gt 10 ]]; then
-            local backups_to_remove=$((backup_count - 10))
-            info "Removing $backups_to_remove old backup(s) (keeping last 10)..."
+        if [[ $backup_count -gt 1 ]]; then
+            local backups_to_remove=$((backup_count - 1))
+            info "Removing $backups_to_remove old backup(s) (keeping latest only)..."
             
             # Sort by modification time (oldest first) and remove excess
-            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
+            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +2 | while read -r old_backup; do
                 if [[ -f "$old_backup" ]]; then
                     info "Removing old backup: $(basename "$old_backup")"
                     rm -f "$old_backup"
@@ -2076,6 +2375,9 @@ cleanup() {
         else
             info "✅ No backup cleanup needed (current backups: $backup_count)"
         fi
+
+        # Remove leftover extracted backup directories from interrupted runs
+        find "$BACKUP_DIR" -maxdepth 1 -type d \( -name 'backup_*' -o -name 'pre_update_*' -o -name 'restore_*' \) -exec rm -rf {} + 2>/dev/null || true
     fi
     
     # Clean up old logs
@@ -2173,18 +2475,9 @@ test_update() {
     docker system df
     echo ""
     
-    # Show services that would be updated
+    # Show official services that are auto-updated
     echo -e "${YELLOW}🔄 Services to Update:${NC}"
-    local compose_cmd=$(get_docker_compose_cmd)
-    $compose_cmd config --services | while read service; do
-        echo "  - $service"
-    done
-    echo ""
-    
-    # Show services that would be updated
-    echo -e "${YELLOW}📦 Services to Update:${NC}"
-    local compose_cmd=$(get_docker_compose_cmd)
-    $compose_cmd config --services | while read service; do
+    for service in "${OFFICIAL_UPDATE_SERVICES[@]}"; do
         echo "  - $service"
     done
     echo ""
@@ -3039,6 +3332,12 @@ main() {
                 start)
                     start_services "${2:-}"
                     ;;
+                portable)
+                    start_services --portable
+                    ;;
+                server)
+                    start_services --server
+                    ;;
                 stop)
                     stop_services
                     ;;
@@ -3065,6 +3364,15 @@ main() {
                     ;;
                 update)
                     update_system
+                    ;;
+                update-check)
+                    update_check
+                    ;;
+                update-rollback)
+                    update_rollback
+                    ;;
+                legacy-update)
+                    TU_VM_USE_LEGACY_UPDATE=1 update_system
                     ;;
                 test-update)
                     test_update

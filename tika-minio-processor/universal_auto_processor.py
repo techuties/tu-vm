@@ -25,7 +25,10 @@ class UniversalMinIOWatcher:
         self.processor = processor
         self.check_interval = check_interval
         self.processed_files = set()
-        self.failed_files = {}  # Track failed files with retry count
+        self.failed_files = {}  # file_id -> {"count": int, "next_retry_at": epoch}
+        # 0 means unlimited attempts: keep retrying until success.
+        self.max_file_attempts = int(os.getenv("PROCESSOR_MAX_FILE_ATTEMPTS", "0"))
+        self.retry_backoff_seconds = int(os.getenv("PROCESSOR_RETRY_BACKOFF_SECONDS", "30"))
         
         # Support multiple buckets (comma-separated string or list)
         if watch_buckets is None:
@@ -59,6 +62,11 @@ class UniversalMinIOWatcher:
                     
                     # Skip already processed files
                     if file_id in self.processed_files:
+                        continue
+
+                    # Respect retry backoff for previously failed files.
+                    fail_state = self.failed_files.get(file_id)
+                    if fail_state and time.time() < float(fail_state.get("next_retry_at", 0)):
                         continue
                     
                     # Skip .txt files (processed outputs)
@@ -94,15 +102,15 @@ class UniversalMinIOWatcher:
             logger.info(f"🔄 Processing: {bucket}/{object_key}")
             
             try:
-                # Temporarily set processor bucket for this file
-                original_bucket = self.processor.uploads_bucket
+                original_uploads = self.processor.uploads_bucket
+                original_processed = self.processor.processed_bucket
                 self.processor.uploads_bucket = bucket
+                self.processor.processed_bucket = bucket
                 
-                # Process the file
                 success = self.processor.process_file_from_minio(object_key)
                 
-                # Restore original bucket
-                self.processor.uploads_bucket = original_bucket
+                self.processor.uploads_bucket = original_uploads
+                self.processor.processed_bucket = original_processed
                 
                 if success:
                     logger.info(f"✅ Successfully processed: {bucket}/{object_key}")
@@ -111,22 +119,30 @@ class UniversalMinIOWatcher:
                     self.failed_files.pop(file_id, None)
                 else:
                     # Track failed files
-                    if file_id not in self.failed_files:
-                        self.failed_files[file_id] = 0
-                    self.failed_files[file_id] += 1
-                    
-                    if self.failed_files[file_id] >= 3:
-                        logger.error(f"❌ Failed to process {bucket}/{object_key} after 3 attempts, skipping")
-                        self.processed_files.add(file_id)  # Mark as processed to avoid infinite retries
-                        self.failed_files.pop(file_id)
+                    state = self.failed_files.setdefault(file_id, {"count": 0, "next_retry_at": 0.0})
+                    state["count"] = int(state.get("count", 0)) + 1
+                    state["next_retry_at"] = time.time() + self.retry_backoff_seconds
+                    attempts = int(state["count"])
+
+                    if self.max_file_attempts > 0 and attempts >= self.max_file_attempts:
+                        logger.error(
+                            f"❌ Failed to process {bucket}/{object_key} after {attempts} attempts; "
+                            f"max attempts reached, skipping permanently"
+                        )
+                        self.processed_files.add(file_id)
+                        self.failed_files.pop(file_id, None)
                     else:
-                        logger.warning(f"⚠️ Processing failed for {bucket}/{object_key} (attempt {self.failed_files[file_id]}/3)")
+                        max_hint = f"/{self.max_file_attempts}" if self.max_file_attempts > 0 else "/unlimited"
+                        logger.warning(
+                            f"⚠️ Processing failed for {bucket}/{object_key} (attempt {attempts}{max_hint}); "
+                            f"will retry in {self.retry_backoff_seconds}s"
+                        )
                         
             except Exception as e:
                 logger.error(f"❌ Exception processing {bucket}/{object_key}: {e}")
-                if file_id not in self.failed_files:
-                    self.failed_files[file_id] = 0
-                self.failed_files[file_id] += 1
+                state = self.failed_files.setdefault(file_id, {"count": 0, "next_retry_at": 0.0})
+                state["count"] = int(state.get("count", 0)) + 1
+                state["next_retry_at"] = time.time() + self.retry_backoff_seconds
     
     def print_stats(self):
         """Print processing statistics"""
