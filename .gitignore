@@ -123,6 +123,11 @@ nginx/conf.d/*.backup.*
 nginx/conf.d/*.backup
 
 ##############################
+# Generated / large data files
+##############################
+mcp-gateway/n8n_node_types.json
+
+##############################
 # Misc
 ##############################
 .dockerignore

@@ -1,15 +1,18 @@
-# TechUties VirtualMachine - Private Ai Platform
+# TU-VM by TechUties - Private AI Automation Platform
 
-TU-VM transforms your computer into a private AI operations center. It combines essential AI services into one secure, easy-to-manage platform that runs entirely on your hardware.
+Built by TechUties and its contributors, TU-VM turns a single machine into a professional-grade AI automation stack: private LLM chat, autonomous n8n workflow engineering, document intelligence, and secure service orchestration - all under your control.
 
-### Key Features 
+The power of TU-VM is in how the parts work together: Open WebUI for operator-facing AI, MCP Gateway for controlled tool access, LangGraph Supervisor for guarded workflow writes, and n8n for production automation. You get fast iteration, strong guardrails, and a reproducible system that can be updated safely without losing your operational context.
+
+### Key Features
 - Local AI Operations   - Run AI models and workflows without cloud dependencies
 - Complete Privacy      - All data stays on your machine with configurable access controls
 - Document Intelligence - Process thousands of document formats with advanced OCR
 - Workflow Automation   - Create and run complex AI pipelines with visual tools
+- LLM-Driven Workflow Engineering - AI models build, debug, and maintain n8n workflows autonomously
 - One-Command Control   - Manage your entire AI stack through a simple interface
 
-### Data Protection 
+### Data Protection
 - Automated Backups
   - Scheduled daily snapshots of all systems
   - Pre-update safety backups
@@ -35,15 +38,267 @@ Perfect for developers and researchers who need a reliable, private environment 
 The Dashboard
 
 Model available through Open WebUI
-nebulity.techuties.com/b2r8zn6/ 
+nebulity.techuties.com/b2r8zn6/
 
-## Features
+## Architecture
 
-### ⚡ Energy Optimization System (v2.0)
+```
+                          ┌─────────────────────────────┐
+                          │       Nginx (443/80)        │
+                          │    Reverse Proxy + TLS      │
+                          └──────┬──────┬──────┬───────┘
+                                 │      │      │
+              ┌──────────────────┘      │      └──────────────────┐
+              ▼                         ▼                         ▼
+     ┌────────────────┐      ┌────────────────┐      ┌────────────────┐
+     │   Open WebUI   │      │      n8n       │      │    AFFiNE      │
+     │  (Chat + RAG)  │      │  (Workflows)   │      │ (Collaboration)│
+     └──────┬─────────┘      └──────┬─────────┘      └────────────────┘
+            │                       │
+            │   ┌───────────────────┘
+            ▼   ▼
+     ┌────────────────┐     ┌─────────────────────────┐
+     │  MCP Gateway   │────▶│  LangGraph Supervisor   │
+     │ (Tool Router)  │◀────│ (Write Verification)    │
+     └──────┬─────────┘     └─────────────────────────┘
+            │
+     ┌──────┼──────┬──────────────┐
+     ▼      ▼      ▼              ▼
+  ┌──────┐┌─────┐┌──────┐ ┌───────────┐
+  │ n8n  ││ KB  ││AFFiNE│ │  Qdrant   │
+  │ API  ││MinIO││ API  │ │(Vectors)  │
+  └──────┘└─────┘└──────┘ └───────────┘
+                               ▲
+     ┌─────────────┐           │
+     │ PostgreSQL   │───────────┘
+     │ (Primary DB) │
+     └──────┬──────┘
+            │
+     ┌──────┴──────┐
+     │    Redis     │
+     │   (Cache)    │
+     └─────────────┘
+```
 
-The platform now features a **revolutionary energy optimization system** that reduces CPU usage by 85% while maintaining full functionality through intelligent service management.
+## Services
 
-#### **Tiered Service Architecture**
+### Tier 1: Always Running (Core)
+
+| Service | Container | Port (internal) | Purpose |
+|---------|-----------|-----------------|---------|
+| [PostgreSQL](https://www.postgresql.org/) | `ai_postgres` | 5432 | Primary database for Open WebUI, n8n, and platform data |
+| [Redis](https://redis.io/) | `ai_redis` | 6379 | Cache layer for Open WebUI sessions and config |
+| [Open WebUI](https://docs.openwebui.com/) | `ai_openwebui` | 8080 | AI chat interface with RAG, model profiles, tool integration |
+| [Nginx](https://nginx.org/) | `ai_nginx` | 80, 443 | Reverse proxy, TLS termination, rate limiting |
+| [Pi-hole](https://pi-hole.net/) | `ai_pihole` | 53, 80 | DNS ad-blocking and network security |
+| Helper API | `ai_helper_index` | 9001 | Landing page, dashboard status, service controls (Flask; proxied only via Nginx) |
+
+### Tier 2: On-Demand (Start via Dashboard)
+
+| Service | Container | Port (internal) | Purpose |
+|---------|-----------|-----------------|---------|
+| [n8n](https://docs.n8n.io/) | `ai_n8n` | 5678 | Workflow automation with PostgreSQL backend |
+| [Ollama](https://ollama.com/) | `ai_ollama` | 11434 | Local LLM inference engine |
+| [Qdrant](https://qdrant.tech/documentation/) | `ai_qdrant` | 6333 | Vector database for RAG embeddings |
+| [MinIO](https://min.io/docs/minio/linux/index.html) | `ai_minio` | 9000, 9001 | S3-compatible object storage |
+| [Apache Tika](https://tika.apache.org/) | `ai_tika` | 9998 | Document processing with OCR support |
+| [AFFiNE](https://affine.pro/) | `ai_affine` | 3010 | Collaborative knowledge workspace |
+| [MCP Gateway](#mcp-gateway) | `ai_mcp_gateway` | 9002 | Tool router for LLM-to-service communication |
+| [LangGraph Supervisor](#langgraph-supervisor) | `ai_langgraph_supervisor` | 9010 | Write operation verification and audit |
+| Tika-MinIO Processor | `tika_minio_processor` | — | Automated document extraction pipeline |
+| [Browserless Chromium](https://github.com/browserless/browserless) | `ai_browserless` | 3000 | Optional headless browser for Open WebUI web search when using Playwright |
+| MCP tool images (`mcp-tools/*`) | `mcp_playwright`, `mcp_filesystem`, `mcp_fetch`, `mcp_memory` | (varies) | Optional [Model Context Protocol](https://modelcontextprotocol.io/) stdio servers for local tooling; start from the dashboard when needed |
+
+### Service Dependencies
+
+```
+Open WebUI ──▶ PostgreSQL (users, chats, settings)
+           ──▶ Redis (session cache, config)
+           ──▶ Qdrant (RAG embeddings)
+           ──▶ Ollama (local LLM inference)
+           ──▶ Browserless (optional; Playwright web search when enabled)
+           ──▶ MCP Gateway (tool calls via OpenAPI)
+
+n8n ──▶ PostgreSQL (workflows, credentials, schema: n8n)
+
+MCP Gateway ──▶ n8n API (workflow CRUD, executions)
+            ──▶ MinIO (knowledge base storage)
+            ──▶ Tika (document extraction)
+            ──▶ LangGraph Supervisor (write verification)
+
+AFFiNE ──▶ affine_postgres (separate PG instance, pgvector)
+       ──▶ affine_redis (dedicated Redis)
+```
+
+## MCP Gateway
+
+The MCP Gateway (`mcp-gateway/`) is a FastAPI application that acts as a secure tool router between Open WebUI's LLMs and backend services (n8n, MinIO knowledge base, AFFiNE). It exposes an OpenAPI spec that Open WebUI consumes as tool definitions.
+
+### Capabilities
+
+- **22 tools** exposed via OpenAPI (n8n workflow CRUD, executions, diagnostics, knowledge base, references)
+- **541 n8n node type definitions** with full parameter schemas, credential requirements, and version info
+- **Pre-flight validation** of workflow payloads before sending to n8n
+- **Smart parameter filtering** by operation/mode to reduce context window usage
+- **Built-in reference docs** for expressions, common pitfalls, workflow templates, and credential wiring
+- **Webhook test execution** within the diagnose tool for end-to-end verification
+- **Proof-of-execution** signing with HMAC for audit trails
+- **Dead letter queue** for failed operations
+- **Rate limiting** per tenant (requests/min, concurrency, daily writes)
+
+### Key Tools
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| `n8n_list_workflows` | Read | List active (non-archived) workflows |
+| `n8n_create_workflow` | Write | Create a new workflow |
+| `n8n_update_workflow` | Write | Update an existing workflow (PUT) |
+| `n8n_diagnose_workflow` | Read | Validate structure + check executions + optional webhook test |
+| `n8n_get_node_types` | Read | Look up node parameter schemas with operation filtering |
+| `n8n_reference` | Read | Expression syntax, pitfalls, templates, credential docs |
+| `n8n_list_credentials` | Read | Available credentials (names/types only) |
+| `kb_search` | Read | Search indexed knowledge base entries |
+
+### Configuration
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `MCP_GATEWAY_TOKEN` | Yes | Bearer token for all API requests |
+| `N8N_API_KEY` | Yes | n8n API authentication |
+| `N8N_INTERNAL_URL` | Yes | n8n container URL (default: `http://ai_n8n:5678`) |
+| `MCP_PROOF_SIGNING_KEY` | Yes | HMAC key for proof-of-execution signatures |
+| `KB_MINIO_ACCESS_KEY` | If KB enabled | MinIO access for knowledge base |
+| `KB_MINIO_SECRET_KEY` | If KB enabled | MinIO secret for knowledge base |
+
+## LangGraph Supervisor
+
+The LangGraph Supervisor (`langgraph-supervisor/`) provides a verification layer for all write operations (create, update, delete, activate) going through the MCP Gateway. It ensures deterministic execution with audit trails.
+
+### Features
+
+- **Write verification** — all n8n write operations pass through the supervisor before execution
+- **Audit logging** — every operation is logged with timestamps, actor, and result
+- **Deduplication** — prevents duplicate operations within a configurable window
+- **Checkpoint state** — tracks operation history for rollback awareness
+
+### Configuration
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `MCP_GATEWAY_URL` | Yes | URL of the MCP Gateway |
+| `MCP_GATEWAY_TOKEN` | Yes | Shared token with MCP Gateway |
+| `LANGGRAPH_SUPERVISOR_TOKEN` | No | Dedicated Bearer token for `/execute`; if unset or empty, the supervisor accepts the same token as `MCP_GATEWAY_TOKEN` |
+| `LANGGRAPH_STRICT_VERIFY` | No | Require verification for all writes (default: true) |
+
+## Cross-function gates
+
+These are the checks that span **Open WebUI → Nginx → MCP Gateway → LangGraph Supervisor → n8n/MinIO/AFFiNE** (and the proof trail), so autonomous tool use stays aligned with what actually ran.
+
+### Runtime (supervisor delegation)
+
+- **n8n write-class tools** (create/update/activate/deactivate/delete workflows, webhook test runs, etc.) are **not** executed on the first hop from the gateway alone when `LANGGRAPH_SUPERVISOR_ENABLED` is true. The gateway **delegates** to the LangGraph Supervisor, which validates, dedupes, and audits, then calls the gateway again with `X-LangGraph-Supervised: 1` so the real n8n call runs without looping.
+- If the supervisor is unavailable and `LANGGRAPH_SUPERVISOR_REQUIRED` is true, those writes **fail closed** (no silent bypass).
+- Optional **write approval tokens**, **tenant rate limits**, **daily write caps**, and the n8n **circuit breaker** add further policy on the gateway.
+
+### Proof quality (rollout gate)
+
+- `scripts/rollout-gates.sh` reads the MCP Gateway **proof store** and checks that, over a time window, **claimed** operations stay consistent with **supervisor verification** (default thresholds: 99.9% verified, ≤0.1% mismatch). Use this before or after a release if you rely on supervised writes. The default proof path assumes the Docker volume name prefix `tu-vm_`; pass an explicit path if your Compose project name differs.
+
+### Smoke test (edge path)
+
+- `scripts/langgraph-e2e-smoke.sh` exercises **`/api/langgraph/health`**, **`/api/mcp/health`**, and a **read-only** `n8n_list_workflows` call through `https://oweb.tu.lan` (or `BASE_URL`), confirming Nginx → LangGraph → Gateway → n8n.
+
+## Workflow Operator
+
+The **Workflow Operator** is an Open WebUI model profile that enables LLMs to autonomously build, debug, and maintain n8n workflows. It connects an Anthropic LLM (via a custom pipe function) to the MCP Gateway's tool suite.
+
+### How It Works
+
+1. User asks the Workflow Operator to create a workflow (e.g., "Build an SEO audit workflow")
+2. The LLM calls `n8n_list_workflows` to check for existing matches
+3. Looks up node type schemas via `n8n_get_node_types` with operation filtering
+4. Consults `n8n_reference` for expression syntax and templates
+5. Creates/updates the workflow via `n8n_create_workflow` or `n8n_update_workflow`
+6. Runs `n8n_diagnose_workflow` (with optional webhook test) to verify correctness
+7. If errors are found, fixes them automatically and re-diagnoses
+
+### Enforced Behaviors (via System Prompt)
+
+- Never asks for confirmation on create/update — executes immediately
+- Never defers to the n8n UI — retries with corrected parameters on failure
+- Always looks up node types before building — never guesses parameters
+- Always reuses existing workflows — never creates duplicates
+- Prefers native n8n nodes over Code nodes
+- Runs post-creation diagnosis on every workflow
+
+## Project Structure
+
+```
+.
+├── docker-compose.yml          # Service orchestration (all services)
+├── env.example                 # Environment template (copy to .env)
+├── tu-vm.sh                    # Main control script
+├── README.md                   # This documentation
+│
+├── mcp-gateway/                # MCP Gateway service
+│   ├── Dockerfile
+│   ├── app.py                  # FastAPI application (22 tools)
+│   └── requirements.txt
+│
+├── langgraph-supervisor/       # Write verification service
+│   ├── Dockerfile
+│   ├── app.py
+│   └── requirements.txt
+│
+├── qm-llm-bridge/              # Optional Queue Manager bridge (source-only, not enabled by default)
+│   ├── Dockerfile
+│   ├── app.py
+│   └── requirements.txt
+│
+├── tika-minio-processor/       # Document extraction pipeline
+│   ├── Dockerfile
+│   ├── universal_auto_processor.py
+│   ├── universal_processor.py
+│   ├── tika_processor.py
+│   └── requirements.txt
+│
+├── helper/                     # Landing page + dashboard API
+│   ├── uploader.py
+│   └── chat-context/           # Seed context for AI assistants
+├── mcp-tools/                  # Optional MCP stdio servers (compose services mcp-playwright, etc.)
+│
+├── nginx/                      # Reverse proxy configuration
+│   ├── nginx.conf
+│   ├── conf.d/default.conf     # Vhost routing + rate limiting
+│   ├── html/                   # Landing page + error pages
+│   └── dynamic/                # Runtime-generated allowlists
+│
+├── monitoring/                 # Prometheus + Grafana configs
+├── pihole/                     # Pi-hole dnsmasq config
+├── tika-config/                # Apache Tika XML config
+│
+├── scripts/
+│   ├── safe-update.sh          # Safe update with backup + rollback
+│   ├── daily-checkup.sh        # Daily health + pipeline integrity
+│   ├── pre-push-check.sh       # Local smoke gate before push
+│   ├── changelog-refresh.sh    # Refresh Unreleased from git log
+│   ├── extract-n8n-node-types.sh  # Extract node schemas from n8n
+│   ├── langgraph-e2e-smoke.sh  # End-to-end smoke test
+│   ├── rollout-gates.sh        # Deployment gate checks
+│   ├── init-openwebui.sh       # Open WebUI init hook
+│   ├── sync-openwebui-minio.sh # Open WebUI <-> MinIO file sync
+│   ├── switch-pdf-loader.sh    # Tika / PyMuPDF toggle
+│   ├── seed-chat-context.sh    # Seed assistant context
+│   └── extend-disk.sh          # Disk expansion helper
+│
+├── ssl/                        # Self-signed TLS certs (gitignored)
+└── backups/                    # Timestamped backups (gitignored)
+```
+
+`qm-llm-bridge/` is intentionally shipped as source-only in this repo. It is not wired into `docker-compose.yml` or Nginx by default.
+
+## Energy Optimization (Tiered Architecture)
+
 ```
 ┌─────────────────────────────────────────────┐
 │ TIER 1: Always Running (Core - ~2-3% CPU)  │
@@ -58,479 +313,37 @@ The platform now features a **revolutionary energy optimization system** that re
 ├─────────────────────────────────────────────┤
 │ • Ollama (AI backend) [Start/Stop Button]   │
 │ • n8n (workflow automation) [Start/Stop]     │
+│ • MCP Gateway + LangGraph [Start/Stop]      │
 │ • MinIO (object storage) [Start/Stop]       │
 │ • Qdrant (vector database) [Start/Stop]      │
 │ • Tika (document processing) [Start/Stop]    │
-│ • Tika-MinIO Processor [Start/Stop]         │
+│ • AFFiNE (collaboration) [Start/Stop]       │
+│ • Browserless (Playwright / web search) [Start/Stop] │
+│ • MCP tool containers (playwright, filesystem, fetch, memory) [Start/Stop] │
 └─────────────────────────────────────────────┘
 ```
 
-#### **Performance Improvements**
-- **CPU Usage**: 30% → **2-3%** (90% reduction) - Further optimized in latest update
-- **Load Average**: 4.20 → **0.8-1.0** (75% reduction)
-- **Memory Usage**: 2.8GB → **1.5-2.0GB** (30-45% reduction)
-- **Battery Life**: 3-4 hours → **8-10 hours** (150% improvement)
-
-#### **Smart Dashboard Controls**
-- **One-Click Service Management**: Start/stop services without SSH
-- **Real-time Status Indicators**: Live service status with response times
-- **Smart Notifications**: Success/error feedback with auto-hide
-- **Resource Monitoring**: Per-service CPU and memory usage display
-- **Status Confirmation**: "Starting..." / "Stopping..." button states
-
-#### **Battery Life by Use Case**
-- **Normal Use** (Open WebUI only): **8-10 hours** (150% improvement)
-- **Document Processing** (+ Tika + MinIO): **6-8 hours** (when processing documents)
-- **Workflow Development** (+ n8n): **6-7 hours** (75% improvement)  
-- **AI Work** (+ Ollama): **2.5 hours** (25% improvement - Ollama is inherently heavy)
-- **Embeddings/RAG** (+ Qdrant): **7-9 hours** (when using vector search)
-
-### Core Services
-- **Open WebUI** - Modern AI chat interface with local model support
-- **n8n** - Workflow automation platform with PostgreSQL backend
-- **Ollama** - Local AI model inference engine
-- **PostgreSQL** - Primary database with optimized settings
-- **Qdrant** - Vector database for AI embeddings
-- **Redis** - Caching layer for improved performance
-- **Apache Tika** - Advanced document processing and content extraction
-- **MinIO** - S3-compatible object storage with web GUI
-
-### Security & Network
-- **Pi-hole** - DNS ad-blocking and network security (Primary DNS on port 53)
-- **Access Control** - Secure access with easy on/off switching
-- **Nginx** - Reverse proxy with SSL/TLS and security headers
-- **Self-signed SSL certificates** - HTTPS encryption
-
-### Document Processing
-- **Apache Tika Default** - Full document processing with OCR and image analysis
-- **Multi-format Support** - Handles 1000+ file formats including PDF, DOC, PPT, images
-- **Advanced OCR** - Text extraction from scanned documents and images
-- **Table Extraction** - Converts tables to structured text with layout preservation
-- **Image Analysis** - Describes content in images, charts, and diagrams
-- **Layout Understanding** - Maintains document structure and formatting
-
-### ⚡ Energy Optimization (NEW in v2.0)
-- **85% CPU Reduction** - Idle CPU usage reduced from 30% to 4.6%
-- **Tiered Service Architecture** - Always-on vs On-demand service management
-- **Dashboard Service Controls** - One-click start/stop for Ollama, n8n, MinIO
-- **Smart Resource Management** - Optimized for laptop battery life
-- **Real-time Status Indicators** - Live service status with response times
-- **Battery Life 2x Improvement** - 3-4 hours → 8-10 hours for normal use
-
-### Mobile Optimizations
-- **Resource limits** - Battery-friendly resource management
-- **Telemetry disabled** - Privacy-focused configuration
-- **Health checks** - Automatic service monitoring
-- **Smart monitoring** - Proactive issue detection with battery-aware recommendations
-- **Service control** - Start/stop buttons for individual services
-- **Simple control** - One script for everything
-
-## Project Structure
-
-```
-.
-├── backups/                    # Timestamped backups (auto + manual)
-├── helper/                     # Landing page helper API (status/updates)
-├── init-scripts/               # Init SQL and setup scripts
-├── monitoring/                 # Prometheus/Grafana configuration
-├── nginx/                      # Nginx reverse proxy config + landing HTML
-├── pihole/                     # Pi-hole dnsmasq configuration
-├── scripts/                    # Operational scripts (init, sync, switch, setup)
-├── ssl/                        # Self‑signed TLS certificates
-├── tika-minio-processor/       # Automated PDF pipeline service
-├── docker-compose.yml          # Service orchestration
-├── env.example                 # Environment template
-├── README.md                   # This documentation
-└── tu-vm.sh                    # Main control script
-```
-
-## Additional Services
-
-- **Tika‑MinIO Processor** (`tika_minio_processor`)
-  - Watches a MinIO bucket for PDFs, sends to Apache Tika, stores `<same>.txt` back
-  - Config: `TIKA_URL`, `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `UPLOADS_BUCKET`, `PROCESSED_BUCKET`
-  - Code: `tika-minio-processor/` (Dockerfile, `auto_processor.py`, `tika_processor.py`)
-
-- **Helper Index** (`ai_helper_index`)
-  - Lightweight Flask API used by the landing page for service status, updates and announcements
-  - Code: `helper/uploader.py`
-
-## Monitoring & Observability
-
-### Intelligent Monitoring System
-The platform includes a comprehensive monitoring system optimized for laptop VMs with **proactive issue detection** and **battery-aware recommendations**.
-
-#### **Daily Health Checks** (9:00 AM)
-- **Container Health Monitoring**: Detects down, unhealthy, and frequently restarting services
-- **Log Error Analysis**: Scans 24h of container logs for critical and warning errors
-- **Update Detection**: Checks for OS and Docker image updates without downloading
-- **Resource Monitoring**: CPU, memory, disk usage with laptop-specific optimizations
-
-#### **Real-Time Dashboard Alerts**
-- **Service Status**: Live monitoring of all container health
-- **Resource Pressure**: Memory >80%, CPU load, disk space <2GB warnings
-- **Battery Management**: Laptop-specific power-saving recommendations
-- **Security Monitoring**: Firewall status, access control, authentication failures
-
-#### **Smart Announcements System**
-- **Color-coded alerts**: Red (critical), Orange (warning), Blue (info), Green (updates)
-- **Priority-based notifications**: Critical, high, medium, low priority levels
-- **Actionable guidance**: Specific commands and recommendations for each alert
-- **Badge indicators**: Visual notifications when new alerts are available
-
-#### **Laptop-Optimized Features**
-- **Battery detection**: Warns when <20% battery, suggests stopping heavy services
-- **Power-saving tips**: Automatic recommendations for battery preservation
-- **Resource limits**: Prevents crashes on limited laptop hardware
-- **Efficient monitoring**: Daily checks only, no constant resource usage
-
-### **Advanced Monitoring**
-- Prometheus and Grafana configuration is provided under `monitoring/`
-- Targets include: Docker engine metrics, Pi‑hole, Nginx, Postgres, Redis (when exporters are enabled)
-- You can extend the stack by adding exporters and a Grafana container to visualize metrics
-
-## Operational Scripts
-
-- `scripts/init-openwebui.sh` – Open WebUI init hook
-- `scripts/sync-openwebui-minio.sh` – Bi-directional sync: Open WebUI uploads → MinIO `tika-pipe`, and Tika `.txt` → back into Open WebUI
-- `scripts/switch-pdf-loader.sh` – Switch between Tika and PyMuPDF loaders
-- `scripts/daily-checkup.sh` – **Daily monitoring system** (runs at 9 AM via cron)
-  - Container health checks (down, unhealthy, excessive restarts)
-  - Log error analysis (critical vs warning errors)
-  - Update detection (OS packages, Docker images)
-  - Resource monitoring (CPU, memory, disk, battery)
-  - Security monitoring (firewall, access control)
-- `extend-disk.sh` – Convenience helper to expand disk on the host
-
-## Security First
-
-### Security Objective: "Secure access control with easy management" ✅
-
-The platform implements **secure access control** with three security levels:
-
-| Level | Description | Use Case |
-|-------|-------------|----------|
-| **🔒 SECURE** | Local network access (recommended) | Daily usage |
-| **🔓 PUBLIC** | Access from internet | Testing/development |
-| **🚫 LOCKED** | No external access | Maintenance |
-
-### Security Features
-- **Container Network Isolation**: All services in isolated Docker containers
-- **Custom Network**: 172.20.0.0/16 internal network
-- **Firewall Protection**: UFW-based access control
-- **TLS Encryption**: HTTPS-only with strong cipher suites
-- **Information Disclosure Protection**: Health endpoints secured
-- **Credential Management**: Secure key generation and rotation
-
-## Simple Control Commands
-
-### Basic Operations
-```bash
-./tu-vm.sh start          # Start all services
-./tu-vm.sh stop           # Stop all services
-./tu-vm.sh restart        # Restart all services
-./tu-vm.sh status         # Show service status
-```
-
-### ⚡ Energy Optimization Commands (v2.0)
-```bash
-# Start only Tier 1 services (energy-efficient)
-./tu-vm.sh start --tier1  # Start core services only (85% CPU reduction)
-
-# Start specific services on-demand
-./tu-vm.sh start-service ollama    # Start Ollama AI backend
-./tu-vm.sh start-service n8n       # Start n8n workflow automation
-./tu-vm.sh start-service minio     # Start MinIO object storage
-
-# Stop specific services
-./tu-vm.sh stop-service ollama     # Stop Ollama (saves ~75% CPU)
-./tu-vm.sh stop-service n8n        # Stop n8n workflow automation
-./tu-vm.sh stop-service minio      # Stop MinIO object storage
-
-# Dashboard service control (recommended)
-# Use the web dashboard at https://tu.local for one-click service management
-```
-
-### Access Control
-```bash
-sudo ./tu-vm.sh secure    # Enable secure access (recommended)
-sudo ./tu-vm.sh public    # Enable public access (less secure)
-sudo ./tu-vm.sh lock      # Block all external access
-```
-
-### Maintenance
-```bash
-sudo ./tu-vm.sh update    # Update system and services
-./tu-vm.sh backup         # Create backup
-sudo ./tu-vm.sh restore file.tar.gz # Restore from backup
-```
-
-## 🔧 Access Setup
-
-### 1. Enable Secure Access
-```bash
-sudo ./tu-vm.sh secure
-```
-
-### 2. Access Services
-Access services at:
-- **Landing**: `https://<vm-IP>`
-- **Open WebUI**: `https://<vm-IP>` (oweb.tu.local)
-- **n8n**: `https://<vm-IP>` (n8n.tu.local)
-- **Pi-hole**: `https://<vm-IP>` (pihole.tu.local)
-- **MinIO Console**: `https://<vm-IP>` (minio.tu.local)
-- **MinIO API**: `https://<vm-IP>` (api.minio.tu.local)
-
-## 🌐 Pi-hole DNS Configuration
-
-### How Pi-hole Works
-
-The VM's Pi-hole serves as the primary DNS server on port 53, providing ad-blocking and privacy protection for all DNS queries.
-
-#### Network Flow Diagram
-```
-Internet
-    ↓
-Host Machine
-    ↓ DNS queries to VM
-VM (<VM-IP>)
-    ↓ DNS queries to Pi-hole container
-Pi-hole Container (172.20.0.16)
-    ↓ Filtered/blocked queries
-External DNS (1.1.1.1, 1.0.0.1)
-```
-
-### Pi-hole Access Levels
-
-| Access Method | Port | Who Can Access | Use Case |
-|---------------|------|----------------|----------|
-| **Local Network** | 53 (DNS) | Host and local devices | DNS queries, ad-blocking |
-| **Localhost** | 8081 (Admin) | Direct VM access | Pi-hole administration |
-| **Internet** | 53 | Blocked | No public access |
-
-### Benefits of Pi-hole DNS
-
-#### Privacy & Security
-- **Ad-blocking** for all DNS queries
-- **No DNS leaks** to tracking services
-- **Privacy protection** - all traffic filtered through your Pi-hole
-- **Custom blocklists** for enhanced protection
-
-#### Performance
-- **Fast DNS resolution** with caching
-- **Low latency** - local DNS server
-- **Reliable** - direct connection to VM
-
-### Pi-hole Configuration
-
-The VM's Pi-hole is configured with:
-- **DNS Server**: `<VM-IP>` (accessible from local network)
-- **External DNS**: Cloudflare (`1.1.1.1`, `1.0.0.1`)
-- **Blocking**: Enabled for ad and tracking domains
-- **Access**: Local network only
-
-## Data & Vector Features
-
-### Open WebUI
-- **Primary DB**: PostgreSQL (users, chats, settings) via `DATABASE_URL`
-- **Vector DB**: Qdrant (embeddings, retrieval) via `QDRANT_URL`
-- **Cache**: Redis via `REDIS_URL`
-- **LLM Backend**: Ollama via `OLLAMA_BASE_URL`
-- **Access**: Only via Nginx at `https://oweb.tu.local`
-- **Persistence**: `postgres_data` and `qdrant_data` volumes
-
-### n8n
-- **Primary DB**: PostgreSQL schema `n8n` (workflows, credentials, executions)
-- **Vector Access**: Workflows can call Qdrant directly using `QDRANT_URL`
-- **Access**: Only via Nginx at `https://n8n.tu.local`
-- **Persistence**: Data stored in PostgreSQL; n8n home at `n8n_data` volume
-
-### MinIO Object Storage
-- **Purpose**: Centralized file storage for all services
-- **Access**: Web GUI at `https://minio.tu.local`, API at `https://api.minio.tu.local`
-- **Benefits**: Scalable storage, multi-service access, S3-compatible
-- **Integration**:
-  - **n8n**: Uses S3 (MinIO) natively for binary data (`N8N_BINARY_DATA_MODE=s3`)
-  - **Open WebUI**: No native S3 backend today — we transparently mount MinIO to the host via rclone and bind-mount that folder into Open WebUI uploads so it “just works”.
-- **Persistence**: `minio_data` volume for all object storage
-
-## 📄 Universal MinIO File Processing Pipeline (Active)
-
-A robust home-server pipeline that automatically processes **any file type** uploaded to MinIO, extracting text content and metadata using Apache Tika with OCR support.
-
-### 🎯 Supported File Types
-
-**Documents**: PDF, Word (.doc, .docx), Excel (.xls, .xlsx), PowerPoint (.ppt, .pptx), OpenDocument (.odt, .ods, .odp), RTF, EPUB, MOBI  
-**Images**: JPG, PNG, GIF, BMP, TIFF, WebP (with OCR)  
-**Text Files**: TXT, Markdown, CSV, JSON, XML, HTML, Log files  
-**Archives**: ZIP, TAR, TAR.GZ, GZ (extracts and processes contents)
-
-### Quick Start
-1. Open MinIO Console at `http://localhost:9001` and log in (default: `admin` / `minio123456` — **change this** in your `.env` before you rely on it).
-2. Upload **any supported file type** into the bucket `tika-pipe`.
-3. The universal processor automatically detects the file type and processes it:
-   - PDFs/images → Tika with OCR
-   - Office docs → Tika text extraction
-   - Text files → Direct extraction
-   - Archives → Extraction + recursive processing
-4. Processed `.txt` files are stored alongside originals with the same name.
-5. Download the `.txt` from MinIO or import it into Open WebUI.
-
-### Configuration (defaults)
-```
-TIKA_URL=http://ai_tika:9998
-MINIO_ENDPOINT=ai_minio:9000
-MINIO_ACCESS_KEY=admin
-MINIO_SECRET_KEY=minio123456
-UPLOADS_BUCKET=tika-pipe
-PROCESSED_BUCKET=tika-pipe
-CHECK_INTERVAL=10  # Check for new files every 10 seconds
-```
-
-### Key Features
-- ✅ **Automatic OCR** for image-based PDFs and scanned documents
-- ✅ **Intelligent file type detection** (extension + MIME type)
-- ✅ **Robust error handling** with retry logic (3 attempts)
-- ✅ **Health monitoring** and statistics
-- ✅ **Idempotent processing** (skips already processed files)
-- ✅ **Metadata extraction** for all supported formats
-- ✅ **Archive extraction** with recursive text extraction
-- ✅ **Real-time dashboard notifications** with progress bars
-- ✅ **Extended timeout support** (15 minutes) for large/complex PDFs
-- ✅ **Status tracking** with detailed progress updates
-
-Notes:
-- Single-bucket mode: inputs and outputs live in `tika-pipe`.
-- Outputs are `same path/same name` with `.txt` extension.
-- Processed `.txt` files are ignored to avoid loops.
-
-### Use with Open WebUI
-- Automated (enabled): PDFs uploaded to Open WebUI are synced to MinIO `tika-pipe`, processed by Tika into `.txt`, then `.txt` files are synced back into Open WebUI’s uploads volume for immediate use.
-- Script: `scripts/sync-openwebui-minio.sh` performs both forward and reverse sync.
-- Behavior:
-  - Forward: All non-`.txt` files from Open WebUI volume → `tika-pipe`
-  - Reverse: Only `.txt` from `tika-pipe` → Open WebUI volume (PDFs excluded)
-  - Idempotent: existing objects are skipped; safe to run repeatedly
-
-### Verify & Troubleshoot
-```bash
-docker logs tika_minio_processor --tail 50
-# Look for: "✅ Stored processed content: <name>.txt" and "✅ Successfully processed: <name>.pdf"
-
-curl -s -o /dev/null -w "%{http_code}\n" http://ai_tika:9998/tika   # expect 200
-```
-
-#### Open WebUI ↔ MinIO Sync Strategy
-- Open WebUI writes to its internal uploads volume (`docker_openwebui_files`).
-- A cron job runs `scripts/sync-openwebui-minio.sh` to:
-  1) Upload new files to MinIO bucket `tika-pipe`
-  2) Mirror Tika-generated `.txt` back into Open WebUI uploads
-- Recommended cron (example, every 2 minutes):
-```bash
-*/2 * * * * MINIO_SYNC_PASSWORD=minio123456 /home/tu/docker/scripts/sync-openwebui-minio.sh >> /var/log/sync-openwebui-minio.log 2>&1
-```
-
-## Backup & Restore
-
-### Automatic Backups
-Backups are created automatically during updates and manually:
-
-```bash
-./tu-vm.sh backup
-```
-
-### Backup Contents
-- **Database**: Full PostgreSQL dump
-- **Configuration**: `.env`, `docker-compose.yml`, `nginx/`, `ssl/`
-- **Volumes**: PostgreSQL, Redis, Qdrant, Pi-hole data
-- **Compressed**: Timestamped `.tar.gz` files
-
-### Restore from Backup
-```bash
-sudo ./tu-vm.sh restore backups/backup_20250823_143353.tar.gz
-```
-
-### Backup Location
-```
-backups/
-├── backup_YYYYMMDD_HHMMSS.tar.gz
-└── update_YYYYMMDD_HHMMSS.tar.gz
-```
-
-## Command Reference (tu-vm.sh)
-
-Use the control script to manage the entire platform. Syntax:
-
-```bash
-./tu-vm.sh [COMMAND] [OPTIONS]
-```
-
-### Basic Commands
-- start: Start all services
-- stop: Stop all services
-- restart: Restart all services
-- status: Show service status
-- logs [service]: Show service logs
-- access: Show access URLs and information
-
-### Access Control
-- secure: Enable secure access (recommended)
-- public: Enable public access (less secure)
-- lock: Block all external access
-
-### Maintenance
-- update: Update system and services
-- test-update: Test update process (dry run)
-- backup [name]: Create backup (keeps last 2 automatically)
-- restore <file>: Restore from a backup file
-- cleanup: Clean old backups/logs and prune Docker
-- setup-minio: One-time setup of MinIO buckets
-
-### Diagnostics
-- health: Check service health
-- test: Test all service endpoints
-- diagnose: Run comprehensive diagnostics
-- info: Show system information
-
-### PDF Processing
-- pdf-status: Check Tika/MinIO/processor status and bucket
-- pdf-test: Process a sample PDF through the pipeline
-- pdf-logs [service]: Logs for tika|minio|processor
-- pdf-reset: Reset the Tika-MinIO pipeline
-
-### System
-- version: Show script version and information
-- help: Show help
-
-### Examples
-```bash
-./tu-vm.sh start                 # Start services
-./tu-vm.sh access                # Show access URLs
-./tu-vm.sh backup nightly        # Create named backup (auto-rotate last 2)
-./tu-vm.sh pdf-status            # Check PDF pipeline
-./tu-vm.sh cleanup               # Enforce backup rotation + prune
-./tu-vm.sh version               # Show script version
-```
-
-## 🛠️ Installation
+### Performance
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| CPU Usage | 30% | 2-3% | 90% reduction |
+| Load Average | 4.20 | 0.8-1.0 | 75% reduction |
+| Memory Usage | 2.8GB | 1.5-2.0GB | 30-45% reduction |
+| Battery Life | 3-4 hours | 8-10 hours | 150% improvement |
+
+## Installation
 
 ### Prerequisites
-- **Host OS**: Windows or macOS (for VM) OR Ubuntu Server directly
-- **VM Software**: Parallels Desktop, VirtualBox, etc. (if using VM)
-- **VM OS**: Ubuntu Server 22.04+ (latest LTS recommended)
-- **RAM**: Minimum 4GB, Recommended 8GB+
+- **Host OS**: Ubuntu Server 22.04+ (LTS recommended)
+- **RAM**: Minimum 4GB, recommended 8GB+
 - **Storage**: 20GB+ free space
-- **Docker**: Version 20.10+ (installed via instructions below)
-- **Docker Compose**: Version 2.0+ (included with Docker)
-- **OpenSSL**: For SSL certificate generation (usually pre-installed)
+- **Docker**: Version 20.10+ with Docker Compose v2
+- **Ports**: 80, 443 (web), 53 (DNS, optional)
 
-### Network Requirements
-- **Ports**: 80, 443 (public/LAN), 53 (DNS) if running Pi-hole for LAN
-- **Domain**: Optional (tu.local as default)
+### Steps
 
-### Installation Steps
-
-#### 1. Update OS and Install Docker
+#### 1. Install Docker
 ```bash
 sudo apt-get update -y && sudo apt-get upgrade -y
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
@@ -543,239 +356,299 @@ sudo usermod -aG docker $USER
 sudo reboot
 ```
 
-#### 2. Get the Code
+#### 2. Clone and Setup
 ```bash
 git clone https://github.com/techuties/tu-vm.git
 cd tu-vm
-```
-
-#### 3. Quick Setup (Recommended - One Command)
-```bash
 ./tu-vm.sh setup
 ```
-This automatically:
-- ✅ Creates `.env` from `env.example`
-- ✅ Auto-detects and sets `HOST_IP`
-- ✅ Generates secure passwords and keys (including `CONTROL_TOKEN`)
-- ✅ Generates self-signed SSL certificates for HTTPS
 
-**OR** manually configure:
+This automatically:
+- Creates `.env` from `env.example`
+- Auto-detects and sets `HOST_IP`
+- Generates secure passwords and keys for all services
+- Generates self-signed SSL certificates
+
+**Or manually:**
 ```bash
 cp env.example .env
-./tu-vm.sh generate-secrets  # Generate secure passwords
+./tu-vm.sh generate-secrets   # Replace all CHANGE_ME placeholders
 ```
 
-**Important**: The `CONTROL_TOKEN` is automatically generated and required for:
-- Dashboard service management (start/stop services)
-- IP allowlist management (adding/removing allowed IPs)
-- Control API endpoints (`/control/*`)
+#### 3. Configure External API Keys (if needed)
 
-After setup, find your `CONTROL_TOKEN` in `.env` and paste it into the dashboard's "Control Token" field to enable service management features.
+These are **not** auto-generated and must be set manually in `.env` if you use the corresponding features:
+
+| Variable | When Needed |
+|----------|-------------|
+| `N8N_API_KEY` | Always (create in n8n UI: Settings > API) |
+| `AFFINE_API_TOKEN` | If using AFFiNE MCP integration |
 
 #### 4. Start Services
 ```bash
 ./tu-vm.sh start
 ```
-**What happens automatically on first start:**
-- ✅ Auto-detects `HOST_IP` if not set
-- ✅ Generates SSL certificates if missing
-- ✅ Starts all Tier 1 services (energy-friendly)
-- ✅ Sets up MinIO buckets and sync jobs
 
-#### 5. Enable Secure Access (Recommended)
+#### 5. Enable Secure Access
 ```bash
 sudo ./tu-vm.sh secure
 ```
-This configures the firewall to allow access only from your local network.
 
-## 🔍 Troubleshooting
+### Post-Setup: Workflow Operator
+
+To enable the LLM-to-n8n pipeline after initial setup:
+
+1. Start n8n and create an API key (Settings > API)
+2. Set `N8N_API_KEY` in `.env`
+3. Start the MCP Gateway and LangGraph Supervisor
+4. Extract n8n node types: `./scripts/extract-n8n-node-types.sh`
+5. The Workflow Operator model profile should already exist in Open WebUI (created during setup)
+
+## Access Points
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| Landing Page | `https://<vm-IP>` | Dashboard with service controls |
+| Open WebUI | `https://oweb.tu.lan` | AI chat interface |
+| n8n | `https://n8n.tu.lan` | Workflow editor |
+| AFFiNE | `https://affine.tu.lan` | Collaborative workspace |
+| MinIO Console | `https://minio.tu.lan` | Object storage GUI |
+| MinIO API | `https://api.minio.tu.lan` | S3-compatible API |
+| Pi-hole | `https://pihole.tu.lan` | DNS admin |
+
+All services are accessed through Nginx. Direct container ports are bound to `127.0.0.1` only.
+
+## Control Commands
+
+### Basic Operations
+```bash
+./tu-vm.sh start              # Start all services
+./tu-vm.sh stop               # Stop all services
+./tu-vm.sh restart            # Restart all services
+./tu-vm.sh status             # Show service status
+./tu-vm.sh logs [service]     # Show service logs
+```
+
+### Energy-Efficient Mode
+```bash
+./tu-vm.sh start --tier1              # Start core services only
+./tu-vm.sh start-service ollama       # Start a specific service
+./tu-vm.sh stop-service ollama        # Stop a specific service
+```
+
+### Access Control
+```bash
+sudo ./tu-vm.sh secure        # Local network only (recommended)
+sudo ./tu-vm.sh public        # Allow internet access
+sudo ./tu-vm.sh lock          # Block all external access
+```
+
+### Maintenance
+```bash
+./tu-vm.sh update-check               # Unified check for updates
+sudo ./tu-vm.sh update                # Unified safe update (recommended)
+sudo ./tu-vm.sh update-rollback       # Roll back to previous snapshot
+./tu-vm.sh backup                     # Create manual backup
+sudo ./tu-vm.sh restore file.tar.gz   # Restore from backup
+```
+
+### Diagnostics
+```bash
+./tu-vm.sh health             # Check service health
+./tu-vm.sh diagnose           # Run comprehensive diagnostics
+./scripts/daily-checkup.sh    # Run daily health + pipeline integrity check
+./scripts/pre-push-check.sh   # Local smoke checks before push
+./scripts/rollout-gates.sh    # Proof-store quality gate (supervised writes vs verification)
+./scripts/langgraph-e2e-smoke.sh  # End-to-end LangGraph + MCP through Nginx
+./scripts/changelog-refresh.sh --write  # Refresh CHANGELOG Unreleased
+```
+
+## Safe Update System
+
+The `scripts/safe-update.sh` script provides a zero-downtime update process:
+
+1. **`--check`** — Identifies available Docker image updates without pulling
+2. **`--apply`** — Full update cycle:
+   - Backs up PostgreSQL database, `docker-compose.yml`, and Open WebUI configs
+   - Pulls new images and pins to SHA256 digests
+   - Restarts services one-by-one with health checks
+   - Re-extracts n8n node types and reloads MCP Gateway
+   - Verifies full pipeline integrity (RAG, model profiles, tools)
+3. **`--rollback`** — Restores the previous `docker-compose.yml` and restarts
+
+Docker images for critical services are pinned to SHA256 digests in `docker-compose.yml` to prevent unexpected breakage from `:latest` tag changes.
+
+## Document Processing
+
+### Apache Tika Pipeline (Default)
+
+Upload files to MinIO bucket `tika-pipe` and they are automatically processed:
+
+- **Supported**: PDF, DOC(X), XLS(X), PPT(X), images (with OCR), archives (ZIP/TAR)
+- **Output**: `.txt` file alongside original with extracted text
+- **OCR**: Automatic for scanned documents and images
+
+### Open WebUI Integration
+
+Files uploaded to Open WebUI are synced to MinIO via `scripts/sync-openwebui-minio.sh`, processed by Tika, and the `.txt` output is synced back.
+
+**Web search and Playwright:** The stock Open WebUI image does not ship Playwright browser binaries. Default stack uses `WEB_LOADER_ENGINE=safe_web` (HTTP fetch). For JavaScript-heavy pages, start the optional Tier 2 service **`browserless`** (`./tu-vm.sh start-service browserless`), set `BROWSERLESS_TOKEN` and `PLAYWRIGHT_WS_URL=ws://browserless:3000/chromium/playwright?token=...` plus `WEB_LOADER_ENGINE=playwright` in `.env`, recreate `open-webui`, and align **Admin → Settings → Web search** (saved settings override env until changed). You can instead use a hosted Browserless URL (`wss://…/chromium/playwright?token=…`) without running the local service.
+
+## Security
+
+### Secrets Management
+
+All secrets are managed through `.env` (gitignored). Running `./tu-vm.sh setup` or `./tu-vm.sh generate-secrets` replaces all placeholder values with cryptographically random strings.
+
+**Important:** `docker-compose.yml` contains fallback default values (e.g., `${POSTGRES_PASSWORD:-ai_password_2024}`) that are used only if `.env` is missing or incomplete. These exist to prevent Docker Compose from failing to parse, but **they must never be used in production**. Always run `generate-secrets` before first start.
+
+### What is protected
+
+| Asset | Protection |
+|-------|------------|
+| `.env` | Gitignored, contains all secrets |
+| `ssl/` | Gitignored, auto-generated self-signed certs |
+| `backups/` | Gitignored, local only |
+| `mcp-gateway/n8n_node_types.json` | Gitignored (4.5MB auto-generated) |
+| `nginx/dynamic/` | Gitignored (runtime allowlists) |
+| Docker volumes | Not in repo, managed by Docker |
+
+### What requires manual attention
+
+| Item | Action |
+|------|--------|
+| `N8N_API_KEY` | Create in n8n UI, paste into `.env` |
+| `AFFINE_API_TOKEN` | Create in AFFiNE UI, paste into `.env` |
+| `CONTROL_TOKEN` | Auto-generated, paste into dashboard for service control |
+| MinIO root password | Auto-generated, but change if exposed to network |
+| Pi-hole password | Auto-generated, access via `https://pihole.tu.lan` |
+
+### Network Security
+
+| Level | Command | Use Case |
+|-------|---------|----------|
+| Secure | `sudo ./tu-vm.sh secure` | Local network only (recommended) |
+| Public | `sudo ./tu-vm.sh public` | Internet-accessible |
+| Locked | `sudo ./tu-vm.sh lock` | No external access |
+
+### Security Features
+- Container network isolation (172.20.0.0/16)
+- UFW-based firewall with allowlisting
+- TLS encryption on all external endpoints
+- SCRAM-SHA-256 for PostgreSQL authentication
+- Token-based API auth (MCP Gateway, LangGraph, Control API)
+- HMAC proof-of-execution signing
+- Rate limiting on MCP and LangGraph endpoints
+- Constant-time token comparison (prevents timing attacks)
+- Webhook path traversal validation
+- No secrets in git history
+
+## Monitoring
+
+### Daily Health Checks (9:00 AM cron)
+
+The `scripts/daily-checkup.sh` script runs automatically and checks:
+
+- **Container health** — detects down, unhealthy, and restarting services
+- **Log error analysis** — scans 24h of logs for critical/warning errors
+- **Update detection** — checks for OS and Docker image updates
+- **Resource monitoring** — CPU, memory, disk, battery
+- **Pipeline integrity** — verifies MCP Gateway node types, RAG config, model profiles
+
+### Dashboard Alerts
+
+| Priority | Color | Examples |
+|----------|-------|---------|
+| Critical | Red | Services down, critical errors, low battery |
+| High | Orange | Unhealthy services, memory pressure |
+| Medium | Blue | Public access enabled, battery warnings |
+| Low | Green | System status, power-saving tips |
+
+## Backup & Restore
+
+### Automatic Backups
+```bash
+./tu-vm.sh backup              # Manual backup
+./scripts/safe-update.sh --apply   # Automatic pre-update backup
+```
+
+### Backup Contents
+- Full PostgreSQL dump
+- Configuration: `.env`, `docker-compose.yml`, `nginx/`, `ssl/`
+- Volume data: PostgreSQL, Redis, Qdrant, Pi-hole
+- Compressed timestamped `.tar.gz` files
+
+### Restore
+```bash
+sudo ./tu-vm.sh restore backups/backup_YYYYMMDD_HHMMSS.tar.gz
+```
+
+## Troubleshooting
 
 ### Services Not Starting
 ```bash
 ./tu-vm.sh status
-docker compose logs
+docker compose logs <service-name>
+docker compose config   # Validate compose file
 ```
 
-### Can't Access Services
+### MCP Gateway Issues
 ```bash
-sudo ./tu-vm.sh secure
-./tu-vm.sh status
+docker logs ai_mcp_gateway --tail 50
+# Check node types loaded:
+docker exec ai_mcp_gateway curl -s http://localhost:9002/health
+# Reload node types after n8n update:
+./scripts/extract-n8n-node-types.sh
 ```
 
-### Backup/Restore Issues
+### Workflow Operator Not Working
 ```bash
-./tu-vm.sh backup
-sudo ./tu-vm.sh restore backup_file.tar.gz
+# Check model exists in Open WebUI database:
+docker exec ai_postgres psql -U ai_admin -d ai_platform -c "SELECT id, base_model_id FROM model WHERE id = 'workflow-operator';"
+
+# Check tool connectivity:
+docker exec ai_mcp_gateway curl -s http://localhost:9002/openapi-tools.json | python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())['paths']), 'tools')"
 ```
 
-### Docker Compose Validation
-
-If `docker compose` shows a validation error, ensure all service definitions are under the `services:` section and volumes are under `volumes:`. A common mistake is placing service fields (like `build`, `restart`, `environment`) under `volumes:`.
-
+### Open WebUI STT Error
 ```bash
-# Validate and view the fully rendered config
-docker compose config
+./tu-vm.sh check-openwebui-audio
+./tu-vm.sh fix-openwebui-audio whisper-1
 ```
 
-### Health Check Notes
-
-- Open WebUI may briefly fail health checks during startup while UI assets load; this resolves automatically.
-- Verify directly from inside the container:
-
+### RAG Embeddings Not Working
 ```bash
-docker exec ai_openwebui curl -sf http://localhost:8080/api/health || echo "ui not ready"
+# Verify RAG config hasn't drifted back to Ollama:
+docker exec ai_postgres psql -U ai_admin -d ai_platform -c "SELECT key, value FROM config WHERE key = 'rag';" | head -5
 ```
 
-## 🚨 Security Considerations
-
-### Before Implementation
-- ❌ Services exposed to internet
-- ❌ DNS amplification risk
-- ❌ Information disclosure
-- ❌ No access control
-- ❌ Default credentials
-
-### After Implementation
-- ✅ Services isolated from internet
-- ✅ DNS protected from amplification
-- ✅ Information disclosure removed
-- ✅ Strong access control
-- ✅ Secure credentials
-- ✅ Easy on/off switching
-
-## 📚 Documentation
-
-### Quick References
-- **Quick Reference**: [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
-- **Changelog**: [CHANGELOG.md](CHANGELOG.md) - Complete history of changes and new features
-
-### External References
-- [Ubuntu Server](https://ubuntu.com/server/docs)
-- [Docker Engine](https://docs.docker.com/engine/install/ubuntu/)
-- [Docker Compose](https://docs.docker.com/compose/)
-
-## 🎯 Security Objective Verification
-
-### ✅ Achieved Goals
-1. **Secure Communication**: Local network access with firewall protection
-2. **Internet Isolation**: Services not accessible from internet by default
-3. **Easy Control**: Simple commands to switch access modes
-4. **Maximum Security**: Secure access by default
-5. **Flexibility**: Can enable public access when needed
-
-### 🔒 Security Posture
-- **Attack Surface**: Minimized through secure access control
-- **Access Control**: Strong firewall-based access control
-- **Network Security**: Isolated from internet threats
-- **Monitoring**: Easy status checking and control
-
-## 🚨 Smart Monitoring System
-
-### **Dashboard Features**
-- **Service Control**: Start/stop buttons for individual services (Ollama, n8n, MinIO)
-- **Control Token Authentication**: Secure token-based access for service management and allowlist control
-- **Real-time Status Indicators**: Live service status with response times and color coding
-- **Smart Notifications**: Success/error feedback with auto-hide notifications
-- **Resource Monitoring**: Per-service CPU and memory usage display
-- **Health Monitoring**: Real-time container status with color-coded indicators
-- **Resource Alerts**: CPU, memory, disk usage warnings with laptop-specific guidance
-- **Announcements Dropdown**: Centralized alert system with priority-based notifications
-
-### **Daily Monitoring** (9:00 AM Cron Job)
-```bash
-# Manual execution
-./scripts/daily-checkup.sh
-
-# Check status files
-cat /tmp/tu-vm-health-status.json    # Container health
-cat /tmp/tu-vm-log-status.json       # Log error analysis  
-cat /tmp/tu-vm-update-status.json    # Update availability
-```
-
-### **Alert Types & Priorities**
-| Priority | Color | Examples |
-|----------|-------|----------|
-| **Critical** | 🔴 Red | Services down, critical errors, low battery |
-| **High** | 🟠 Orange | Unhealthy services, memory pressure, firewall disabled |
-| **Medium** | 🔵 Blue | Public access enabled, battery mode warnings |
-| **Low** | 🟢 Green | System status, power-saving tips |
-
-### **Laptop-Specific Features**
-- **Battery Detection**: Automatic power-saving recommendations
-- **Resource Optimization**: Prevents crashes on limited hardware
-- **Efficient Monitoring**: Daily checks only, no constant resource usage
-- **Mobile-Friendly**: Responsive dashboard with touch-friendly controls
-
-## 📄 Document Processing
-
-### PDF Processing Options
-The platform supports two powerful PDF processing engines:
-
-#### **Apache Tika (Default - Recommended)**
-- 🌐 **Universal** - Handles 1000+ file formats
-- 🔍 **Advanced OCR** - Reads scanned documents and images
-- 📊 **Table extraction** - Converts tables to structured text
-- 🖼️ **Image analysis** - Describes charts, diagrams, and visual content
-- 📈 **Layout understanding** - Preserves document structure and formatting
-- ✅ **No reshape errors** - Robust handling of all PDF types
-
-#### **PyMuPDF (Alternative)**
-- ⚡ **Fast and lightweight** - Optimized for speed
-- 🎯 **PDF-focused** - Excellent text extraction
-- 💾 **Minimal resources** - Lower memory usage
-- 📝 **Text-only** - No image processing capabilities
-
-### Switching PDF Processors
-```bash
-# Switch to Tika (recommended - full document processing)
-./scripts/switch-pdf-loader.sh tika
-
-# Switch to PyMuPDF (fast, text-only)
-./scripts/switch-pdf-loader.sh pymupdf
-
-# Check current configuration
-./scripts/switch-pdf-loader.sh
-```
-
-### Troubleshooting PDF Issues
-If you encounter PDF processing errors:
-1. **Switch to Tika**: `./scripts/switch-pdf-loader.sh tika`
-2. **Check logs**: `docker logs ai_openwebui`
-3. **Verify Tika**: `docker logs ai_tika`
-
-## 🎉 Conclusion
-
-The TechUties VM provides a **secure, private AI platform** with:
-- **One simple script** for all operations
-- **Secure access** by default
-- **Easy security control** with three levels
-- **Comprehensive backup/restore** system
-- **Advanced document processing** with PyMuPDF and Apache Tika
-- **Home-lab ready** architecture (LAN-first)
-- **⚡ Revolutionary energy optimization** - 85% CPU reduction, 2x battery life improvement
-
-### 🚀 New in v2.0: Energy Optimization
-- **85% CPU Reduction**: From 30% to 4.6% idle CPU usage
-- **2x Battery Life**: 3-4 hours → 8-10 hours for normal use
-- **Smart Service Management**: Dashboard controls for on-demand services
-- **Tiered Architecture**: Always-on core services + on-demand AI/automation
-- **Real-time Monitoring**: Live status indicators with response times
-- **Battery-Aware Design**: Optimized for laptop usage patterns
-
-**Perfect for**: Private AI development, secure automation workflows, isolated AI research environments, and **mobile/laptop usage with extended battery life**.
-
----
-
-**Security Level**: 🔒 **HIGH** - Secure access with easy control  
-**Complexity**: 🟢 **LOW** - One script for everything  
-**Maintenance**: 🟢 **EASY** - Simple commands and automatic backups 
-
-## Production notes (important)
+## Production Notes
 
 This project is designed to be **safe-by-default on a home network (LAN)**.
 
-If you plan to expose anything to the public internet, do these first:
-- **Change all default passwords** (MinIO, Pi-hole, any admin UIs).
-- **Use real TLS certificates** (not self-signed) and keep the VM updated.
-- **Keep admin ports on localhost** and only expose via Nginx with strict rules.
-- **Review the allowlist + control token**: The `CONTROL_TOKEN` (in `.env`) is required for dashboard service management and IP allowlist control. Rotate it regularly if you share a browser/device. Generate a new one with `./tu-vm.sh generate-secrets`.
+If exposing to the public internet:
+- Run `./tu-vm.sh generate-secrets` to replace all default passwords
+- Use real TLS certificates (not self-signed)
+- Keep admin ports on localhost; only expose via Nginx
+- Rotate `CONTROL_TOKEN` regularly
+- Review firewall rules with `sudo ./tu-vm.sh secure`
+- Set `N8N_REQUIRE_API_KEY=true` (default)
+
+## Quick References
+- **Quick Reference**: [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+
+### External Documentation
+- [Open WebUI Docs](https://docs.openwebui.com/)
+- [n8n Documentation](https://docs.n8n.io/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Qdrant Documentation](https://qdrant.tech/documentation/)
+- [MinIO Documentation](https://min.io/docs/minio/linux/index.html)
+- [Apache Tika](https://tika.apache.org/)
+- [AFFiNE](https://affine.pro/docs)
+
+---
+
+**Security Level**: HIGH - Token-based auth, TLS, network isolation, HMAC signing
+**Complexity**: LOW - One script for everything (`tu-vm.sh`)
+**Maintenance**: EASY - Safe updates with backup/rollback, daily health checks

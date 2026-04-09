@@ -3,7 +3,7 @@ services:
   # Pinned to 15-alpine: existing volume was initialized with PostgreSQL 15; 18+ also
   # changed data layout. Use 15 to match current data, or migrate with pg_upgrade.
   postgres:
-    image: postgres:15-alpine
+    image: postgres@sha256:2bf082886c059b4cf5af3f9e8d3a8916c35699062899061c13bc32d5921c631a
     container_name: ai_postgres
     restart: unless-stopped
     environment:
@@ -43,7 +43,7 @@ services:
 
   # Redis Cache (optimized)
   redis:
-    image: redis:alpine
+    image: redis@sha256:81b6f81d6a6c5b9019231a2e8eb10085e3a139a34f833dcc965a8a959b040b72
     container_name: ai_redis
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password_2024} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru} --save "" --appendonly no --tcp-keepalive 60
@@ -73,7 +73,7 @@ services:
   # Qdrant Vector Database (on-demand - Tier 2)
   # Only needed when using embeddings/RAG features
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant@sha256:94728574965d17c6485dd361aa3c0818b325b9016dac5ea6afec7b4b2700865f
     container_name: ai_qdrant
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     # keep internal only; access via internal URLs or add an authenticated proxy if needed
@@ -98,10 +98,10 @@ services:
 
   # Ollama AI Models (on-demand - Tier 2)
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama@sha256:bf240c2847a8bc7b2c630b85dab5d1dedcba257b551d5fc9b290ce544d59272a
     container_name: ai_ollama
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
-    # ports removed to enforce Nginx-only access (ollama.tu.local)
+    # ports removed to enforce Nginx-only access (ollama.tu.lan)
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -122,8 +122,9 @@ services:
 
 
   # Open WebUI (lightweight)
+  # Pin to digest for update safety; bump via: scripts/safe-update.sh
   open-webui:
-    image: ghcr.io/open-webui/open-webui:latest
+    image: ghcr.io/open-webui/open-webui@sha256:b80a96e14bb15ea79aec96fbdad4aeab6b3ee7b61520d83b5dbc8c4f47d433a9
     container_name: ai_openwebui
     restart: unless-stopped
     depends_on:
@@ -132,24 +133,25 @@ services:
       redis:
         condition: service_started
     ports:
-      # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.local)
+      # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.lan)
       - "127.0.0.1:8080:8080"
     environment:
       OLLAMA_BASE_URL: http://ollama:11434  # Will be dynamically checked
       WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:-webui_secret_key_2024}
       WEBUI_JWT_SECRET_KEY: ${WEBUI_JWT_SECRET_KEY:-jwt_secret_key_2024}
       DATABASE_URL: postgresql://${POSTGRES_USER:-ai_admin}:${POSTGRES_PASSWORD:-ai_password_2024}@postgres:5432/${POSTGRES_DB:-ai_platform}
-      QDRANT_URL: http://qdrant:6333
+      VECTOR_DB: qdrant
+      QDRANT_URI: http://qdrant:6333
       REDIS_URL: redis://default:${REDIS_PASSWORD:-redis_password_2024}@redis:6379
       # HuggingFace download stability:
       # Open WebUI may use HuggingFace "xet" transfer which can get stuck in some environments.
       # Disabling it forces the classic download path.
       HF_HUB_DISABLE_XET: "1"
-      # If HuggingFace downloads are blocked/slow (or upstream endpoints change),
-      # Open WebUI can get stuck preloading the default embedding model and never bind to :8080.
-      # Setting these empty makes startup resilient; you can re-enable embeddings later.
-      RAG_EMBEDDING_MODEL: ""
-      USE_EMBEDDING_MODEL_DOCKER: ""
+      RAG_EMBEDDING_ENGINE: ""
+      RAG_EMBEDDING_MODEL: "sentence-transformers/all-MiniLM-L6-v2"
+      RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE: "false"
+      RAG_CHUNK_SIZE: "1000"
+      RAG_CHUNK_OVERLAP: "200"
       # Prevent startup hangs on pip installs for Tools/Functions dependencies
       # (Open WebUI runs pip installs on boot; keep timeouts low if outbound access is flaky)
       PIP_OPTIONS: "--default-timeout=10 --retries=1"
@@ -171,6 +173,12 @@ services:
       PDF_EXTRACT_IMAGES: "false"
       # Enable Tika metadata extraction
       TIKA_METADATA_EXTRACTION: "true"
+      # Web search content fetch: official image often lacks Playwright browser binaries.
+      # If Admin > Web Search is set to "playwright" and saved, DB overrides this; switch UI to safe_web or run playwright install in the container.
+      WEB_LOADER_ENGINE: "${WEB_LOADER_ENGINE:-safe_web}"
+      # Remote Playwright (optional): start Tier 2 `browserless` and set PLAYWRIGHT_WS_URL (see env.example).
+      PLAYWRIGHT_WS_URL: ${PLAYWRIGHT_WS_URL:-}
+      PLAYWRIGHT_TIMEOUT: ${PLAYWRIGHT_TIMEOUT:-60000}
     volumes:
       # Shared volume for file sync between Open WebUI and MinIO
       - openwebui_files:/app/backend/data/uploads
@@ -204,11 +212,11 @@ services:
   # Apache Tika for robust content extraction with OCR support (on-demand - Tier 2)
   # Only needed when processing documents
   tika:
-    image: apache/tika:latest-full  # Full version includes Tesseract OCR for image-based PDFs
+    image: apache/tika@sha256:2a565f1ea1290bdcb74a7d35957d16a989ed44ef98790dcdcc28121d728fa583-full  # Full version includes Tesseract OCR for image-based PDFs
     container_name: ai_tika
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     environment:
-      - JAVA_TOOL_OPTIONS=-Xms256m -Xmx512m  # Increased memory for OCR processing
+      - JAVA_TOOL_OPTIONS=-Xms512m -Xmx1536m  # More headroom for large OCR-heavy files
     command: ["--config", "/tika-config/tika-config.xml"]  # Custom config with extended timeout (15 minutes)
     volumes:
       - ./tika-config/tika-config.xml:/tika-config/tika-config.xml:ro
@@ -221,7 +229,7 @@ services:
 
   # MinIO Object Storage with GUI (on-demand - Tier 2)
   minio:
-    image: minio/minio:latest
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: ai_minio
     restart: "no"  # Manual start only via dashboard
     ports:
@@ -232,8 +240,8 @@ services:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio123456}
       MINIO_CONSOLE_ADDRESS: ":9001"
-      MINIO_SERVER_URL: "https://api.minio.tu.local"
-      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.local"
+      MINIO_SERVER_URL: "https://api.minio.tu.lan"
+      MINIO_BROWSER_REDIRECT_URL: "https://minio.tu.lan"
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -253,44 +261,35 @@ services:
 
   # n8n Workflow Automation (on-demand - Tier 2)
   n8n:
-    image: n8nio/n8n:latest
+    # Pin to digest for update safety; bump via: scripts/safe-update.sh
+    image: n8nio/n8n@sha256:94f108ec1ed2ee17198fff2432d580b184b54c609bc23e27889f5ed6b98a4789
     container_name: ai_n8n
     restart: "no"  # Manual start only via dashboard
+    command: start
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      N8N_BASIC_AUTH_ACTIVE: "true"
-      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
-      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin123}
-      N8N_HOST: n8n.${DOMAIN}
+      N8N_HOST: n8n.tu.lan
       N8N_PORT: 5678
       N8N_PROTOCOL: https
-      WEBHOOK_URL: https://n8n.${DOMAIN}/
+      WEBHOOK_URL: https://n8n.tu.lan/
+      N8N_EDITOR_BASE_URL: https://n8n.tu.lan/
       GENERIC_TIMEZONE: Europe/Zurich
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b}
-      # PostgreSQL Database Configuration
       DB_TYPE: postgresdb
-      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_HOST: 172.20.0.10
       DB_POSTGRESDB_PORT: 5432
       DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-ai_platform}
       DB_POSTGRESDB_USER: ${POSTGRES_USER:-ai_admin}
       DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-ai_password_2024}
       DB_POSTGRESDB_SCHEMA: n8n
-      QDRANT_URL: http://qdrant:6333
-      # Mobile optimizations
-      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
-      N8N_RUNNERS_ENABLED: "true"
-      # Reduce logging for battery
+      DB_POSTGRESDB_CONNECTION_TIMEOUT: 30000
+      PGSSLMODE: disable
       N8N_LOG_LEVEL: "warn"
-      # Disable telemetry
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_TELEMETRY_ENABLED: "false"
-      # Binary data storage in S3 (MinIO)
-      N8N_BINARY_DATA_MODE: s3
-      N8N_S3_ENDPOINT: ai_minio:9000
-      N8N_S3_BUCKET: n8n-workflows
-      N8N_S3_REGION: us-east-1
-      N8N_S3_ACCESS_KEY: admin
-      N8N_S3_ACCESS_SECRET: ${MINIO_ROOT_PASSWORD:-minio123456}
-      N8N_S3_FORCE_PATH_STYLE: 'true'
+      N8N_BINARY_DATA_MODE: filesystem
     # Prefer access via Nginx (443). If you need direct host access, re-add 5678 mapping.
     volumes:
       - n8n_data:/home/node/.n8n
@@ -303,38 +302,256 @@ services:
     #   interval: 60s
     #   timeout: 10s
     #   retries: 2
-    deploy:
-      resources:
-        limits:
-          memory: 768M  # Reduced from 1G for efficiency
-          cpus: '0.4'   # Reduced from 0.5 for efficiency
-        reservations:
-          memory: 512M
-          cpus: '0.25'
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # AFFiNE collaborative workspace (on-demand - Tier 2)
+  affine:
+    image: ghcr.io/toeverything/affine@sha256:638893c8f62bb7fd0b3028863096f2b057e3c7ca2ac5163574c333698a331f33
+    container_name: ai_affine
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    depends_on:
+      affine_redis:
+        condition: service_healthy
+      affine_postgres:
+        condition: service_healthy
+      affine_migration:
+        condition: service_completed_successfully
+    environment:
+      REDIS_SERVER_HOST: affine_redis
+      REDIS_SERVER_PORT: 6379
+      DATABASE_URL: postgresql://${AFFINE_DB_USER:-affine}:${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}@affine_postgres:5432/${AFFINE_DB_NAME:-affine}
+      AFFINE_SERVER_HOST: affine.tu.lan
+      AFFINE_SERVER_HTTPS: "true"
+      AFFINE_SERVER_EXTERNAL_URL: https://affine.tu.lan
+      AFFINE_INDEXER_ENABLED: "false"
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.22
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_migration:
+    image: ghcr.io/toeverything/affine@sha256:638893c8f62bb7fd0b3028863096f2b057e3c7ca2ac5163574c333698a331f33
+    container_name: ai_affine_migration
+    restart: "no"  # one-shot migration job for AFFiNE
+    command: ["sh", "-c", "node ./scripts/self-host-predeploy.js"]
+    depends_on:
+      affine_redis:
+        condition: service_healthy
+      affine_postgres:
+        condition: service_healthy
+    environment:
+      REDIS_SERVER_HOST: affine_redis
+      REDIS_SERVER_PORT: 6379
+      DATABASE_URL: postgresql://${AFFINE_DB_USER:-affine}:${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}@affine_postgres:5432/${AFFINE_DB_NAME:-affine}
+      AFFINE_SERVER_HOST: affine.tu.lan
+      AFFINE_SERVER_HTTPS: "true"
+      AFFINE_SERVER_EXTERNAL_URL: https://affine.tu.lan
+      AFFINE_INDEXER_ENABLED: "false"
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.23
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_postgres:
+    image: pgvector/pgvector@sha256:7d400e340efb42f4d8c9c12c6427adb253f726881a9985d2a471bf0eed824dff
+    container_name: ai_affine_postgres
+    restart: "no"  # on-demand (Tier 2) - starts with affine service
+    environment:
+      POSTGRES_USER: ${AFFINE_DB_USER:-affine}
+      POSTGRES_PASSWORD: ${AFFINE_DB_PASSWORD:?Set AFFINE_DB_PASSWORD in .env}
+      POSTGRES_DB: ${AFFINE_DB_NAME:-affine}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - affine_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AFFINE_DB_USER:-affine} -d ${AFFINE_DB_NAME:-affine}"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.24
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  affine_redis:
+    image: redis@sha256:81b6f81d6a6c5b9019231a2e8eb10085e3a139a34f833dcc965a8a959b040b72
+    container_name: ai_affine_redis
+    restart: "no"  # on-demand (Tier 2) - starts with affine service
+    command: redis-server --save "" --appendonly no --tcp-keepalive 60
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.25
     dns:
       - 127.0.0.11
       - 172.20.0.16
 
 
+  # MCP Gateway (on-demand - Tier 2)
+  mcp_gateway:
+    build: ./mcp-gateway
+    container_name: ai_mcp_gateway
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    environment:
+      MCP_GATEWAY_TOKEN: ${MCP_GATEWAY_TOKEN:-}
+      MCP_ALLOWED_SERVERS: ${MCP_ALLOWED_SERVERS:-affine,n8n,kb}
+      AFFINE_MCP_ENABLED: ${AFFINE_MCP_ENABLED:-true}
+      N8N_MCP_ENABLED: ${N8N_MCP_ENABLED:-true}
+      KB_MCP_ENABLED: ${KB_MCP_ENABLED:-true}
+      KB_PUBLIC_READ_ENABLED: ${KB_PUBLIC_READ_ENABLED:-true}
+      AFFINE_BASE_URL: ${AFFINE_BASE_URL:-http://ai_affine:3010}
+      AFFINE_API_TOKEN: ${AFFINE_API_TOKEN:-}
+      AFFINE_COOKIE: ${AFFINE_COOKIE:-}
+      AFFINE_EMAIL: ${AFFINE_EMAIL:-}
+      AFFINE_PASSWORD: ${AFFINE_PASSWORD:-}
+      N8N_INTERNAL_URL: ${N8N_INTERNAL_URL:-http://ai_n8n:5678}
+      N8N_API_KEY: ${N8N_API_KEY:-}
+      N8N_REQUIRE_API_KEY: ${N8N_REQUIRE_API_KEY:-true}
+      N8N_USER: ${N8N_USER:-admin}
+      N8N_PASSWORD: ${N8N_PASSWORD:-}
+      N8N_ALLOWED_WORKFLOW_IDS: ${N8N_ALLOWED_WORKFLOW_IDS:-}
+      N8N_TLS_VERIFY: ${N8N_TLS_VERIFY:-false}
+      TENANT_REQUESTS_PER_MINUTE: ${TENANT_REQUESTS_PER_MINUTE:-120}
+      TENANT_MAX_CONCURRENCY: ${TENANT_MAX_CONCURRENCY:-4}
+      TENANT_DAILY_WRITES: ${TENANT_DAILY_WRITES:-4000}
+      MCP_EXECUTION_KILL_SWITCH: ${MCP_EXECUTION_KILL_SWITCH:-false}
+      MCP_PROOF_STORE_PATH: ${MCP_PROOF_STORE_PATH:-/var/lib/mcp-gateway/proof-store.json}
+      MCP_DEDUPE_STORE_PATH: ${MCP_DEDUPE_STORE_PATH:-/var/lib/mcp-gateway/dedupe-store.json}
+      MCP_DLQ_STORE_PATH: ${MCP_DLQ_STORE_PATH:-/var/lib/mcp-gateway/dlq-store.json}
+      MCP_PROOF_SIGNING_KEY: ${MCP_PROOF_SIGNING_KEY:-}
+      MCP_WRITE_APPROVAL_REQUIRED: ${MCP_WRITE_APPROVAL_REQUIRED:-false}
+      MCP_WRITE_APPROVAL_TOKENS: ${MCP_WRITE_APPROVAL_TOKENS:-}
+      MCP_AFFINE_COMMAND: ${MCP_AFFINE_COMMAND:-affine-mcp}
+      MCP_AFFINE_ARGS: ${MCP_AFFINE_ARGS:-}
+      KB_MINIO_ENDPOINT: ${KB_MINIO_ENDPOINT:-minio:9000}
+      KB_MINIO_ACCESS_KEY: ${KB_MINIO_ACCESS_KEY:-admin}
+      KB_MINIO_SECRET_KEY: ${KB_MINIO_SECRET_KEY:-minio123456}
+      KB_MINIO_SECURE: ${KB_MINIO_SECURE:-false}
+      KB_PUBLIC_BUCKET: ${KB_PUBLIC_BUCKET:-kb-public}
+      KB_PRIVATE_BUCKET: ${KB_PRIVATE_BUCKET:-kb-private}
+      KB_INDEX_PREFIX: ${KB_INDEX_PREFIX:-.index/}
+      KB_TIKA_URL: ${KB_TIKA_URL:-http://tika:9998}
+      KB_TIKA_TIMEOUT_SECONDS: ${KB_TIKA_TIMEOUT_SECONDS:-45}
+      KB_MAX_OBJECT_BYTES: ${KB_MAX_OBJECT_BYTES:-10485760}
+      KB_MAX_EXTRACT_CHARS: ${KB_MAX_EXTRACT_CHARS:-120000}
+      LANGGRAPH_SUPERVISOR_ENABLED: ${LANGGRAPH_SUPERVISOR_ENABLED:-true}
+      LANGGRAPH_SUPERVISOR_REQUIRED: ${LANGGRAPH_SUPERVISOR_REQUIRED:-true}
+      LANGGRAPH_SUPERVISOR_URL: ${LANGGRAPH_SUPERVISOR_URL:-http://ai_langgraph_supervisor:9010}
+      LANGGRAPH_SUPERVISOR_TOKEN: ${LANGGRAPH_SUPERVISOR_TOKEN:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - mcp_gateway_data:/var/lib/mcp-gateway
+      - ./mcp-gateway/n8n_node_types.json:/app/n8n_node_types.json:ro
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.26
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9002/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # LangGraph supervisor for deterministic execution and verification
+  langgraph_supervisor:
+    build: ./langgraph-supervisor
+    container_name: ai_langgraph_supervisor
+    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    environment:
+      MCP_GATEWAY_URL: ${MCP_GATEWAY_URL:-http://ai_mcp_gateway:9002}
+      MCP_GATEWAY_TOKEN: ${MCP_GATEWAY_TOKEN:-}
+      LANGGRAPH_SUPERVISOR_TOKEN: ${LANGGRAPH_SUPERVISOR_TOKEN:-}
+      LANGGRAPH_STRICT_VERIFY: ${LANGGRAPH_STRICT_VERIFY:-true}
+      LANGGRAPH_AUDIT_PATH: ${LANGGRAPH_AUDIT_PATH:-/var/lib/langgraph-supervisor/audit.json}
+      LANGGRAPH_CHECKPOINT_PATH: ${LANGGRAPH_CHECKPOINT_PATH:-/var/lib/langgraph-supervisor/checkpoints.json}
+      LANGGRAPH_DEDUPE_PATH: ${LANGGRAPH_DEDUPE_PATH:-/var/lib/langgraph-supervisor/dedupe.json}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - langgraph_supervisor_data:/var/lib/langgraph-supervisor
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.29
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9010/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
+  # Headless Chromium for Open WebUI web search when WEB_LOADER_ENGINE=playwright (Tier 2 / on-demand).
+  # Connect URL format (Playwright protocol): ws://browserless:3000/chromium/playwright?token=YOUR_TOKEN
+  browserless:
+    image: ghcr.io/browserless/chromium:v2.46.0@sha256:7754b85d822000a15df9bfcc9872016bd163384f3c223e2f4b5971f0a5e9c038
+    container_name: ai_browserless
+    restart: "no"
+    environment:
+      TOKEN: ${BROWSERLESS_TOKEN:-}
+    networks:
+      ai_network:
+        ipv4_address: 172.20.0.27
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'if [ -n "$$TOKEN" ]; then curl -fsS -o /dev/null "http://127.0.0.1:3000/json/version?token=$$TOKEN"; else curl -fsS -o /dev/null http://127.0.0.1:3000/json/version; fi',
+        ]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.25"
+    dns:
+      - 127.0.0.11
+      - 172.20.0.16
+
   # Pi-hole for Ad Blocking & DNS Security (Primary DNS on port 53)
   pihole:
-    image: pihole/pihole:latest
+    image: pihole/pihole@sha256:ee348529cea9601df86ad94d62a39cad26117e1eac9e82d8876aa0ec7fe1ba27
     container_name: ai_pihole
     restart: unless-stopped
     dns:
       - 1.1.1.1
       - 9.9.9.9
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
-      # Admin UI should be reachable only from localhost; external access via Nginx vhost (pihole.tu.local)
+      - "${HOST_IP:-127.0.0.1}:53:53/udp"
+      - "${HOST_IP:-127.0.0.1}:53:53/tcp"
+      # Admin UI should be reachable only from localhost; external access via Nginx vhost (pihole.tu.lan)
       - "127.0.0.1:8081:80"
     environment:
       TZ: 'Europe/Zurich'
       WEBPASSWORD: ${PIHOLE_PASSWORD:-'SwissPiHole2024!'}
       PIHOLE_DNS_: '1.1.1.1;9.9.9.9'
       DNSMASQ_USER: pihole
-      VIRTUAL_HOST: "pihole.tu.local"
+      VIRTUAL_HOST: "pihole.tu.lan"
       PROXY_LOCATION: "pihole"
       ServerIP: "${HOST_IP}"
       DNSMASQ_LISTENING: all
@@ -374,7 +591,7 @@ services:
 
   # Nginx Reverse Proxy (lightweight)
   nginx:
-    image: nginx:alpine
+    image: nginx@sha256:e7257f1ef28ba17cf7c248cb8ccf6f0c6e0228ab9c315c152f9c203cd34cf6d1
     container_name: ai_nginx
     restart: unless-stopped
     ports:
@@ -430,7 +647,7 @@ services:
     working_dir: /app
     environment:
       - HOST_IP=${HOST_IP}
-      - CONTROL_TOKEN=${CONTROL_TOKEN}
+      - CONTROL_TOKEN=${CONTROL_TOKEN:-}
     networks:
       ai_network:
         ipv4_address: 172.20.0.19
@@ -455,6 +672,21 @@ services:
       - PROCESSED_BUCKET=tika-pipe
       - WATCH_BUCKETS=tika-pipe,n8n-workflows  # Watch multiple buckets (Open WebUI + n8n)
       - CHECK_INTERVAL=10  # Check for new files every 10 seconds
+      - PDF_ENABLE_OCR=true
+      - IMAGE_ENABLE_OCR=true
+      - PDF_OCR_FALLBACK_ENABLED=true
+      - PDF_MIN_TEXT_CHARS_WITHOUT_OCR=120
+      - TIKA_TIMEOUT_NO_OCR_SECONDS=600
+      - TIKA_TIMEOUT_OCR_SECONDS=1800
+      - TIKA_METADATA_TIMEOUT_NO_OCR_SECONDS=120
+      - TIKA_METADATA_TIMEOUT_OCR_SECONDS=600
+      - TIKA_TIMEOUT_MAX_SECONDS=3600
+      - TIKA_TIMEOUT_PER_MB_NO_OCR_SECONDS=1.5
+      - TIKA_TIMEOUT_PER_MB_OCR_SECONDS=4.0
+      - PROCESSOR_MAX_RETRIES=2
+      - PROCESSOR_RETRY_DELAY_SECONDS=5
+      - PROCESSOR_MAX_FILE_ATTEMPTS=0
+      - PROCESSOR_RETRY_BACKOFF_SECONDS=30
     volumes:
       - /tmp:/tmp  # Share status file with helper API for dashboard notifications
     networks:
@@ -582,9 +814,15 @@ volumes:
     driver: local
   pihole_dnsmasq:
     driver: local
-  pdf-uploads:
+  affine_storage:
     driver: local
-  pdf-processed:
+  affine_config:
+    driver: local
+  affine_postgres_data:
+    driver: local
+  mcp_gateway_data:
+    driver: local
+  langgraph_supervisor_data:
     driver: local
   mcp_shared:
     driver: local

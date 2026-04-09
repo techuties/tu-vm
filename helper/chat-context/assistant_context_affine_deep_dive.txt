@@ -1,0 +1,191 @@
+AFFiNE Conversation Context Pack (Focused)
+Purpose: tighter chat grounding for AFFiNE-only conversations.
+Audience: AI assistants supporting planning, knowledge management, and workspace operations.
+
+============================================================
+1) AFFINE MENTAL MODEL
+============================================================
+Think in layers:
+- Workspace: the top-level container for people, pages, and settings
+- Document/Page: a unit of content (notes, specs, plans, logs)
+- Blocks: structured building units inside pages (paragraphs, headings, lists, databases)
+- Comments + history: collaboration and revision tracking
+- Blobs/files: attachments and media
+
+Assistant implication:
+- A "page" is usually the primary object to create, summarize, refactor, or update.
+- Treat workspace operations (create/delete/members/settings) as higher-risk.
+
+============================================================
+2) PRACTICAL DATA MODEL FOR CHATS
+============================================================
+Use this compact model when reasoning in conversations:
+
+Workspace
+- id
+- name
+- members/roles
+- conventions (naming, templates, tags)
+
+Page
+- id/docId
+- title
+- summary (1-3 lines)
+- status (draft/active/archived)
+- owner
+- lastUpdated
+- sections (ordered outline)
+- references (links to related pages)
+
+Collaboration
+- comments (open/resolved)
+- history snapshots (when needed)
+- action items extracted from comments
+
+Asset
+- blob/file key
+- filename
+- source/context
+
+Assistant behavior:
+- Always identify workspace + page scope first.
+- Prefer id-based updates over title-only assumptions.
+- Keep outputs structured and easy to diff/review.
+
+============================================================
+3) PAGE STRATEGY (WHAT GOOD LOOKS LIKE)
+============================================================
+Recommended page patterns:
+
+A) Project page
+- Objective
+- Scope and non-scope
+- Milestones
+- Risks and mitigations
+- Decisions (ADR-style bullets)
+- Action items / owners / due dates
+
+B) Architecture page
+- Context
+- Constraints
+- Proposed design
+- Trade-offs
+- Failure modes
+- Rollout / rollback plan
+
+C) Meeting/decision log
+- Date and participants
+- Topics discussed
+- Decisions made
+- Open questions
+- Follow-ups
+
+Page quality rules:
+- Short intro summary at top
+- Descriptive headings (not generic "Notes")
+- Bullet-heavy for scannability
+- Keep one page = one primary purpose
+- Link related pages instead of duplicating content
+
+============================================================
+4) WORKSPACE CONVENTIONS (RECOMMENDED)
+============================================================
+Naming:
+- Prefixes by domain, e.g. `OPS -`, `ENG -`, `PROD -`, `ARCH -`
+- Date suffix for logs, e.g. `Decision Log - 2026-03`
+
+Lifecycle:
+- Draft -> Active -> Archived states in title or metadata convention
+- Quarterly cleanup: merge duplicates, archive stale drafts
+
+Ownership:
+- Every important page has owner and reviewer
+- Comments should be resolved or converted into explicit tasks
+
+Linking and discoverability:
+- Use hub/index pages per domain
+- Keep "related pages" section on key docs
+- Standard templates for project, architecture, and incident pages
+
+============================================================
+5) ASSISTANT OPERATING GUIDELINES
+============================================================
+- Confirm target workspace/page before editing content.
+- For destructive operations (delete/revoke), require explicit confirmation.
+- Prefer append/update operations over full replacement when preserving history matters.
+- Summarize first, then propose edits.
+- When unsure, ask one precise scope question.
+
+Reliability:
+- If list/search returns ambiguous matches, present candidate options.
+- If operation fails, return actionable retry guidance.
+- Keep auditability: mention what was created/updated/deleted in plain language.
+
+============================================================
+6) HIGH-VALUE AFFINE PROMPT LIBRARY
+============================================================
+Workspace-level prompts:
+- "Audit this workspace and propose a cleanup plan with 3 priority actions."
+- "Create a workspace convention guide from current page naming patterns."
+- "List stale pages not updated in 90 days and suggest archive candidates."
+
+Page-level prompts:
+- "Refactor this page into: summary, decisions, risks, action items."
+- "Turn these notes into a concise implementation plan with milestones."
+- "Extract all open questions and convert them into a checklist."
+- "Summarize this page for executives in 7 bullets."
+
+Collaboration prompts:
+- "List unresolved comments and group them by owner/theme."
+- "Convert resolved discussion into final decisions and changelog notes."
+- "Draft reply suggestions for the top 5 unresolved comments."
+
+Cross-tool prompts (AFFiNE + automation):
+- "Convert this project page into an n8n workflow backlog."
+- "Generate reminder workflow specs from milestone deadlines in this page."
+- "Create a weekly status template based on these decision logs."
+
+============================================================
+7) CHAT RESPONSE TEMPLATES (FOR CONSISTENCY)
+============================================================
+Template: page summary
+1) Purpose
+2) Key points
+3) Decisions
+4) Risks
+5) Next actions
+
+Template: proposed update
+- Scope: [workspace/page]
+- Intent: [why]
+- Changes:
+  - [change 1]
+  - [change 2]
+- Validation:
+  - [how to verify]
+
+Template: cleanup proposal
+- Duplicates to merge
+- Stale pages to archive
+- Missing owners
+- Broken/weak cross-links
+
+============================================================
+8) DOCUMENTATION AND REFERENCES
+============================================================
+Official AFFiNE docs:
+- https://docs.affine.pro/index
+- https://docs.affine.pro/self-host-affine
+- https://docs.affine.pro/self-host-affine/install/configuration
+- https://docs.affine.pro/self-host-affine/references/environment-variables
+
+MCP concept docs:
+- https://modelcontextprotocol.io/docs/concepts/architecture
+
+============================================================
+9) SAFETY AND PRIVACY NOTES
+============================================================
+- Never include secrets/tokens/passwords in page content.
+- Prefer service accounts for automation.
+- Keep sensitive pages in dedicated workspaces/access boundaries where possible.
+- Log major content operations in a short "assistant action note" style.

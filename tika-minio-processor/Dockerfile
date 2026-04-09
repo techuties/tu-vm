@@ -1,9 +1,7 @@
-FROM python:3-slim
+FROM python:3-alpine
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Set working directory
 WORKDIR /app

@@ -57,7 +57,7 @@ def get_vm_ip():
         ip = result.getsockname()[0]
         result.close()
         return ip
-    except:
+    except Exception:
         return "127.0.0.1"
 
 def _client_ip():
@@ -147,7 +147,7 @@ def _reload_nginx():
 @app.route('/status', methods=['GET'])
 def status():
     vm_ip = os.environ.get('HOST_IP') or get_vm_ip()
-    domain = os.environ.get('DOMAIN', 'tu.local')
+    domain = os.environ.get('DOMAIN', 'tu.lan')
     
     # Check key services
     res = {
@@ -155,7 +155,10 @@ def status():
         'services': {
             'landing': f'https://{domain}',
             'openwebui': f'https://oweb.{domain}',
+            'mcp_gateway': f'https://oweb.{domain}/api/mcp/',
+            'langgraph_supervisor': f'https://oweb.{domain}/api/langgraph/',
             'n8n': f'https://n8n.{domain}',
+            'affine': f'https://affine.{domain}',
             'pihole': f'https://pihole.{domain}'
         }
     }
@@ -702,10 +705,15 @@ def control_service(service, action):
             # Dashboard-controlled services (on-demand)
             'open-webui': ('ai_openwebui', 'open-webui'),
             'n8n': ('ai_n8n', 'n8n'),
+            'affine': ('ai_affine', 'affine'),
             'pihole': ('ai_pihole', 'pihole'),
             'minio': ('ai_minio', 'minio'),
             'ollama': ('ai_ollama', 'ollama'),
             'tika': ('ai_tika', 'tika'),
+            'mcp_gateway': ('ai_mcp_gateway', 'mcp_gateway'),
+            'mcp-gateway': ('ai_mcp_gateway', 'mcp_gateway'),
+            'langgraph_supervisor': ('ai_langgraph_supervisor', 'langgraph_supervisor'),
+            'langgraph-supervisor': ('ai_langgraph_supervisor', 'langgraph_supervisor'),
             'nginx': ('ai_nginx', 'nginx'),
             # Core services (always running, but can be controlled)
             'postgres': ('ai_postgres', 'postgres'),
@@ -735,6 +743,12 @@ def control_service(service, action):
 
         # Check if container exists before trying to start it
         if action == 'start':
+            # mcp_gateway write paths depend on langgraph supervisor when strict mode is enabled.
+            if compose_service == 'mcp_gateway':
+                lg_info = docker_inspect('ai_langgraph_supervisor')
+                if lg_info and not lg_info.get('State', {}).get('Running', False):
+                    docker_post("/containers/ai_langgraph_supervisor/start")
+
             container_info = docker_inspect(container)
             if not container_info:
                 return jsonify({
@@ -770,7 +784,7 @@ def control_service(service, action):
         try:
             error_body = r.json() if r.text else {}
             error_msg = error_body.get('message', r.text) if r.text else 'Unknown error'
-        except:
+        except Exception:
             error_msg = r.text if r.text else 'Unknown error'
         
         if r.status_code == 404:
@@ -803,6 +817,33 @@ def status_n8n():
     except Exception:
         return 'error', 503
 
+@app.route('/status/affine', methods=['GET'])
+def status_affine():
+    try:
+        s = socket.create_connection(('ai_affine', 3010), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/mcp', methods=['GET'])
+def status_mcp():
+    try:
+        s = socket.create_connection(('ai_mcp_gateway', 9002), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/langgraph', methods=['GET'])
+def status_langgraph():
+    try:
+        s = socket.create_connection(('ai_langgraph_supervisor', 9010), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
 @app.route('/status/pihole', methods=['GET'])
 def status_pihole():
     try:
@@ -829,6 +870,31 @@ def status_minio():
         return 'ok', 200
     except Exception:
         return 'error', 503
+
+@app.route('/status/qdrant', methods=['GET'])
+def status_qdrant():
+    try:
+        s = socket.create_connection(('ai_qdrant', 6333), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/tika', methods=['GET'])
+def status_tika():
+    try:
+        s = socket.create_connection(('ai_tika', 9998), timeout=2)
+        s.close()
+        return 'ok', 200
+    except Exception:
+        return 'error', 503
+
+@app.route('/status/tika-processor', methods=['GET'])
+def status_tika_processor():
+    info = docker_inspect('tika_minio_processor')
+    if info and info.get('State', {}).get('Running', False):
+        return 'ok', 200
+    return 'error', 503
 
 @app.route('/status/pdf-processing', methods=['GET'])
 def status_pdf_processing():

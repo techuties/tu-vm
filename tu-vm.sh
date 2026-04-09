@@ -23,6 +23,7 @@ readonly DOCKER_COMPOSE_FILE="docker-compose.yml"
 readonly ENV_FILE=".env"
 readonly BACKUP_DIR="backups"
 readonly LOG_FILE="tu-vm.log"
+readonly UPDATE_STATUS_FILE="/tmp/tu-vm-update-status.json"
 
 #
 # Service configuration
@@ -46,10 +47,62 @@ readonly TIER2_SERVICES=(
     "qdrant"
     "tika"
     "tika_minio_processor"
+    "affine"
+    "mcp_gateway"
+    "langgraph_supervisor"
+    "browserless"
     "mcp-playwright"
     "mcp-filesystem"
     "mcp-fetch"
     "mcp-memory"
+)
+
+# Services that require local image builds (and therefore reliable external DNS)
+readonly BUILD_REQUIRED_SERVICES=(
+    "mcp_gateway"
+    "langgraph_supervisor"
+    "tika_minio_processor"
+    "mcp-playwright"
+    "mcp-filesystem"
+    "mcp-fetch"
+    "mcp-memory"
+)
+
+# Official upstream services that are safe to auto-update from registries.
+# Custom/self-managed services are intentionally excluded.
+readonly OFFICIAL_UPDATE_SERVICES=(
+    "postgres"
+    "redis"
+    "qdrant"
+    "ollama"
+    "open-webui"
+    "n8n"
+    "tika"
+    "minio"
+    "affine"
+    "affine_migration"
+    "affine_postgres"
+    "affine_redis"
+    "browserless"
+    "pihole"
+    "nginx"
+)
+
+# Service -> upstream tag + compose image base used to refresh pinned digests during update.
+readonly OFFICIAL_UPDATE_IMAGE_PAIRS=(
+    "postgres|postgres:15-alpine|postgres"
+    "redis|redis:alpine|redis"
+    "qdrant|qdrant/qdrant:latest|qdrant/qdrant"
+    "ollama|ollama/ollama:latest|ollama/ollama"
+    "open-webui|ghcr.io/open-webui/open-webui:latest|ghcr.io/open-webui/open-webui"
+    "n8n|n8nio/n8n:latest|n8nio/n8n"
+    "tika|apache/tika:latest|apache/tika"
+    "minio|minio/minio:latest|minio/minio"
+    "affine|ghcr.io/toeverything/affine:stable|ghcr.io/toeverything/affine"
+    "affine_postgres|pgvector/pgvector:pg16|pgvector/pgvector"
+    "browserless|ghcr.io/browserless/chromium:v2.46.0|ghcr.io/browserless/chromium"
+    "pihole|pihole/pihole:latest|pihole/pihole"
+    "nginx|nginx:alpine|nginx"
 )
 
 # Map compose service name -> container_name (when it doesn't follow ai_<service>)
@@ -66,6 +119,10 @@ declare -A SERVICE_CONTAINER=(
     ["tika"]="ai_tika"
     ["minio"]="ai_minio"
     ["tika_minio_processor"]="tika_minio_processor"
+    ["affine"]="ai_affine"
+    ["mcp_gateway"]="ai_mcp_gateway"
+    ["langgraph_supervisor"]="ai_langgraph_supervisor"
+    ["browserless"]="ai_browserless"
     ["mcp-playwright"]="mcp_playwright"
     ["mcp-filesystem"]="mcp_filesystem"
     ["mcp-fetch"]="mcp_fetch"
@@ -231,8 +288,19 @@ readonly LOG_LEVEL_INFO=1
 readonly LOG_LEVEL_WARN=2
 readonly LOG_LEVEL_ERROR=3
 
-# Default log level
+# Default log level (accepts either numeric or named values, e.g. "INFO")
 LOG_LEVEL=${LOG_LEVEL:-$LOG_LEVEL_INFO}
+case "${LOG_LEVEL^^}" in
+    DEBUG) LOG_LEVEL=$LOG_LEVEL_DEBUG ;;
+    INFO)  LOG_LEVEL=$LOG_LEVEL_INFO ;;
+    WARN|WARNING) LOG_LEVEL=$LOG_LEVEL_WARN ;;
+    ERROR) LOG_LEVEL=$LOG_LEVEL_ERROR ;;
+esac
+
+# Fallback to INFO if LOG_LEVEL is not numeric after normalization
+if ! [[ "$LOG_LEVEL" =~ ^[0-9]+$ ]]; then
+    LOG_LEVEL=$LOG_LEVEL_INFO
+fi
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -329,6 +397,74 @@ check_docker_compose() {
     fi
 }
 
+is_build_required_service() {
+    local svc="${1:-}"
+    for s in "${BUILD_REQUIRED_SERVICES[@]}"; do
+        if [[ "$s" == "$svc" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+print_dns_recovery_hint() {
+    cat <<EOF
+Run this host-level DNS fix:
+  sudo rm -f /etc/resolv.conf && printf "nameserver ${HOST_IP:-127.0.0.1}\nnameserver 1.1.1.1\nnameserver 9.9.9.9\n" | sudo tee /etc/resolv.conf >/dev/null && sudo systemctl restart docker
+EOF
+}
+
+check_dns_resolver_guard() {
+    local strict="${1:-false}" # true|false
+
+    if [[ "${TU_VM_SKIP_DNS_GUARD:-0}" == "1" ]]; then
+        warn "DNS guard skipped (TU_VM_SKIP_DNS_GUARD=1)"
+        return 0
+    fi
+
+    local issue=0
+    local resolv="/etc/resolv.conf"
+    local nameserver_count=0
+    local linked_target=""
+    local resolved_target=""
+
+    if [[ -L "$resolv" ]]; then
+        linked_target="$(readlink "$resolv" 2>/dev/null || true)"
+        resolved_target="$(readlink -f "$resolv" 2>/dev/null || true)"
+        if [[ -z "$resolved_target" ]] || [[ ! -e "$resolved_target" ]]; then
+            issue=1
+            warn "DNS resolver appears broken: $resolv -> ${linked_target:-<unknown>} (missing target)"
+        fi
+    elif [[ ! -f "$resolv" ]]; then
+        issue=1
+        warn "DNS resolver file not found: $resolv"
+    fi
+
+    if [[ -f "$resolv" ]]; then
+        nameserver_count="$(awk '/^nameserver[[:space:]]+/ {c++} END {print c+0}' "$resolv" 2>/dev/null || echo 0)"
+        if [[ "$nameserver_count" -eq 0 ]]; then
+            issue=1
+            warn "No nameserver entries found in $resolv"
+        fi
+    fi
+
+    # Probe public DNS resolution used during image pulls/builds.
+    if ! getent hosts registry-1.docker.io >/dev/null 2>&1; then
+        issue=1
+        warn "Cannot resolve registry-1.docker.io from host resolver"
+    fi
+
+    if [[ "$issue" -eq 1 ]]; then
+        warn "Image pulls/builds may fail due to DNS resolver issues."
+        print_dns_recovery_hint
+        if [[ "$strict" == "true" ]]; then
+            error "Aborting due to DNS resolver guard (set TU_VM_SKIP_DNS_GUARD=1 to bypass)."
+        fi
+    fi
+
+    return 0
+}
+
 # Get Docker Compose command
 get_docker_compose_cmd() {
     if command -v docker-compose >/dev/null 2>&1; then
@@ -347,7 +483,7 @@ check_env_file() {
             info "Created .env file from env.example."
             
             # Check for default passwords and generate secrets automatically
-            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
                 warn "Default passwords detected! Generating secure secrets automatically..."
                 generate_secrets
             else
@@ -358,10 +494,24 @@ check_env_file() {
         fi
     else
         # Check existing .env file for default passwords
-        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY" "$ENV_FILE"; then
+        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
             warn "Default passwords detected in existing .env file!"
             warn "Run './tu-vm.sh generate-secrets' to generate secure passwords."
         fi
+    fi
+
+    # Ensure AFFiNE DB password exists because compose requires it explicitly.
+    # This keeps credentials out of git while still enabling one-command startup.
+    if ! grep -qE "^AFFINE_DB_PASSWORD=" "$ENV_FILE"; then
+        # Clean malformed inline leftovers (e.g. appended without a preceding newline)
+        # before writing a proper standalone key.
+        sed -i 's/AFFINE_DB_PASSWORD=[^[:space:]]*//g' "$ENV_FILE"
+
+        local affine_pass
+        affine_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+        printf "\nAFFINE_DB_PASSWORD=%s\n" "$affine_pass" >> "$ENV_FILE"
+        chmod 600 "$ENV_FILE" 2>/dev/null || true
+        info "Added missing AFFINE_DB_PASSWORD to .env"
     fi
 }
 
@@ -372,7 +522,7 @@ ensure_host_ip_configured() {
     fi
     
     # Check if HOST_IP is missing, empty, or looks like a placeholder
-    local current_ip
+    local current_ip=""
     if grep -qE "^HOST_IP=" "$ENV_FILE"; then
         current_ip=$(grep -E "^HOST_IP=" "$ENV_FILE" | sed -E 's/^HOST_IP=//' | tr -d '"' | tr -d "'")
     fi
@@ -398,6 +548,30 @@ ensure_host_ip_configured() {
     fi
 }
 
+# Ensure nginx dynamic allowlist file exists for startup
+ensure_nginx_allowlist_file() {
+    mkdir -p "$(dirname "$NGINX_ALLOWLIST_FILE")" 2>/dev/null || true
+    if [[ ! -w "$(dirname "$NGINX_ALLOWLIST_FILE")" ]]; then
+        warn "Nginx dynamic dir is not writable: $(dirname "$NGINX_ALLOWLIST_FILE")"
+        warn "Skipping allowlist bootstrap from script (container may manage this file)."
+        return 0
+    fi
+    if [[ ! -f "$NGINX_ALLOWLIST_FILE" ]]; then
+        cat > "$NGINX_ALLOWLIST_FILE" <<'EOF'
+# Dynamic allowlist for sensitive endpoints (e.g. /control/, /whitelist/*)
+# Managed by helper_index and/or tu-vm.sh.
+#
+# Format:
+#   allow 192.0.2.10;
+#   allow 2001:db8::1;
+#   deny all;
+
+deny all;
+EOF
+        info "Created nginx allowlist file: $NGINX_ALLOWLIST_FILE"
+    fi
+}
+
 # Resolve MinIO root password for scripts that run outside compose env substitution.
 # Precedence:
 # 1) exported MINIO_ROOT_PASSWORD
@@ -418,6 +592,114 @@ get_vm_ip() {
     ip route get 1.1.1.1 | grep -oP 'src \K\S+' | head -1
 }
 
+# Get Tailscale IPv4 address (if tailscale is installed and connected)
+get_tailscale_ip() {
+    if command -v tailscale >/dev/null 2>&1; then
+        tailscale ip -4 2>/dev/null | head -1
+    else
+        echo ""
+    fi
+}
+
+# Ensure TAILSCALE_IP is configured in .env when available
+ensure_tailscale_ip_configured() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        return 0
+    fi
+
+    local ts_detected
+    ts_detected="$(get_tailscale_ip)"
+    if [[ -z "$ts_detected" ]]; then
+        return 0
+    fi
+
+    local current_ts=""
+    if grep -qE "^TAILSCALE_IP=" "$ENV_FILE"; then
+        current_ts=$(grep -E "^TAILSCALE_IP=" "$ENV_FILE" | sed -E 's/^TAILSCALE_IP=//' | tr -d '"' | tr -d "'")
+    fi
+
+    if [[ -z "$current_ts" ]] || [[ "$current_ts" == "CHANGE_ME"* ]]; then
+        if grep -qE "^TAILSCALE_IP=" "$ENV_FILE"; then
+            sed -i "s|^TAILSCALE_IP=.*|TAILSCALE_IP=$ts_detected|" "$ENV_FILE"
+        else
+            echo "TAILSCALE_IP=$ts_detected" >> "$ENV_FILE"
+        fi
+        info "✅ TAILSCALE_IP configured in .env: $ts_detected"
+    fi
+}
+
+# Resolve which IP should be published for *.tu.lan records in Pi-hole.
+# Priority:
+# 1) DNS_RECORD_IP in .env (manual override)
+# 2) HOST_IP in .env (keeps LAN clients working by default)
+# 3) TAILSCALE_IP in .env
+# 4) detected VM IP
+resolve_dns_record_ip() {
+    local dns_record_ip="${DNS_RECORD_IP:-}"
+    local tailscale_ip="${TAILSCALE_IP:-}"
+    local host_ip="${HOST_IP:-}"
+
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        dns_record_ip="${DNS_RECORD_IP:-$dns_record_ip}"
+        tailscale_ip="${TAILSCALE_IP:-$tailscale_ip}"
+        host_ip="${HOST_IP:-$host_ip}"
+    fi
+
+    if [[ -n "$dns_record_ip" ]]; then
+        echo "$dns_record_ip"
+    elif [[ -n "$host_ip" ]]; then
+        echo "$host_ip"
+    elif [[ -n "$tailscale_ip" ]]; then
+        echo "$tailscale_ip"
+    else
+        get_vm_ip
+    fi
+}
+
+# Sync Pi-hole local DNS records for the tu.lan service domain.
+sync_pihole_dns_records() {
+    local dns_file="pihole/01-custom.conf"
+    local target_ip
+    target_ip="$(resolve_dns_record_ip)"
+    local host_line="$target_ip tu.lan oweb.tu.lan n8n.tu.lan affine.tu.lan pihole.tu.lan ollama.tu.lan minio.tu.lan api.minio.tu.lan"
+
+    if [[ -z "$target_ip" ]]; then
+        warn "Could not determine DNS target IP. Skipping Pi-hole DNS record sync."
+        return 0
+    fi
+
+    info "Syncing Pi-hole DNS records (*.tu.lan -> $target_ip)..."
+    cat > "$dns_file" <<EOF
+# Pi-hole Custom DNS Configuration
+# Managed by tu-vm.sh sync_pihole_dns_records()
+
+# Upstream resolvers
+server=127.0.0.11
+server=1.1.1.1
+server=1.0.0.1
+
+# Local service domains (Nginx reverse proxy)
+address=/tu.lan/$target_ip
+address=/oweb.tu.lan/$target_ip
+address=/n8n.tu.lan/$target_ip
+address=/affine.tu.lan/$target_ip
+address=/pihole.tu.lan/$target_ip
+address=/ollama.tu.lan/$target_ip
+address=/minio.tu.lan/$target_ip
+address=/api.minio.tu.lan/$target_ip
+EOF
+
+    # If Pi-hole is running, also write v6 local hosts records and reload DNS.
+    if docker ps --format "{{.Names}}" | grep -q "^ai_pihole$"; then
+        docker exec ai_pihole sh -lc "mkdir -p /etc/pihole/hosts && printf '%s\n' \"$host_line\" > /etc/pihole/hosts/tu-lan.hosts" >/dev/null 2>&1 || true
+        docker exec ai_pihole pihole reloaddns >/dev/null 2>&1 || true
+    fi
+
+    info "✅ Pi-hole DNS records synced"
+}
+
 # Generate self-signed SSL certificates for Nginx
 generate_ssl_certificates() {
     local ssl_dir="ssl"
@@ -436,11 +718,11 @@ generate_ssl_certificates() {
     mkdir -p "$ssl_dir"
     
     # Get domain from .env or use default
-    local domain="${DOMAIN:-tu.local}"
+    local domain="${DOMAIN:-tu.lan}"
     if [[ -f "$ENV_FILE" ]]; then
         # shellcheck disable=SC1090
         . "$ENV_FILE" 2>/dev/null || true
-        domain="${DOMAIN:-tu.local}"
+        domain="${DOMAIN:-tu.lan}"
     fi
     
     # Generate self-signed certificate valid for 10 years
@@ -574,9 +856,16 @@ show_help() {
     echo "  setup                    Complete first-time setup (env, SSL, secrets)"
     echo ""
     echo -e "${WHITE}Basic Commands:${NC}"
-    echo "  start                    Start all services (auto-setup on first run)"
-    echo "  start --tier1            Start Tier 1 services only (default)"
-    echo "  start --all              Start Tier 1 + Tier 2 services"
+    echo "  start                    Start in portable mode (default, low resource)"
+    echo "  start --portable         Start portable mode (Tier 1 only, low resource)"
+    echo "  start --server           Start server mode (Tier 1 + Tier 2, full stack)"
+    echo "  start --tier1            Alias for --portable"
+    echo "  start --all              Alias for --server"
+    echo -e "${WHITE}Runtime Modes:${NC}"
+    echo "  portable                 Shortcut for: start --portable"
+    echo "  server                   Shortcut for: start --server"
+    echo ""
+
     echo "  stop                     Stop all services"
     echo "  restart                  Restart all services"
     echo "  status                   Show service status"
@@ -593,11 +882,15 @@ show_help() {
     echo "  lock                     Block all external access"
     echo ""
     echo -e "${WHITE}Maintenance:${NC}"
-    echo "  update                   Update system and services"
+    echo "  update                   Unified safe update (recommended)"
+    echo "  update-check             Check available updates (no changes)"
+    echo "  update-rollback          Roll back to latest safe-update snapshot"
+    echo "  legacy-update            Run legacy in-script update flow"
     echo "  test-update              Test update process (dry run)"
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
     echo "  cleanup                  Clean up old backups and logs"
+    echo "  sync-dns                 Sync Pi-hole DNS for *.tu.lan"
     echo "  setup-minio             Setup MinIO buckets for existing installation"
     echo ""
     echo -e "${WHITE}Security:${NC}"
@@ -613,6 +906,8 @@ show_help() {
     echo "  health                   Check service health"
     echo "  test                     Test all service endpoints"
     echo "  diagnose                 Run comprehensive diagnostics"
+    echo "  check-openwebui-audio    Validate Open WebUI STT config consistency"
+    echo "  fix-openwebui-audio      Repair Open WebUI STT config (DB + Redis)"
     echo "  info                     Show system information"
     echo ""
     echo -e "${WHITE}PDF Processing:${NC}"
@@ -631,8 +926,10 @@ show_help() {
     echo "  ${ICON_LOCKED} LOCKED:    No external access"
     echo ""
     echo -e "${WHITE}Examples:${NC}"
-    echo "  ./$SCRIPT_NAME start                    # Start Tier 1 services (default)"
-    echo "  ./$SCRIPT_NAME start --all              # Start Tier 1 + Tier 2 services"
+    echo "  ./$SCRIPT_NAME start                    # Start in portable mode (default)"
+    echo "  ./$SCRIPT_NAME start --portable         # Start in portable mode"
+    echo "  ./$SCRIPT_NAME start --server           # Start in server mode"
+    echo "  ./$SCRIPT_NAME start --all              # Alias for server mode"
     echo "  ./$SCRIPT_NAME start-service ollama     # Start Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME stop-service ollama      # Stop Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME status                   # Check service status"
@@ -643,6 +940,11 @@ show_help() {
     echo "  ./$SCRIPT_NAME logs nginx               # Show nginx logs"
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
+    echo "  ./$SCRIPT_NAME update-check             # Check what can be updated"
+    echo "  ./$SCRIPT_NAME update                   # Apply safe update flow"
+    echo "  ./$SCRIPT_NAME update-rollback          # Roll back latest update"
+    echo "  ./$SCRIPT_NAME check-openwebui-audio    # Validate Open WebUI audio STT config"
+    echo "  ./$SCRIPT_NAME fix-openwebui-audio      # Repair Open WebUI audio STT config"
     echo "  ./$SCRIPT_NAME version                  # Show version info"
 }
 
@@ -658,16 +960,25 @@ setup_platform() {
     
     # Step 2: Auto-detect HOST_IP
     ensure_host_ip_configured
+
+    # Step 3: Auto-detect Tailscale IP when available
+    ensure_tailscale_ip_configured
     
-    # Step 3: Generate secrets if using defaults
-    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123" "$ENV_FILE" 2>/dev/null; then
+    # Step 4: Generate secrets if using defaults
+    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123\|affine_change_me" "$ENV_FILE" 2>/dev/null; then
         info "Generating secure passwords and keys..."
         generate_secrets
     else
         info "Using existing secure credentials"
     fi
     
-    # Step 4: Generate SSL certificates
+    # Step 5: Ensure nginx dynamic allowlist exists
+    ensure_nginx_allowlist_file
+
+    # Step 6: Sync Pi-hole DNS records for *.tu.lan
+    sync_pihole_dns_records
+
+    # Step 7: Generate SSL certificates
     generate_ssl_certificates
     
     info "✅ Setup complete! You can now run: ./$SCRIPT_NAME start"
@@ -682,6 +993,11 @@ start_single_service() {
     fi
     local compose_cmd
     compose_cmd=$(get_docker_compose_cmd)
+    if is_build_required_service "$svc"; then
+        check_dns_resolver_guard true
+    else
+        check_dns_resolver_guard false
+    fi
     info "Starting service: $svc"
     $compose_cmd up -d "$svc"
 }
@@ -699,31 +1015,55 @@ stop_single_service() {
 
 # Start services
 start_services() {
-    local mode="tier1"
-    case "${1:-}" in
-        --all) mode="all"; shift ;;
-        --tier1|"") mode="tier1"; shift ;;
+    local default_mode
+    default_mode="$(resolve_env_value TU_VM_DEFAULT_MODE portable)"
+    default_mode="${default_mode,,}"
+
+    local mode="portable"
+    case "$default_mode" in
+        server|all) mode="server" ;;
+        portable|tier1|"") mode="portable" ;;
+        *)
+            warn "Invalid TU_VM_DEFAULT_MODE='$default_mode' in $ENV_FILE; falling back to portable"
+            mode="portable"
+            ;;
     esac
 
-    if [[ "$mode" == "all" ]]; then
-        info "Starting $PROJECT_NAME services (Tier 1 + Tier 2)..."
+    case "${1:-}" in
+        --server|server|--all) mode="server"; shift ;;
+        --portable|portable|--tier1) mode="portable"; shift ;;
+        "") ;;
+        *)
+            error "Unknown start mode: ${1:-}"
+            echo "Usage: ./$SCRIPT_NAME start [--portable|--server]"
+            ;;
+    esac
+
+    if [[ "$mode" == "server" ]]; then
+        info "Starting $PROJECT_NAME services in SERVER mode (full stack)..."
     else
-        info "Starting $PROJECT_NAME services (Tier 1 only - energy friendly)..."
+        info "Starting $PROJECT_NAME services in PORTABLE mode (low-resource core)..."
     fi
 
     check_docker
     check_docker_compose
+    check_dns_resolver_guard false
     check_env_file
+    ensure_nginx_allowlist_file
     
     # Auto-detect and update HOST_IP in .env if needed
     ensure_host_ip_configured
+    # Auto-detect Tailscale IP when available
+    ensure_tailscale_ip_configured
+    # Keep Pi-hole records aligned with current IP strategy
+    sync_pihole_dns_records
     
     # Generate SSL certificates if missing (required for nginx)
     generate_ssl_certificates
     
     local compose_cmd=$(get_docker_compose_cmd)
 
-    if [[ "$mode" == "all" ]]; then
+    if [[ "$mode" == "server" ]]; then
         # Start everything (Tier 2 services will be started as well)
         $compose_cmd up -d
     else
@@ -735,6 +1075,8 @@ start_services() {
     # Wait for required services to be ready
     if wait_for_services "${TIER1_SERVICES[@]}"; then
         info "Tier 1 services are ready!"
+        # Re-sync now that Pi-hole is running so local hosts entries are applied live.
+        sync_pihole_dns_records
         
         # Note: Tier 2 services (Qdrant, Tika, MinIO, etc.) can be started on-demand via dashboard
         
@@ -1023,15 +1365,23 @@ show_status() {
 # Show access information
 show_access_info() {
     local vm_ip=$(get_vm_ip)
+    local tailscale_ip
+    tailscale_ip="$(get_tailscale_ip)"
     
     echo -e "${WHITE}Access URLs:${NC}"
-    echo "  Landing:     https://tu.local (https://$vm_ip)"
-    echo "  Open WebUI:  https://oweb.tu.local (https://$vm_ip)"
-    echo "  n8n:         https://n8n.tu.local (https://$vm_ip)"
-    echo "  Pi-hole:     https://pihole.tu.local (https://$vm_ip)"
-    echo "  Ollama API:  https://ollama.tu.local (https://$vm_ip)"
-    echo "  MinIO Console: https://minio.tu.local (https://$vm_ip)"
-    echo "  MinIO API:   https://api.minio.tu.local (https://$vm_ip)"
+    echo "  Landing:       https://tu.lan (IP fallback: https://$vm_ip)"
+    echo "  Open WebUI:    https://oweb.tu.lan"
+    echo "  MCP Gateway:   https://oweb.tu.lan/api/mcp/"
+    echo "  LangGraph API: https://oweb.tu.lan/api/langgraph/"
+    echo "  n8n:           https://n8n.tu.lan"
+    echo "  AFFiNE:        https://affine.tu.lan"
+    echo "  Pi-hole:       https://pihole.tu.lan/admin"
+    echo "  Ollama API:    https://ollama.tu.lan"
+    echo "  MinIO Console: https://minio.tu.lan"
+    echo "  MinIO API:     https://api.minio.tu.lan"
+    if [[ -n "$tailscale_ip" ]]; then
+        echo "  Tailscale IP:  https://$tailscale_ip"
+    fi
     echo ""
     
     # Check if services are accessible
@@ -1153,6 +1503,16 @@ lock_access() {
 # Update system
 update_system() {
     check_root "update"
+
+    # Unified update entrypoint: prefer safe-update workflow.
+    # Set TU_VM_USE_LEGACY_UPDATE=1 to force legacy in-script update logic.
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ "${TU_VM_USE_LEGACY_UPDATE:-0}" != "1" ]] && [[ -x "$safe_update_script" ]]; then
+        info "Using unified safe update workflow..."
+        "$safe_update_script" --apply
+        return $?
+    fi
+    warn "safe-update.sh not executable or legacy mode enabled; using legacy update logic."
     
     info "Updating $PROJECT_NAME..."
     
@@ -1198,12 +1558,12 @@ update_system() {
     
     local compose_cmd=$(get_docker_compose_cmd)
     
-    # Pull latest images and detect updated services
-    # Note: With tags like :latest, :alpine, docker compose pull will always fetch the latest
-    info "Pulling latest images for all services (ensuring latest versions)..."
+    # Pull latest official images and detect updated services.
+    # Custom/self-managed services are excluded from auto update on purpose.
+    info "Pulling latest official service images..."
     local pull_log_file="/tmp/tu-compose-pull.log"
     : > "$pull_log_file"
-    local pull_cmd="$compose_cmd pull"
+    local pull_cmd="$compose_cmd pull ${OFFICIAL_UPDATE_SERVICES[*]}"
     
     # Detect support for --progress flag
     if $compose_cmd pull --help 2>&1 | grep -q -- "--progress"; then
@@ -1216,7 +1576,7 @@ update_system() {
     local pull_ec=${PIPESTATUS[0]}
     if [[ $pull_ec -ne 0 ]]; then
         warn "compose pull failed with exit code $pull_ec. Retrying..."
-        $compose_cmd pull 2>&1 | tee "$pull_log_file"
+        $compose_cmd pull "${OFFICIAL_UPDATE_SERVICES[@]}" 2>&1 | tee "$pull_log_file"
         pull_ec=${PIPESTATUS[0]}
         if [[ $pull_ec -ne 0 ]]; then
             error "Image pull failed (exit code $pull_ec). Aborting update."
@@ -1224,14 +1584,53 @@ update_system() {
         fi
     fi
     set -e
+
+    # Refresh pinned image digests in compose so official services can actually move forward
+    # even when docker-compose.yml uses tag@sha256 references.
+    info "Refreshing pinned digests for official services..."
+    local digest_changed_services=()
+    for pair in "${OFFICIAL_UPDATE_IMAGE_PAIRS[@]}"; do
+        local svc="${pair%%|*}"
+        local rest="${pair#*|}"
+        local img="${rest%%|*}"
+        local compose_base="${pair##*|}"
+
+        # Pull upstream tag explicitly (independent of pinned digest in compose)
+        if ! docker pull "$img" >/dev/null 2>&1; then
+            warn "Failed to pull upstream image for $svc ($img); keeping current pinned digest."
+            continue
+        fi
+
+        local new_ref=""
+        new_ref=$(docker image inspect "$img" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+        if [[ -z "$new_ref" ]]; then
+            continue
+        fi
+
+        # Replace only when digest differs; keep tag semantics stable.
+        if ! grep -qF "$new_ref" "$DOCKER_COMPOSE_FILE"; then
+            python3 - <<PY
+import re
+path = "$DOCKER_COMPOSE_FILE"
+compose_base = "$compose_base"
+new_ref = "$new_ref"
+text = open(path, "r", encoding="utf-8").read()
+# Match:
+# - repo
+# - repo:tag
+# - repo@sha256:...
+# - repo:tag@sha256:...
+pattern = re.escape(compose_base) + r'(?::[^@\\s]+)?(?:@sha256:[a-f0-9]+)?'
+new_text, n = re.subn(pattern, new_ref, text)
+if n:
+    open(path, "w", encoding="utf-8").write(new_text)
+PY
+            digest_changed_services+=("$svc")
+            info "Pinned $svc -> $new_ref"
+        fi
+    done
     
-    # Rebuild custom images with --pull to get latest base images
-    # (Python packages in requirements.txt are unpinned, so pip install will get latest)
-    info "Rebuilding custom images with latest base images..."
-    if $compose_cmd config --services | grep -q "tika_minio_processor"; then
-        info "Rebuilding tika_minio_processor with latest base image (python:3-slim) and dependencies..."
-        $compose_cmd build --pull tika_minio_processor 2>&1 || warn "Failed to rebuild tika_minio_processor (continuing anyway)"
-    fi
+    info "Skipping auto-rebuild of custom services (self-managed policy)."
     
     # Build list of all services for validation
     local -a all_services
@@ -1253,6 +1652,11 @@ update_system() {
         fi
     done < "$pull_log_file"
     
+    # Merge with services that changed due to digest refresh.
+    if [[ ${#digest_changed_services[@]} -gt 0 ]]; then
+        updated_services+=("${digest_changed_services[@]}")
+    fi
+
     # De-duplicate services list
     if [[ ${#updated_services[@]} -gt 0 ]]; then
         mapfile -t updated_services < <(printf "%s\n" "${updated_services[@]}" | sort -u)
@@ -1334,7 +1738,17 @@ update_system() {
         
         # Verify data retention
         info "Verifying data retention..."
-        verify_data_retention
+        if verify_data_retention; then
+            write_update_notification_entry \
+                false \
+                "Update completed successfully" \
+                "All required services are running and data volumes are accessible."
+        else
+            write_update_notification_entry \
+                false \
+                "Update completed with warnings" \
+                "Services started, but data-retention checks reported warnings. Review tu-vm.log for details."
+        fi
         
         # Show update summary
         show_update_summary
@@ -1343,6 +1757,10 @@ update_system() {
     else
         warn "Some services may not be fully ready yet."
         info "Check status with: ./$SCRIPT_NAME status"
+        write_update_notification_entry \
+            true \
+            "Update may be incomplete" \
+            "Some services were not ready after update. Run './$SCRIPT_NAME status' and inspect logs."
     fi
     
     # ============================================================================
@@ -1360,36 +1778,92 @@ update_system() {
     info "Backup created: $backup_name"
 }
 
+update_check() {
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ -x "$safe_update_script" ]]; then
+        "$safe_update_script" --check
+    else
+        error "Missing executable: $safe_update_script"
+    fi
+}
+
+update_rollback() {
+    check_root "update-rollback"
+    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
+    if [[ -x "$safe_update_script" ]]; then
+        "$safe_update_script" --rollback
+    else
+        error "Missing executable: $safe_update_script"
+    fi
+}
+
+# Write status for dashboard/announcement system immediately after update.
+write_update_notification_entry() {
+    local updates_available="$1"
+    local message="$2"
+    local details="$3"
+    local status_file_target="$UPDATE_STATUS_FILE"
+
+    if { [ -e "$UPDATE_STATUS_FILE" ] && [ ! -w "$UPDATE_STATUS_FILE" ]; } || { [ ! -e "$UPDATE_STATUS_FILE" ] && [ ! -w "$(dirname "$UPDATE_STATUS_FILE")" ]; }; then
+        status_file_target="/tmp/tu-vm-update-status-${USER}.json"
+        warn "Update status file not writable at $UPDATE_STATUS_FILE, using fallback: $status_file_target"
+    fi
+
+    local message_json details_json
+    message_json=$(printf "%s" "$message" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+    details_json=$(printf "%s" "$details" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')
+
+    cat > "$status_file_target" << EOF
+{
+    "updates_available": $updates_available,
+    "last_check": "$(date -Iseconds)",
+    "message": $message_json,
+    "details": $details_json,
+    "os_updates": 0,
+    "docker_updates": 0,
+    "docker_outdated": []
+}
+EOF
+    info "Update notification entry written: $status_file_target"
+}
+
 # Verify data retention after update
 verify_data_retention() {
     info "Verifying data retention..."
     
     local issues=()
+    local volume_names
+    volume_names="$(docker volume ls --format '{{.Name}}' 2>/dev/null || true)"
+    has_volume() {
+        local suffix="$1"
+        if printf "%s\n" "$volume_names" | grep -Eq "(^|_)${suffix}$"; then
+            return 0
+        fi
+        return 1
+    }
     
     # Check Docker volumes
-    if ! docker volume ls | grep -q "postgres_data"; then
+    if ! has_volume "postgres_data"; then
         issues+=("PostgreSQL data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "redis_data"; then
+    if ! has_volume "redis_data"; then
         issues+=("Redis data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "qdrant_data"; then
+    if ! has_volume "qdrant_data"; then
         issues+=("Qdrant data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "ollama_data"; then
+    if ! has_volume "ollama_data"; then
         issues+=("Ollama data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "minio_data"; then
-        if ! docker volume ls | grep -q "docker_minio_data"; then
-            issues+=("MinIO data volume missing")
-        fi
+    if ! has_volume "minio_data"; then
+        issues+=("MinIO data volume missing")
     fi
     
-    if ! docker volume ls | grep -q "n8n_data"; then
+    if ! has_volume "n8n_data"; then
         issues+=("n8n data volume missing")
     fi
     
@@ -1404,12 +1878,14 @@ verify_data_retention() {
     
     if [ ${#issues[@]} -eq 0 ]; then
         info "✅ All data volumes and services are accessible"
+        return 0
     else
         warn "⚠️  Data retention issues detected:"
         for issue in "${issues[@]}"; do
             warn "  - $issue"
         done
         warn "Consider restoring from backup if issues persist"
+        return 1
     fi
 }
 
@@ -1572,7 +2048,20 @@ EOF
             local port_attempt=0
             
             while [ $port_attempt -lt $port_attempts ]; do
-                if ! netstat -tuln | grep -q ":53 "; then
+                local port_in_use=1
+                if command -v ss >/dev/null 2>&1; then
+                    ss -tuln 2>/dev/null | grep -Eq "[:.]53[[:space:]]" || port_in_use=0
+                elif command -v netstat >/dev/null 2>&1; then
+                    netstat -tuln 2>/dev/null | grep -Eq "[:.]53[[:space:]]" || port_in_use=0
+                elif command -v lsof >/dev/null 2>&1; then
+                    lsof -nP -i :53 >/dev/null 2>&1 || port_in_use=0
+                else
+                    # If no socket inspection tool exists, do not fail update flow.
+                    warn "No port inspection tool found (ss/netstat/lsof); skipping strict port 53 wait."
+                    port_in_use=0
+                fi
+
+                if [ "$port_in_use" -eq 0 ]; then
                     info "Port 53 is now free"
                     break
                 fi
@@ -1738,9 +2227,13 @@ create_backup() {
     if docker compose ps --format json | grep -q '"State":"running"'; then
         info "Backing up data volumes..."
         
-        # PostgreSQL
-        if docker compose exec -T postgres pg_isready -U ai_admin >/dev/null 2>&1; then
-            docker compose exec -T postgres pg_dump -U ai_admin ai_platform > "$backup_path/database.sql" 2>/dev/null || warn "Database backup failed"
+        # PostgreSQL (non-interactive): pass password explicitly to avoid hanging on prompt
+        local pg_password=""
+        if [[ -f "$ENV_FILE" ]]; then
+            pg_password="$(grep -E '^POSTGRES_PASSWORD=' "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+        fi
+        if docker compose exec -T -e PGPASSWORD="$pg_password" postgres pg_isready -U ai_admin >/dev/null 2>&1; then
+            docker compose exec -T -e PGPASSWORD="$pg_password" postgres pg_dump -U ai_admin ai_platform > "$backup_path/database.sql" 2>/dev/null || warn "Database backup failed"
         fi
         
         # Docker volumes
@@ -1790,16 +2283,16 @@ create_backup() {
     tar czf "${backup_path}.tar.gz" -C "$BACKUP_DIR" "$(basename "$backup_path")"
     rm -rf "$backup_path"
     
-    # Automatic backup rotation - keep only last 10 backups
-    info "Managing backup rotation (keeping last 10 backups)..."
+    # Automatic backup rotation - keep only latest backup
+    info "Managing backup rotation (keeping latest backup only)..."
     local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
     
-    if [[ $backup_count -gt 10 ]]; then
-        local backups_to_remove=$((backup_count - 10))
+    if [[ $backup_count -gt 1 ]]; then
+        local backups_to_remove=$((backup_count - 1))
         info "Removing $backups_to_remove old backup(s)..."
         
         # Sort by modification time (oldest first) and remove excess
-        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
+        ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +2 | while read -r old_backup; do
             if [[ -f "$old_backup" ]]; then
                 info "Removing old backup: $(basename "$old_backup")"
                 rm -f "$old_backup"
@@ -1810,6 +2303,9 @@ create_backup() {
     else
         info "✅ No rotation needed (current backups: $backup_count)"
     fi
+
+    # Remove leftover extracted backup directories from interrupted runs
+    find "$BACKUP_DIR" -maxdepth 1 -type d \( -name 'backup_*' -o -name 'pre_update_*' -o -name 'restore_*' \) -exec rm -rf {} + 2>/dev/null || true
     
     info "Backup created: ${backup_path}.tar.gz"
 }
@@ -1872,15 +2368,15 @@ restore_backup() {
 cleanup() {
     info "Cleaning up old backups and logs..."
     
-    # Clean up old backups (keep last 10)
+    # Clean up old backups (keep latest only)
     if [[ -d "$BACKUP_DIR" ]]; then
         local backup_count=$(ls -1 "$BACKUP_DIR"/*.tar.gz 2>/dev/null | wc -l)
-        if [[ $backup_count -gt 10 ]]; then
-            local backups_to_remove=$((backup_count - 10))
-            info "Removing $backups_to_remove old backup(s) (keeping last 10)..."
+        if [[ $backup_count -gt 1 ]]; then
+            local backups_to_remove=$((backup_count - 1))
+            info "Removing $backups_to_remove old backup(s) (keeping latest only)..."
             
             # Sort by modification time (oldest first) and remove excess
-            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +11 | while read -r old_backup; do
+            ls -1t "$BACKUP_DIR"/*.tar.gz 2>/dev/null | tail -n +2 | while read -r old_backup; do
                 if [[ -f "$old_backup" ]]; then
                     info "Removing old backup: $(basename "$old_backup")"
                     rm -f "$old_backup"
@@ -1891,6 +2387,9 @@ cleanup() {
         else
             info "✅ No backup cleanup needed (current backups: $backup_count)"
         fi
+
+        # Remove leftover extracted backup directories from interrupted runs
+        find "$BACKUP_DIR" -maxdepth 1 -type d \( -name 'backup_*' -o -name 'pre_update_*' -o -name 'restore_*' \) -exec rm -rf {} + 2>/dev/null || true
     fi
     
     # Clean up old logs
@@ -1988,18 +2487,9 @@ test_update() {
     docker system df
     echo ""
     
-    # Show services that would be updated
+    # Show official services that are auto-updated
     echo -e "${YELLOW}🔄 Services to Update:${NC}"
-    local compose_cmd=$(get_docker_compose_cmd)
-    $compose_cmd config --services | while read service; do
-        echo "  - $service"
-    done
-    echo ""
-    
-    # Show services that would be updated
-    echo -e "${YELLOW}📦 Services to Update:${NC}"
-    local compose_cmd=$(get_docker_compose_cmd)
-    $compose_cmd config --services | while read service; do
+    for service in "${OFFICIAL_UPDATE_SERVICES[@]}"; do
         echo "  - $service"
     done
     echo ""
@@ -2088,11 +2578,13 @@ generate_secrets() {
     local n8n_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local pihole_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local minio_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
+    local affine_db_pass=$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)
     local webui_secret=$(openssl rand -hex 32)
     local jwt_secret=$(openssl rand -hex 32)
     local auth_secret=$(openssl rand -hex 32)
     local encryption_key=$(openssl rand -hex 32)
     local control_token=$(openssl rand -hex 32)
+    local mcp_gateway_token=$(openssl rand -hex 32)
     
     # Helper: set or update a key in .env if it is missing or equals an insecure default
     set_env_var_if_default() {
@@ -2115,6 +2607,7 @@ generate_secrets() {
     sed -i "s/CHANGE_ME_JWT_SECRET_KEY/$jwt_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_AUTH_SECRET/$auth_secret/g" "$ENV_FILE"
     sed -i "s/CHANGE_ME_CONTROL_TOKEN/$control_token/g" "$ENV_FILE"
+    sed -i "s/CHANGE_ME_MCP_TOKEN/$mcp_gateway_token/g" "$ENV_FILE"
 
     # MinIO root password (first occurrence if using template)
     sed -i "0,/CHANGE_ME_SECURE_PASSWORD/s//$minio_pass/" "$ENV_FILE"
@@ -2130,6 +2623,8 @@ generate_secrets() {
     set_env_var_if_default "N8N_ENCRYPTION_KEY" "1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b" "$encryption_key"
     set_env_var_if_default "PIHOLE_PASSWORD" "SwissPiHole2024!" "$pihole_pass"
     set_env_var_if_default "CONTROL_TOKEN" "" "$control_token"
+    set_env_var_if_default "MCP_GATEWAY_TOKEN" "" "$mcp_gateway_token"
+    set_env_var_if_default "AFFINE_DB_PASSWORD" "affine_change_me" "$affine_db_pass"
     
     # Set proper permissions
     chmod 600 "$ENV_FILE"
@@ -2144,22 +2639,22 @@ generate_secrets() {
     echo -e "${GREEN}🔑 Service Access Credentials:${NC}"
     echo ""
     echo -e "${YELLOW}Open WebUI:${NC}"
-    echo "  URL: https://oweb.tu.local"
+    echo "  URL: https://oweb.tu.lan"
     echo "  Admin: First user to register"
     echo ""
     echo -e "${YELLOW}n8n Workflow Automation:${NC}"
-    echo "  URL: https://n8n.tu.local"
+    echo "  URL: https://n8n.tu.lan"
     echo "  Username: admin"
     echo "  Password: $n8n_pass"
     echo ""
     echo -e "${YELLOW}MinIO Object Storage:${NC}"
-    echo "  Console: https://minio.tu.local"
-    echo "  API: https://api.minio.tu.local"
+    echo "  Console: https://minio.tu.lan"
+    echo "  API: https://api.minio.tu.lan"
     echo "  Username: admin"
     echo "  Password: $minio_pass"
     echo ""
     echo -e "${YELLOW}Pi-hole DNS:${NC}"
-    echo "  URL: https://pihole.tu.local/admin"
+    echo "  URL: https://pihole.tu.lan/admin"
     echo "  Password: $pihole_pass"
     echo ""
     echo -e "${YELLOW}Database Access:${NC}"
@@ -2440,6 +2935,222 @@ reset_pdf_pipeline() {
 # DIAGNOSTIC FUNCTIONS
 # =============================================================================
 
+resolve_env_value() {
+    local key="$1"
+    local default_value="${2:-}"
+    local value="${!key:-}"
+
+    if [[ -n "$value" ]]; then
+        echo "$value"
+        return 0
+    fi
+
+    if [[ -f "$ENV_FILE" ]]; then
+        value=$(grep -E "^${key}=" "$ENV_FILE" | head -1 | sed -E "s/^${key}=//" | tr -d '"' | tr -d "'" || true)
+        if [[ -n "$value" ]]; then
+            echo "$value"
+            return 0
+        fi
+    fi
+
+    echo "$default_value"
+}
+
+normalize_json_string_value() {
+    local value="${1:-}"
+    if [[ "$value" == \"*\" ]]; then
+        value="${value#\"}"
+        value="${value%\"}"
+    fi
+    echo "$value"
+}
+
+is_container_stuck() {
+    local container="$1"
+    if ! docker inspect "$container" >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local running pid exec_err
+    running="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo "false")"
+    pid="$(docker inspect -f '{{.State.Pid}}' "$container" 2>/dev/null || echo "0")"
+
+    if [[ "$running" != "true" ]]; then
+        return 1
+    fi
+
+    if [[ "$pid" == "0" ]]; then
+        return 0
+    fi
+
+    exec_err="$(docker exec "$container" sh -c 'true' 2>&1 >/dev/null || true)"
+    if [[ "$exec_err" == *"BaseFS of container"* ]] || [[ "$exec_err" == *"unexpectedly empty"* ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+recover_openwebui_container() {
+    info "Attempting Open WebUI stuck-container recovery..."
+
+    if ! docker inspect ai_openwebui >/dev/null 2>&1; then
+        error "Container ai_openwebui not found."
+    fi
+
+    local pid compose_cmd
+    pid="$(docker inspect -f '{{.State.Pid}}' ai_openwebui 2>/dev/null || echo "0")"
+    compose_cmd="$(get_docker_compose_cmd)"
+
+    if [[ "$pid" =~ ^[0-9]+$ ]] && [[ "$pid" -gt 0 ]]; then
+        info "Attempting hard kill of host PID $pid via privileged helper..."
+        docker run --rm --privileged --pid=host alpine sh -c "kill -9 $pid" >/dev/null 2>&1 || warn "PID kill helper failed (continuing)"
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        if sudo -n true >/dev/null 2>&1; then
+            info "Restarting Docker daemon to clear stale state..."
+            sudo systemctl restart docker >/dev/null 2>&1 || warn "Docker daemon restart failed (continuing)"
+            sleep 3
+        else
+            warn "sudo requires interactive password. If recovery fails, run: sudo systemctl restart docker"
+        fi
+    fi
+
+    # Best-effort recreate. If old container cannot stop, compose may leave it untouched.
+    $compose_cmd rm -f open-webui >/dev/null 2>&1 || true
+    $compose_cmd up -d --force-recreate open-webui >/dev/null 2>&1 || true
+
+    # If compose created a replacement container but the old one is still named ai_openwebui,
+    # swap names so the healthy replacement becomes canonical.
+    if is_container_stuck "ai_openwebui"; then
+        local replacement
+        replacement="$(docker ps -a --format '{{.Names}}' | awk '/_ai_openwebui$/ {print; exit}')"
+        if [[ -n "$replacement" ]]; then
+            local stuck_name="ai_openwebui_stuck_$(date +%s)"
+            docker rename ai_openwebui "$stuck_name" >/dev/null 2>&1 || true
+            docker rename "$replacement" ai_openwebui >/dev/null 2>&1 || true
+            docker start ai_openwebui >/dev/null 2>&1 || true
+        fi
+    fi
+
+    info "Recovery attempt complete. Current Open WebUI status:"
+    $compose_cmd ps open-webui
+}
+
+check_openwebui_audio_config() {
+    info "Checking Open WebUI audio transcription configuration..."
+
+    local pg_user pg_db pg_pass redis_pass
+    pg_user="$(resolve_env_value POSTGRES_USER ai_admin)"
+    pg_db="$(resolve_env_value POSTGRES_DB ai_platform)"
+    pg_pass="$(resolve_env_value POSTGRES_PASSWORD ai_password_2024)"
+    redis_pass="$(resolve_env_value REDIS_PASSWORD redis_password_2024)"
+
+    if ! docker inspect ai_postgres >/dev/null 2>&1; then
+        warn "PostgreSQL container not found (ai_postgres)."
+        return 1
+    fi
+    if ! docker inspect ai_redis >/dev/null 2>&1; then
+        warn "Redis container not found (ai_redis)."
+        return 1
+    fi
+
+    local db_row
+    db_row="$(docker exec -e PGPASSWORD="$pg_pass" ai_postgres psql -U "$pg_user" -d "$pg_db" -At -F '|' -c "SELECT coalesce(data #>> '{audio,stt,engine}',''), coalesce(data #>> '{audio,stt,model}',''), coalesce(data #>> '{audio,stt,openai,api_base_url}',''), coalesce((data #> '{audio,stt,supported_content_types}')::text,'') FROM config WHERE id=1;" 2>/dev/null || true)"
+
+    if [[ -z "$db_row" ]]; then
+        warn "Could not read Open WebUI config row from PostgreSQL."
+        return 1
+    fi
+
+    local db_engine db_model db_base_url db_types
+    IFS='|' read -r db_engine db_model db_base_url db_types <<< "$db_row"
+
+    local redis_values redis_engine redis_model redis_base_url redis_types
+    mapfile -t redis_values < <(docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw MGET open-webui:config:STT_ENGINE open-webui:config:STT_MODEL open-webui:config:STT_OPENAI_API_BASE_URL open-webui:config:STT_SUPPORTED_CONTENT_TYPES 2>/dev/null || true)
+
+    redis_engine="${redis_values[0]:-}"
+    redis_model="$(normalize_json_string_value "${redis_values[1]:-}")"
+    redis_base_url="${redis_values[2]:-}"
+    redis_types="${redis_values[3]:-}"
+
+    echo ""
+    echo -e "${WHITE}Open WebUI STT Config:${NC}"
+    echo "  DB engine:        ${db_engine:-<empty>}"
+    echo "  DB model:         ${db_model:-<empty>}"
+    echo "  DB base URL:      ${db_base_url:-<empty>}"
+    echo "  DB content types: ${db_types:-<empty>}"
+    echo "  Redis engine:     ${redis_engine:-<empty>}"
+    echo "  Redis model:      ${redis_model:-<empty>}"
+    echo "  Redis base URL:   ${redis_base_url:-<empty>}"
+    echo "  Redis types:      ${redis_types:-<empty>}"
+    echo ""
+
+    local issues=()
+    if [[ "$db_engine" == "openai" && -z "$db_model" ]]; then
+        issues+=("DB STT model is empty while STT engine is openai")
+    fi
+    if [[ "$redis_engine" == "openai" && -z "$redis_model" ]]; then
+        issues+=("Redis STT model is empty while STT engine is openai")
+    fi
+    if [[ -n "$db_model" && -n "$redis_model" && "$db_model" != "$redis_model" ]]; then
+        issues+=("DB/Redis STT model mismatch (${db_model} != ${redis_model})")
+    fi
+    if [[ "$db_types" == "[]" || "$db_types" == "[\"\"]" || -z "$db_types" ]]; then
+        issues+=("DB STT supported content types are empty/invalid")
+    fi
+    if [[ "$redis_types" == "[]" || "$redis_types" == "[\"\"]" || -z "$redis_types" ]]; then
+        issues+=("Redis STT supported content types are empty/invalid")
+    fi
+
+    if [[ ${#issues[@]} -eq 0 ]]; then
+        info "Open WebUI STT configuration looks consistent."
+        return 0
+    fi
+
+    warn "Open WebUI STT configuration issues detected:"
+    for issue in "${issues[@]}"; do
+        warn "  - $issue"
+    done
+    warn "Run: ./$SCRIPT_NAME fix-openwebui-audio [model]"
+    return 1
+}
+
+fix_openwebui_audio_config() {
+    local desired_model="${1:-whisper-1}"
+    local desired_types='["audio/*","video/webm"]'
+
+    info "Repairing Open WebUI STT configuration (DB + Redis)..."
+    info "Target STT engine=openai, model=${desired_model}"
+
+    local pg_user pg_db pg_pass redis_pass
+    pg_user="$(resolve_env_value POSTGRES_USER ai_admin)"
+    pg_db="$(resolve_env_value POSTGRES_DB ai_platform)"
+    pg_pass="$(resolve_env_value POSTGRES_PASSWORD ai_password_2024)"
+    redis_pass="$(resolve_env_value REDIS_PASSWORD redis_password_2024)"
+
+    docker exec -e PGPASSWORD="$pg_pass" ai_postgres psql -U "$pg_user" -d "$pg_db" -c "UPDATE config
+SET data = jsonb_set(
+            jsonb_set(
+                jsonb_set(data::jsonb, '{audio,stt,engine}', '\"openai\"', true),
+                '{audio,stt,model}', '\"${desired_model}\"', true
+            ),
+            '{audio,stt,supported_content_types}', '${desired_types}'::jsonb, true
+          )::json
+WHERE id = 1;" >/dev/null
+
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_ENGINE "\"openai\"" >/dev/null
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_MODEL "\"${desired_model}\"" >/dev/null
+    docker exec -e REDISCLI_AUTH="$redis_pass" ai_redis redis-cli --raw SET open-webui:config:STT_SUPPORTED_CONTENT_TYPES "${desired_types}" >/dev/null
+
+    info "Restarting Open WebUI to apply repaired config..."
+    docker restart ai_openwebui >/dev/null
+    sleep 6
+
+    check_openwebui_audio_config
+}
+
 # Check service health
 check_health() {
     info "Checking service health..."
@@ -2456,6 +3167,13 @@ check_health() {
             failed_services+=("$service")
         fi
     done
+
+    if printf '%s\n' "${failed_services[@]}" | grep -qx "open-webui"; then
+        if is_container_stuck "ai_openwebui"; then
+            warn "Detected stuck Open WebUI container (Docker BaseFS/exec failure pattern)."
+            warn "Run: ./$SCRIPT_NAME recover-openwebui"
+        fi
+    fi
 
     for service in "${TIER2_SERVICES[@]}"; do
         local container running
@@ -2499,43 +3217,57 @@ check_health() {
 # Test service endpoints
 test_endpoints() {
     info "Testing service endpoints..."
-    
-    local vm_ip=$(get_vm_ip)
+
+    local vm_ip
     local failed_tests=()
-    
+    local status_code=""
+    vm_ip=$(get_vm_ip)
+
     # Test main landing page
-    if curl -k -s -o /dev/null "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Landing page accessible"
     else
-        failed_tests+=("Landing page")
+        failed_tests+=("Landing page ($status_code)")
     fi
-    
+
     # Test Open WebUI
-    if curl -k -s -o /dev/null -H "Host: oweb.tu.local" "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: oweb.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Open WebUI accessible"
     else
-        failed_tests+=("Open WebUI")
+        failed_tests+=("Open WebUI ($status_code)")
     fi
-    
+
     # Test n8n
-    if curl -k -s -o /dev/null -H "Host: n8n.tu.local" "https://$vm_ip"; then
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: n8n.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ n8n accessible"
     else
-        failed_tests+=("n8n")
+        failed_tests+=("n8n ($status_code)")
     fi
-    
-    # Test Pi-hole
-    if curl -k -s -o /dev/null -H "Host: pihole.tu.local" "https://$vm_ip"; then
+
+    # Test AFFiNE
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: affine.tu.lan" "https://$vm_ip/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
+        info "✓ AFFiNE accessible"
+    else
+        failed_tests+=("AFFiNE ($status_code)")
+    fi
+
+    # Test Pi-hole admin page (root "/" intentionally returns 403)
+    status_code="$(curl -k -s -o /dev/null -w '%{http_code}' -H "Host: pihole.tu.lan" "https://$vm_ip/admin/")"
+    if [[ "$status_code" =~ ^[23][0-9][0-9]$ ]]; then
         info "✓ Pi-hole accessible"
     else
-        failed_tests+=("Pi-hole")
+        failed_tests+=("Pi-hole ($status_code)")
     fi
-    
+
     if [[ ${#failed_tests[@]} -gt 0 ]]; then
         warn "Failed endpoint tests: ${failed_tests[*]}"
         return 1
     fi
-    
+
     info "All endpoint tests passed!"
     return 0
 }
@@ -2550,6 +3282,12 @@ run_diagnostics() {
     
     # Service health
     check_health
+    echo ""
+
+    # Open WebUI audio STT consistency
+    if ! check_openwebui_audio_config; then
+        warn "Open WebUI STT configuration needs repair."
+    fi
     echo ""
     
     # Endpoint tests
@@ -2595,6 +3333,7 @@ main() {
             if [[ "$1" != "help" && "$1" != "version" ]]; then
                 check_docker
                 check_docker_compose
+                check_env_file
             fi
             
             # Execute command
@@ -2604,6 +3343,12 @@ main() {
                     ;;
                 start)
                     start_services "${2:-}"
+                    ;;
+                portable)
+                    start_services --portable
+                    ;;
+                server)
+                    start_services --server
                     ;;
                 stop)
                     stop_services
@@ -2632,6 +3377,15 @@ main() {
                 update)
                     update_system
                     ;;
+                update-check)
+                    update_check
+                    ;;
+                update-rollback)
+                    update_rollback
+                    ;;
+                legacy-update)
+                    TU_VM_USE_LEGACY_UPDATE=1 update_system
+                    ;;
                 test-update)
                     test_update
                     ;;
@@ -2644,6 +3398,9 @@ main() {
                 cleanup)
                     cleanup
                     ;;
+                sync-dns)
+                    sync_pihole_dns_records
+                    ;;
                 health)
                     check_health
                     ;;
@@ -2652,6 +3409,12 @@ main() {
                     ;;
                 diagnose)
                     run_diagnostics
+                    ;;
+                check-openwebui-audio)
+                    check_openwebui_audio_config
+                    ;;
+                fix-openwebui-audio)
+                    fix_openwebui_audio_config "${2:-whisper-1}"
                     ;;
                 info)
                     show_info
