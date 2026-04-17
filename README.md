@@ -136,8 +136,8 @@ The MCP Gateway (`mcp-gateway/`) is a FastAPI application that acts as a secure 
 
 ### Capabilities
 
-- **22 tools** exposed via OpenAPI (n8n workflow CRUD, executions, diagnostics, knowledge base, references)
-- **541 n8n node type definitions** with full parameter schemas, credential requirements, and version info
+- **Tool suite** exposed via OpenAPI (n8n workflow CRUD, executions, diagnostics, knowledge base, references)
+- **Auto-generated n8n node type definitions** (hundreds) with parameter schemas, credential requirements, and version info
 - **Pre-flight validation** of workflow payloads before sending to n8n
 - **Smart parameter filtering** by operation/mode to reduce context window usage
 - **Built-in reference docs** for expressions, common pitfalls, workflow templates, and credential wiring
@@ -206,7 +206,8 @@ These are the checks that span **Open WebUI → Nginx → MCP Gateway → LangGr
 
 ### Smoke test (edge path)
 
-- `scripts/langgraph-e2e-smoke.sh` exercises **`/api/langgraph/health`**, **`/api/mcp/health`**, and a **read-only** `n8n_list_workflows` call through `https://oweb.tu.lan` (or `BASE_URL`), confirming Nginx → LangGraph → Gateway → n8n.
+- `scripts/langgraph-e2e-smoke.sh` exercises **`/api/langgraph/health`**, **`/api/mcp/health`**, and a deterministic **read-only** `n8n_list_workflows` call through `https://oweb.tu.lan` (or `BASE_URL`), then verifies the **write confirm guard** by expecting a denied write without `confirm=true`.
+- The smoke script also supports DNS-resilient local runs by auto-using `curl --resolve` when `oweb.tu.lan` is not resolvable on the host.
 
 ## Workflow Operator
 
@@ -242,7 +243,7 @@ The **Workflow Operator** is an Open WebUI model profile that enables LLMs to au
 │
 ├── mcp-gateway/                # MCP Gateway service
 │   ├── Dockerfile
-│   ├── app.py                  # FastAPI application (22 tools)
+│   ├── app.py                  # FastAPI application (tool router + validation)
 │   └── requirements.txt
 │
 ├── langgraph-supervisor/       # Write verification service
@@ -278,7 +279,7 @@ The **Workflow Operator** is an Open WebUI model profile that enables LLMs to au
 ├── tika-config/                # Apache Tika XML config
 │
 ├── scripts/
-│   ├── safe-update.sh          # Safe update with backup + rollback
+│   ├── safe-update.sh          # Compatibility wrapper (use ./tu-vm.sh update)
 │   ├── daily-checkup.sh        # Daily health + pipeline integrity
 │   ├── pre-push-check.sh       # Local smoke gate before push
 │   ├── changelog-refresh.sh    # Refresh Unreleased from git log
@@ -360,14 +361,22 @@ sudo reboot
 ```bash
 git clone https://github.com/techuties/tu-vm.git
 cd tu-vm
-./tu-vm.sh setup
+./tu-vm.sh quickstart
 ```
 
-This automatically:
-- Creates `.env` from `env.example`
-- Auto-detects and sets `HOST_IP`
-- Generates secure passwords and keys for all services
-- Generates self-signed SSL certificates
+This one command automatically:
+- Creates `.env` from `env.example` (if missing)
+- Generates secure passwords and keys
+- Auto-detects `HOST_IP` and syncs Pi-hole DNS records
+- Generates SSL certificates
+- Starts the platform in beginner-safe portable mode
+- Runs post-start safety checks and prints next steps
+
+Optional variants:
+```bash
+./tu-vm.sh quickstart --server      # full stack mode
+./tu-vm.sh quickstart --no-secure   # skip firewall step
+```
 
 **Or manually:**
 ```bash
@@ -384,12 +393,12 @@ These are **not** auto-generated and must be set manually in `.env` if you use t
 | `N8N_API_KEY` | Always (create in n8n UI: Settings > API) |
 | `AFFINE_API_TOKEN` | If using AFFiNE MCP integration |
 
-#### 4. Start Services
+#### 4. Start Services (manual path)
 ```bash
 ./tu-vm.sh start
 ```
 
-#### 5. Enable Secure Access
+#### 5. Enable Secure Access (manual path)
 ```bash
 sudo ./tu-vm.sh secure
 ```
@@ -418,10 +427,21 @@ To enable the LLM-to-n8n pipeline after initial setup:
 
 All services are accessed through Nginx. Direct container ports are bound to `127.0.0.1` only.
 
+## DNS Routing for Client Devices
+
+To access `*.tu.lan` from client devices (iPad, phones, laptops) without editing hosts files:
+
+1. Set client DNS (or router LAN DHCP DNS) to your TU-VM Pi-hole IP.
+2. Run `./tu-vm.sh sync-dns` after IP/domain changes.
+3. Verify with `./tu-vm.sh dns-clients` for step-by-step setup instructions.
+
+Pi-hole is configured with wildcard routing so any `*.tu.lan` name resolves to the TU-VM host IP.
+
 ## Control Commands
 
 ### Basic Operations
 ```bash
+./tu-vm.sh quickstart         # Beginner one-command setup (recommended)
 ./tu-vm.sh start              # Start all services
 ./tu-vm.sh stop               # Stop all services
 ./tu-vm.sh restart            # Restart all services
@@ -446,7 +466,7 @@ sudo ./tu-vm.sh lock          # Block all external access
 ### Maintenance
 ```bash
 ./tu-vm.sh update-check               # Unified check for updates
-sudo ./tu-vm.sh update                # Unified safe update (recommended)
+sudo ./tu-vm.sh update                # Self-contained full-stack update (recommended)
 sudo ./tu-vm.sh update-rollback       # Roll back to previous snapshot
 ./tu-vm.sh backup                     # Create manual backup
 sudo ./tu-vm.sh restore file.tar.gz   # Restore from backup
@@ -456,6 +476,8 @@ sudo ./tu-vm.sh restore file.tar.gz   # Restore from backup
 ```bash
 ./tu-vm.sh health             # Check service health
 ./tu-vm.sh diagnose           # Run comprehensive diagnostics
+./tu-vm.sh check-openwebui-websearch  # Validate web-search loader safety
+./tu-vm.sh chain-smoke        # Strict oweb -> mcp -> n8n smoke gate
 ./scripts/daily-checkup.sh    # Run daily health + pipeline integrity check
 ./scripts/pre-push-check.sh   # Local smoke checks before push
 ./scripts/rollout-gates.sh    # Proof-store quality gate (supervised writes vs verification)
@@ -463,18 +485,15 @@ sudo ./tu-vm.sh restore file.tar.gz   # Restore from backup
 ./scripts/changelog-refresh.sh --write  # Refresh CHANGELOG Unreleased
 ```
 
-## Safe Update System
+## Update System
 
-The `scripts/safe-update.sh` script provides a zero-downtime update process:
+`./tu-vm.sh update` is the single source of truth for updates. The flow is fully self-contained in `tu-vm.sh`:
 
-1. **`--check`** — Identifies available Docker image updates without pulling
-2. **`--apply`** — Full update cycle:
-   - Backs up PostgreSQL database, `docker-compose.yml`, and Open WebUI configs
-   - Pulls new images and pins to SHA256 digests
-   - Restarts services one-by-one with health checks
-   - Re-extracts n8n node types and reloads MCP Gateway
-   - Verifies full pipeline integrity (RAG, model profiles, tools)
-3. **`--rollback`** — Restores the previous `docker-compose.yml` and restarts
+1. Creates a backup (`docker-compose.yml`, DB/config snapshots)
+2. Pulls image-based services and refreshes pinned digest refs
+3. Rebuilds all `build:` services with fresh base layers
+4. Restores runtime state (services that were running stay running; stopped services stay stopped)
+5. Re-validates pipeline health (`check_openwebui_websearch_config` + strict chain smoke when chain services were running) and writes update status notifications
 
 Docker images for critical services are pinned to SHA256 digests in `docker-compose.yml` to prevent unexpected breakage from `:latest` tag changes.
 
@@ -569,7 +588,7 @@ The `scripts/daily-checkup.sh` script runs automatically and checks:
 ### Automatic Backups
 ```bash
 ./tu-vm.sh backup              # Manual backup
-./scripts/safe-update.sh --apply   # Automatic pre-update backup
+sudo ./tu-vm.sh update         # Update includes automatic pre-update backup
 ```
 
 ### Backup Contents
@@ -614,6 +633,13 @@ docker exec ai_mcp_gateway curl -s http://localhost:9002/openapi-tools.json | py
 ```bash
 ./tu-vm.sh check-openwebui-audio
 ./tu-vm.sh fix-openwebui-audio whisper-1
+```
+
+### Open WebUI Web Search / Playwright Issues
+```bash
+./tu-vm.sh check-openwebui-websearch
+./tu-vm.sh start-service browserless
+./tu-vm.sh chain-smoke
 ```
 
 ### RAG Embeddings Not Working

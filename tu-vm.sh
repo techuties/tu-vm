@@ -99,7 +99,9 @@ readonly OFFICIAL_UPDATE_IMAGE_PAIRS=(
     "tika|apache/tika:latest|apache/tika"
     "minio|minio/minio:latest|minio/minio"
     "affine|ghcr.io/toeverything/affine:stable|ghcr.io/toeverything/affine"
+    "affine_migration|ghcr.io/toeverything/affine:stable|ghcr.io/toeverything/affine"
     "affine_postgres|pgvector/pgvector:pg16|pgvector/pgvector"
+    "affine_redis|redis:alpine|redis"
     "browserless|ghcr.io/browserless/chromium:v2.46.0|ghcr.io/browserless/chromium"
     "pihole|pihole/pihole:latest|pihole/pihole"
     "nginx|nginx:alpine|nginx"
@@ -475,6 +477,35 @@ get_docker_compose_cmd() {
 }
 
 # Check if .env file exists
+env_has_insecure_values() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        return 1
+    fi
+
+    awk -F= '
+    /^[[:space:]]*#/ { next }
+    /^[[:space:]]*$/ { next }
+    index($0, "=") == 0 { next }
+    {
+        value = $0
+        sub(/^[^=]*=/, "", value)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+        gsub(/^"|"$/, "", value)
+        gsub(/^'\''|'\''$/, "", value)
+
+        if (value ~ /^CHANGE_ME/ ||
+            value == "ai_password_2024" ||
+            value == "redis_password_2024" ||
+            value == "minio123456" ||
+            value == "admin123" ||
+            value == "affine_change_me") {
+            found = 1
+        }
+    }
+    END { exit(found ? 0 : 1) }
+    ' "$ENV_FILE"
+}
+
 check_env_file() {
     if [[ ! -f "$ENV_FILE" ]]; then
         warn ".env file not found. Creating from env.example..."
@@ -483,7 +514,7 @@ check_env_file() {
             info "Created .env file from env.example."
             
             # Check for default passwords and generate secrets automatically
-            if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
+            if env_has_insecure_values; then
                 warn "Default passwords detected! Generating secure secrets automatically..."
                 generate_secrets
             else
@@ -494,7 +525,7 @@ check_env_file() {
         fi
     else
         # Check existing .env file for default passwords
-        if grep -q "CHANGE_ME_SECURE_PASSWORD\|CHANGE_ME_32_CHAR_ENCRYPTION_KEY\|CHANGE_ME_SECRET_KEY\|affine_change_me\|CHANGE_ME_MCP_TOKEN" "$ENV_FILE"; then
+        if env_has_insecure_values; then
             warn "Default passwords detected in existing .env file!"
             warn "Run './tu-vm.sh generate-secrets' to generate secure passwords."
         fi
@@ -681,6 +712,10 @@ server=1.1.1.1
 server=1.0.0.1
 
 # Local service domains (Nginx reverse proxy)
+# Wildcard route: any *.tu.lan name resolves to this VM.
+# This enables client access (iPad/laptops/etc.) without hosts-file edits
+# as long as the device uses this Pi-hole as DNS.
+address=/.tu.lan/$target_ip
 address=/tu.lan/$target_ip
 address=/oweb.tu.lan/$target_ip
 address=/n8n.tu.lan/$target_ip
@@ -698,6 +733,47 @@ EOF
     fi
 
     info "✅ Pi-hole DNS records synced"
+}
+
+show_dns_client_setup() {
+    local dns_ip
+    dns_ip="$(resolve_dns_record_ip)"
+    local tailscale_ip
+    tailscale_ip="$(get_tailscale_ip)"
+
+    echo -e "${WHITE}DNS Client Setup (No hosts-file needed)${NC}"
+    echo "========================================="
+    echo ""
+    echo "Pi-hole DNS server for clients: $dns_ip"
+    echo "Wildcard local domain: *.tu.lan -> $dns_ip"
+    echo ""
+    echo "What this gives you:"
+    echo "  - oweb.tu.lan, n8n.tu.lan, affine.tu.lan, minio.tu.lan, etc."
+    echo "  - New service subdomains under *.tu.lan resolve automatically"
+    echo "  - Works on iPad/iPhone/laptops without editing /etc/hosts"
+    echo ""
+    echo "Option A (recommended): set your ROUTER LAN DNS to:"
+    echo "  Primary DNS:   $dns_ip"
+    echo "  Secondary DNS: <optional fallback, e.g. 1.1.1.1>"
+    echo ""
+    echo "Option B: set DNS per device"
+    echo "  - iPad/iPhone: Wi-Fi -> (i) -> Configure DNS -> Manual -> $dns_ip"
+    echo "  - macOS: System Settings -> Network -> DNS -> add $dns_ip"
+    echo "  - Windows: Adapter DNS settings -> Preferred DNS = $dns_ip"
+    echo ""
+    echo "After changing DNS on clients:"
+    echo "  1) Reconnect Wi-Fi (or renew DHCP lease)"
+    echo "  2) Open https://tu.lan and https://oweb.tu.lan"
+    echo ""
+    echo "Maintenance commands:"
+    echo "  - Sync records: ./$SCRIPT_NAME sync-dns"
+    echo "  - Pi-hole UI:   https://pihole.tu.lan/admin"
+    if [[ -n "$tailscale_ip" ]]; then
+        echo ""
+        echo "Tailscale note:"
+        echo "  - Current Tailscale IP detected: $tailscale_ip"
+        echo "  - Keep DNS_RECORD_IP/HOST_IP aligned with your intended client network."
+    fi
 }
 
 # Generate self-signed SSL certificates for Nginx
@@ -852,13 +928,18 @@ show_help() {
     show_info
     echo -e "${WHITE}Usage:${NC} ./$SCRIPT_NAME [COMMAND] [OPTIONS]"
     echo ""
+    echo -e "${WHITE}Beginner (Recommended):${NC}"
+    echo "  quickstart               One-command beginner setup (portable mode)"
+    echo "  quickstart --server      One-command full-stack setup"
+    echo "  quickstart --no-secure   Skip firewall step (not recommended)"
+    echo ""
     echo -e "${WHITE}Setup & Initialization:${NC}"
     echo "  setup                    Complete first-time setup (env, SSL, secrets)"
     echo ""
     echo -e "${WHITE}Basic Commands:${NC}"
     echo "  start                    Start in portable mode (default, low resource)"
     echo "  start --portable         Start portable mode (Tier 1 only, low resource)"
-    echo "  start --server           Start server mode (Tier 1 + Tier 2, full stack)"
+    echo "  start --server           Start server mode (all services; auto-skips Ollama on non-GPU)"
     echo "  start --tier1            Alias for --portable"
     echo "  start --all              Alias for --server"
     echo -e "${WHITE}Runtime Modes:${NC}"
@@ -882,16 +963,16 @@ show_help() {
     echo "  lock                     Block all external access"
     echo ""
     echo -e "${WHITE}Maintenance:${NC}"
-    echo "  update                   Unified safe update (recommended)"
+    echo "  update                   Self-contained full-stack update (recommended)"
     echo "  update-check             Check available updates (no changes)"
-    echo "  update-rollback          Roll back to latest safe-update snapshot"
-    echo "  legacy-update            Run legacy in-script update flow"
+    echo "  update-rollback          Roll back to latest compose backup snapshot"
     echo "  test-update              Test update process (dry run)"
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
     echo "  cleanup                  Clean up old backups and logs"
     echo "  sync-dns                 Sync Pi-hole DNS for *.tu.lan"
     echo "  setup-minio             Setup MinIO buckets for existing installation"
+    echo "  dns-clients             Show client/router DNS setup instructions"
     echo ""
     echo -e "${WHITE}Security:${NC}"
     echo "  generate-secrets         Generate secure passwords and keys"
@@ -908,6 +989,8 @@ show_help() {
     echo "  diagnose                 Run comprehensive diagnostics"
     echo "  check-openwebui-audio    Validate Open WebUI STT config consistency"
     echo "  fix-openwebui-audio      Repair Open WebUI STT config (DB + Redis)"
+    echo "  check-openwebui-websearch Validate Open WebUI web-search loader config"
+    echo "  chain-smoke              Run Open WebUI -> MCP -> n8n chain smoke test"
     echo "  info                     Show system information"
     echo ""
     echo -e "${WHITE}PDF Processing:${NC}"
@@ -926,9 +1009,11 @@ show_help() {
     echo "  ${ICON_LOCKED} LOCKED:    No external access"
     echo ""
     echo -e "${WHITE}Examples:${NC}"
+    echo "  ./$SCRIPT_NAME quickstart               # Beginner one-command setup"
+    echo "  ./$SCRIPT_NAME quickstart --server      # Beginner setup with full stack"
     echo "  ./$SCRIPT_NAME start                    # Start in portable mode (default)"
     echo "  ./$SCRIPT_NAME start --portable         # Start in portable mode"
-    echo "  ./$SCRIPT_NAME start --server           # Start in server mode"
+    echo "  ./$SCRIPT_NAME start --server           # Start server mode (GPU-aware Ollama start)"
     echo "  ./$SCRIPT_NAME start --all              # Alias for server mode"
     echo "  ./$SCRIPT_NAME start-service ollama     # Start Tier 2 Ollama"
     echo "  ./$SCRIPT_NAME stop-service ollama      # Stop Tier 2 Ollama"
@@ -941,9 +1026,12 @@ show_help() {
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
     echo "  ./$SCRIPT_NAME update-check             # Check what can be updated"
-    echo "  ./$SCRIPT_NAME update                   # Apply safe update flow"
+    echo "  ./$SCRIPT_NAME update                   # Apply full-stack update flow"
     echo "  ./$SCRIPT_NAME update-rollback          # Roll back latest update"
+    echo "  ./$SCRIPT_NAME dns-clients              # Print DNS setup for clients/router"
     echo "  ./$SCRIPT_NAME check-openwebui-audio    # Validate Open WebUI audio STT config"
+    echo "  ./$SCRIPT_NAME check-openwebui-websearch # Validate Open WebUI web-search config"
+    echo "  ./$SCRIPT_NAME chain-smoke              # Verify oweb->mcp->n8n execution path"
     echo "  ./$SCRIPT_NAME fix-openwebui-audio      # Repair Open WebUI audio STT config"
     echo "  ./$SCRIPT_NAME version                  # Show version info"
 }
@@ -965,7 +1053,7 @@ setup_platform() {
     ensure_tailscale_ip_configured
     
     # Step 4: Generate secrets if using defaults
-    if grep -q "CHANGE_ME\|ai_password_2024\|redis_password_2024\|minio123456\|admin123\|affine_change_me" "$ENV_FILE" 2>/dev/null; then
+    if env_has_insecure_values; then
         info "Generating secure passwords and keys..."
         generate_secrets
     else
@@ -984,6 +1072,84 @@ setup_platform() {
     info "✅ Setup complete! You can now run: ./$SCRIPT_NAME start"
     echo ""
     show_access_info
+}
+
+run_beginner_post_checks() {
+    local checks_ok=true
+    info "Running beginner safety checks..."
+
+    if ! check_health; then
+        checks_ok=false
+    fi
+    echo ""
+
+    if ! test_endpoints; then
+        checks_ok=false
+    fi
+    echo ""
+
+    if ! check_openwebui_websearch_config; then
+        checks_ok=false
+    fi
+    echo ""
+
+    if [[ "$checks_ok" == true ]]; then
+        success "✅ Beginner setup checks passed."
+        return 0
+    fi
+
+    warn "Some checks reported warnings."
+    warn "Run: ./$SCRIPT_NAME diagnose"
+    return 1
+}
+
+quickstart_beginner() {
+    local mode="portable"
+    local apply_secure="auto"
+
+    case "${1:-}" in
+        --server|server|--all) mode="server" ;;
+        --portable|portable|"") mode="portable" ;;
+        --no-secure) apply_secure="never" ;;
+        --server-no-secure)
+            mode="server"
+            apply_secure="never"
+            ;;
+        *)
+            error "Unknown quickstart option: ${1:-}. Use --portable, --server, or --no-secure."
+            ;;
+    esac
+
+    info "Starting beginner quickstart (${mode} mode)..."
+    info "This flow prepares secrets, DNS, SSL, starts services, and runs safety checks."
+
+    setup_platform
+
+    if [[ "$mode" == "server" ]]; then
+        start_services --server
+    else
+        start_services --portable
+    fi
+
+    if [[ "$apply_secure" == "never" ]]; then
+        warn "Skipping secure firewall step (--no-secure selected)."
+    else
+        if [[ $EUID -eq 0 ]]; then
+            enable_secure
+        else
+            warn "Firewall secure mode requires sudo."
+            warn "Run now: sudo ./$SCRIPT_NAME secure"
+        fi
+    fi
+
+    run_beginner_post_checks || true
+
+    echo ""
+    echo -e "${WHITE}Beginner Next Steps:${NC}"
+    echo "  1) Open dashboard: https://tu.lan"
+    echo "  2) Open AI chat:   https://oweb.tu.lan"
+    echo "  3) For iPad/phones: ./$SCRIPT_NAME dns-clients"
+    echo "  4) If anything fails: ./$SCRIPT_NAME diagnose"
 }
 
 start_single_service() {
@@ -1011,6 +1177,34 @@ stop_single_service() {
     compose_cmd=$(get_docker_compose_cmd)
     info "Stopping service: $svc"
     $compose_cmd stop "$svc"
+}
+
+# Decide whether Ollama should start automatically in server mode.
+# TU_VM_SERVER_START_OLLAMA values:
+# - true/1/yes/on: always start Ollama
+# - false/0/no/off: never start Ollama automatically
+# - auto (default): start only when a GPU is detected
+should_start_ollama_in_server() {
+    local pref
+    pref="$(resolve_env_value TU_VM_SERVER_START_OLLAMA auto)"
+    pref="${pref,,}"
+    case "$pref" in
+        true|1|yes|on) return 0 ;;
+        false|0|no|off) return 1 ;;
+        auto|"")
+            if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
+                return 0
+            fi
+            return 1
+            ;;
+        *)
+            warn "Invalid TU_VM_SERVER_START_OLLAMA='$pref' in $ENV_FILE; using auto detection"
+            if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
+                return 0
+            fi
+            return 1
+            ;;
+    esac
 }
 
 # Start services
@@ -1064,8 +1258,21 @@ start_services() {
     local compose_cmd=$(get_docker_compose_cmd)
 
     if [[ "$mode" == "server" ]]; then
-        # Start everything (Tier 2 services will be started as well)
-        $compose_cmd up -d
+        # Start full stack, but avoid auto-starting Ollama on non-GPU hosts.
+        local -a server_services
+        mapfile -t server_services < <($compose_cmd config --services)
+        if ! should_start_ollama_in_server; then
+            local -a filtered_services=()
+            local s
+            for s in "${server_services[@]}"; do
+                [[ "$s" == "ollama" ]] && continue
+                filtered_services+=("$s")
+            done
+            server_services=("${filtered_services[@]}")
+            info "No GPU detected (or TU_VM_SERVER_START_OLLAMA=false): starting server mode without Ollama."
+            info "You can still start it manually: ./$SCRIPT_NAME start-service ollama"
+        fi
+        $compose_cmd up -d "${server_services[@]}"
     else
         # Start only Tier 1 services, and ensure Tier 2 containers exist but remain stopped
         $compose_cmd up -d "${TIER1_SERVICES[@]}"
@@ -1353,6 +1560,36 @@ show_status() {
             echo -e "    ${YELLOW}${ICON_WARNING}${NC} $service (stopped)"
         fi
     done
+    local ollama_policy
+    ollama_policy="$(resolve_env_value TU_VM_SERVER_START_OLLAMA auto)"
+    ollama_policy="${ollama_policy,,}"
+    local ollama_policy_msg
+    local policy_state_icon="$YELLOW${ICON_WARNING}$NC"
+    case "$ollama_policy" in
+        true|1|yes|on)
+            ollama_policy_msg="auto-start enabled (TU_VM_SERVER_START_OLLAMA=$ollama_policy)"
+            policy_state_icon="$GREEN${ICON_SUCCESS}$NC"
+            ;;
+        false|0|no|off)
+            ollama_policy_msg="auto-start disabled (TU_VM_SERVER_START_OLLAMA=$ollama_policy)"
+            policy_state_icon="$YELLOW${ICON_WARNING}$NC"
+            ;;
+        auto|"")
+            if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then
+                ollama_policy_msg="auto-start enabled (GPU detected, TU_VM_SERVER_START_OLLAMA=auto)"
+                policy_state_icon="$GREEN${ICON_SUCCESS}$NC"
+            else
+                ollama_policy_msg="auto-start disabled (no GPU detected, TU_VM_SERVER_START_OLLAMA=auto)"
+                policy_state_icon="$YELLOW${ICON_WARNING}$NC"
+            fi
+            ;;
+        *)
+            ollama_policy_msg="invalid TU_VM_SERVER_START_OLLAMA='$ollama_policy' (treated as auto)"
+            policy_state_icon="$YELLOW${ICON_WARNING}$NC"
+            ;;
+    esac
+    echo -e "  ${WHITE}Server Mode Ollama Policy:${NC}"
+    echo -e "    ${policy_state_icon} ${ollama_policy_msg}"
     echo ""
     
     # Access information
@@ -1503,16 +1740,6 @@ lock_access() {
 # Update system
 update_system() {
     check_root "update"
-
-    # Unified update entrypoint: prefer safe-update workflow.
-    # Set TU_VM_USE_LEGACY_UPDATE=1 to force legacy in-script update logic.
-    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
-    if [[ "${TU_VM_USE_LEGACY_UPDATE:-0}" != "1" ]] && [[ -x "$safe_update_script" ]]; then
-        info "Using unified safe update workflow..."
-        "$safe_update_script" --apply
-        return $?
-    fi
-    warn "safe-update.sh not executable or legacy mode enabled; using legacy update logic."
     
     info "Updating $PROJECT_NAME..."
     
@@ -1558,196 +1785,177 @@ update_system() {
     
     local compose_cmd=$(get_docker_compose_cmd)
     
-    # Pull latest official images and detect updated services.
-    # Custom/self-managed services are excluded from auto update on purpose.
-    info "Pulling latest official service images..."
-    local pull_log_file="/tmp/tu-compose-pull.log"
-    : > "$pull_log_file"
-    local pull_cmd="$compose_cmd pull ${OFFICIAL_UPDATE_SERVICES[*]}"
-    
-    # Detect support for --progress flag
-    if $compose_cmd pull --help 2>&1 | grep -q -- "--progress"; then
-        pull_cmd="$compose_cmd pull --progress=plain"
+    # Capture current runtime state and full service catalog.
+    local -a all_services=() running_services=() stopped_services=() build_services=()
+    while IFS= read -r svc; do
+        [[ -n "$svc" ]] && all_services+=("$svc")
+    done < <($compose_cmd config --services 2>/dev/null || true)
+    while IFS= read -r svc; do
+        [[ -n "$svc" ]] && running_services+=("$svc")
+    done < <($compose_cmd ps --services --status running 2>/dev/null || true)
+    local running_set
+    running_set="$(printf "%s\n" "${running_services[@]}")"
+    local chain_gate_required=false
+    if printf "%s\n" "$running_set" | grep -qx "n8n" && \
+       printf "%s\n" "$running_set" | grep -qx "mcp_gateway" && \
+       printf "%s\n" "$running_set" | grep -qx "langgraph_supervisor"; then
+        chain_gate_required=true
     fi
-    
-    # Pull images with retry logic (always pulls latest for :latest, :alpine tags)
-    set +e
-    $pull_cmd 2>&1 | tee "$pull_log_file"
-    local pull_ec=${PIPESTATUS[0]}
-    if [[ $pull_ec -ne 0 ]]; then
-        warn "compose pull failed with exit code $pull_ec. Retrying..."
-        $compose_cmd pull "${OFFICIAL_UPDATE_SERVICES[@]}" 2>&1 | tee "$pull_log_file"
-        pull_ec=${PIPESTATUS[0]}
-        if [[ $pull_ec -ne 0 ]]; then
-            error "Image pull failed (exit code $pull_ec). Aborting update."
-            exit 1
+    for svc in "${all_services[@]}"; do
+        [[ -z "$svc" ]] && continue
+        if printf "%s\n" "$running_set" | grep -qx "$svc"; then
+            continue
         fi
-    fi
-    set -e
+        stopped_services+=("$svc")
+    done
 
-    # Refresh pinned image digests in compose so official services can actually move forward
-    # even when docker-compose.yml uses tag@sha256 references.
-    info "Refreshing pinned digests for official services..."
-    local digest_changed_services=()
-    for pair in "${OFFICIAL_UPDATE_IMAGE_PAIRS[@]}"; do
-        local svc="${pair%%|*}"
-        local rest="${pair#*|}"
-        local img="${rest%%|*}"
-        local compose_base="${pair##*|}"
+    info "Pulling latest service images and refreshing pinned digests..."
+    local spec_file="/tmp/tu-compose-service-specs.txt"
+    $compose_cmd config --format json | python3 -c '
+import json,sys
+cfg=json.load(sys.stdin)
+for name, svc in sorted(cfg.get("services", {}).items()):
+    image = svc.get("image", "")
+    has_build = "yes" if "build" in svc else "no"
+    print(f"{name}|{image}|{has_build}")
+' > "$spec_file"
 
-        # Pull upstream tag explicitly (independent of pinned digest in compose)
-        if ! docker pull "$img" >/dev/null 2>&1; then
-            warn "Failed to pull upstream image for $svc ($img); keeping current pinned digest."
+    while IFS='|' read -r svc image_ref has_build; do
+        if [[ "$has_build" == "yes" ]]; then
+            build_services+=("$svc")
+            continue
+        fi
+        if [[ -z "$image_ref" ]]; then
             continue
         fi
 
-        local new_ref=""
-        new_ref=$(docker image inspect "$img" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
-        if [[ -z "$new_ref" ]]; then
-            continue
-        fi
-
-        # Replace only when digest differs; keep tag semantics stable.
-        if ! grep -qF "$new_ref" "$DOCKER_COMPOSE_FILE"; then
-            python3 - <<PY
+        if [[ "$image_ref" == *"@sha256:"* ]]; then
+            local source_tag=""
+            for pair in "${OFFICIAL_UPDATE_IMAGE_PAIRS[@]}"; do
+                local pair_svc="${pair%%|*}"
+                if [[ "$pair_svc" == "$svc" ]]; then
+                    local rest="${pair#*|}"
+                    source_tag="${rest%%|*}"
+                    break
+                fi
+            done
+            if [[ -n "$source_tag" ]]; then
+                if docker pull "$source_tag" >/dev/null 2>&1; then
+                    local new_ref
+                    new_ref=$(docker image inspect "$source_tag" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+                    if [[ -n "$new_ref" ]] && [[ "$new_ref" != "$image_ref" ]]; then
+                        python3 - <<PY
 import re
 path = "$DOCKER_COMPOSE_FILE"
-compose_base = "$compose_base"
+service = "$svc"
 new_ref = "$new_ref"
 text = open(path, "r", encoding="utf-8").read()
-# Match:
-# - repo
-# - repo:tag
-# - repo@sha256:...
-# - repo:tag@sha256:...
-pattern = re.escape(compose_base) + r'(?::[^@\\s]+)?(?:@sha256:[a-f0-9]+)?'
-new_text, n = re.subn(pattern, new_ref, text)
-if n:
-    open(path, "w", encoding="utf-8").write(new_text)
+pattern = re.compile(r"(^\\s{2}" + re.escape(service) + r":\\n(?:\\s{4}.*\\n)*?\\s{4}image:\\s*)([^\\n]+)", re.MULTILINE)
+m = pattern.search(text)
+if m:
+    text = text[:m.start(2)] + new_ref + text[m.end(2):]
+    open(path, "w", encoding="utf-8").write(text)
 PY
-            digest_changed_services+=("$svc")
-            info "Pinned $svc -> $new_ref"
-        fi
-    done
-    
-    info "Skipping auto-rebuild of custom services (self-managed policy)."
-    
-    # Build list of all services for validation
-    local -a all_services
-    mapfile -t all_services < <($compose_cmd config --services)
-    
-    # Detect which services were updated
-    local updated_services=()
-    while IFS= read -r line; do
-        if echo "$line" | grep -qE "\bPulled\b"; then
-            local svc=""
-            if echo "$line" | grep -q "✔"; then
-                svc=$(echo "$line" | awk '{print $2}')
+                        info "Pinned $svc -> $new_ref"
+                    fi
+                else
+                    warn "Failed to pull source image for pinned service $svc ($source_tag)"
+                fi
             else
-                svc=$(echo "$line" | awk '{print $1}')
+                warn "Pinned service $svc has no upstream mapping; keeping current digest."
             fi
-            if [[ -n "$svc" ]] && printf '%s\n' "${all_services[@]}" | grep -qx "$svc"; then
-                updated_services+=("$svc")
+        else
+            if ! docker pull "$image_ref" >/dev/null 2>&1; then
+                warn "Failed to pull image for $svc ($image_ref)"
             fi
         fi
-    done < "$pull_log_file"
-    
-    # Merge with services that changed due to digest refresh.
-    if [[ ${#digest_changed_services[@]} -gt 0 ]]; then
-        updated_services+=("${digest_changed_services[@]}")
+    done < "$spec_file"
+
+    if [[ ${#build_services[@]} -gt 0 ]]; then
+        info "Rebuilding build-based services..."
+        for svc in "${build_services[@]}"; do
+            info "Building $svc..."
+            if ! $compose_cmd build --pull "$svc" >/dev/null 2>&1; then
+                warn "Build failed for $svc"
+            fi
+        done
     fi
 
-    # De-duplicate services list
-    if [[ ${#updated_services[@]} -gt 0 ]]; then
-        mapfile -t updated_services < <(printf "%s\n" "${updated_services[@]}" | sort -u)
-        info "Services with new images: ${updated_services[*]}"
-    else
-        info "All images are already up to date."
-    fi
-    
     # ============================================================================
-    # PHASE 4: User Confirmation
-    # ============================================================================
-    
-    local update_choice="all"
-    if [[ -t 0 ]]; then
-        if [[ ${#updated_services[@]} -gt 0 ]]; then
-            echo ""
-            echo "Update options:"
-            echo "  [1] Update only services with new images: ${updated_services[*]}"
-            echo "  [2] Update all services"
-            echo "  [c] Cancel update"
-            read -p "Choose [1/2/c] (default: 1): " -r choice
-            case "$choice" in
-                2) update_choice="all" ;;
-                c|C) info "Update cancelled by user"; return 0 ;;
-                *) update_choice="only" ;;
-            esac
-        else
-            read -p "No new images detected. Restart services anyway? [Y/n]: " -r choice2
-            case "$choice2" in
-                n|N) info "Update skipped (nothing to do)."; return 0 ;;
-                *) update_choice="all" ;;
-            esac
-        fi
-    fi
-    
-    # ============================================================================
-    # PHASE 5: Stop Services
+    # PHASE 4: Stop Services
     # ============================================================================
     
     info "Stopping services for update..."
     $compose_cmd down
     
     # ============================================================================
-    # PHASE 6: Restore Pi-hole DNS and Start Services
+    # PHASE 5: Restore Pi-hole DNS and Start Services
     # ============================================================================
     
     # Restore Pi-hole DNS before starting services
     info "🌐 Restoring Pi-hole DNS configuration..."
     handle_pihole_dns_replacement "start"
     
-    # Start services in proper order
-    info "Starting services with updated images..."
-    
-    if [[ "$update_choice" == "only" && ${#updated_services[@]} -gt 0 ]]; then
-        # Start only updated services
-        $compose_cmd up -d "${updated_services[@]}"
-        
-        # Always recreate on-demand services (n8n, ollama, minio) in stopped state
-        # These have restart: "no" so they won't auto-start, but containers must exist
-        info "Recreating on-demand service containers (will remain stopped)..."
-        for ondemand_svc in n8n ollama minio; do
-            # Only recreate if not already in updated_services
-            if ! printf '%s\n' "${updated_services[@]}" | grep -qx "$ondemand_svc"; then
-                $compose_cmd up -d --no-start "$ondemand_svc" 2>/dev/null || warn "Failed to recreate $ondemand_svc container"
-            fi
-        done
+    info "Starting Tier 1 core services..."
+    $compose_cmd up -d "${TIER1_SERVICES[@]}"
+
+    if [[ ${#running_services[@]} -gt 0 ]]; then
+        info "Restoring previously running services..."
+        $compose_cmd up -d "${running_services[@]}"
     else
-        # Start all services (on-demand services will be created but not started due to restart: "no")
-        $compose_cmd up -d
+        info "No additional services were running before update."
+    fi
+
+    info "Refreshing stopped services without starting them..."
+    if [[ ${#stopped_services[@]} -gt 0 ]]; then
+        for svc in "${stopped_services[@]}"; do
+            [[ -z "$svc" ]] && continue
+            $compose_cmd up -d --no-start "$svc" 2>/dev/null || warn "Failed to refresh stopped service $svc"
+        done
+    fi
+
+    if printf "%s\n" "${running_services[@]}" | grep -qx "n8n" && docker inspect ai_n8n --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+        info "Refreshing n8n node type definitions after update..."
+        if [[ -x "$SCRIPT_DIR/scripts/extract-n8n-node-types.sh" ]]; then
+            "$SCRIPT_DIR/scripts/extract-n8n-node-types.sh" >/dev/null 2>&1 || warn "Node type extraction failed; continuing."
+        fi
     fi
     
     # ============================================================================
     # PHASE 7: Wait for Services and Verify
     # ============================================================================
     
-    info "Waiting for services to be ready..."
-    if wait_for_services; then
+    local update_healthy=true
+    info "Waiting for core services to be ready..."
+    if wait_for_services "${TIER1_SERVICES[@]}"; then
         info "All services started successfully after update!"
-        
+
         # Verify data retention
         info "Verifying data retention..."
-        if verify_data_retention; then
+        if ! verify_data_retention; then
+            update_healthy=false
+        fi
+
+        # Validate web-search loader safety rails after update.
+        if ! check_openwebui_websearch_config; then
+            update_healthy=false
+        fi
+
+        # Run strict chain smoke gate only when workflow chain services were running before update.
+        if ! run_langgraph_chain_smoke "$chain_gate_required"; then
+            update_healthy=false
+        fi
+
+        if [[ "$update_healthy" == true ]]; then
             write_update_notification_entry \
                 false \
                 "Update completed successfully" \
-                "All required services are running and data volumes are accessible."
+                "Core services, data-retention checks, and chain smoke validation passed."
         else
             write_update_notification_entry \
                 false \
                 "Update completed with warnings" \
-                "Services started, but data-retention checks reported warnings. Review tu-vm.log for details."
+                "One or more post-update checks failed (data retention, web-search config, or chain smoke). Review tu-vm.log."
         fi
         
         # Show update summary
@@ -1755,6 +1963,7 @@ PY
         
         show_access_info
     else
+        update_healthy=false
         warn "Some services may not be fully ready yet."
         info "Check status with: ./$SCRIPT_NAME status"
         write_update_notification_entry \
@@ -1767,34 +1976,112 @@ PY
     # PHASE 8: Cleanup (at the end, after everything is verified)
     # ============================================================================
     
-    info "Performing post-update Docker cleanup..."
-    perform_docker_cleanup
+    if [[ "$update_healthy" == true ]]; then
+        info "Performing post-update Docker cleanup..."
+        perform_docker_cleanup
+    else
+        warn "Skipping post-update Docker cleanup because service health checks reported warnings."
+    fi
     
     # ============================================================================
     # PHASE 9: Summary
     # ============================================================================
     
-    info "Update completed successfully!"
+    if [[ "$update_healthy" == true ]]; then
+        info "Update completed successfully!"
+    else
+        warn "Update completed with warnings."
+    fi
     info "Backup created: $backup_name"
 }
 
 update_check() {
-    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
-    if [[ -x "$safe_update_script" ]]; then
-        "$safe_update_script" --check
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd)
+    info "Checking for available service updates..."
+
+    local updates_found=0
+    local spec_file="/tmp/tu-compose-service-specs-check.txt"
+    $compose_cmd config --format json | python3 -c '
+import json,sys
+cfg=json.load(sys.stdin)
+for name, svc in sorted(cfg.get("services", {}).items()):
+    image = svc.get("image", "")
+    has_build = "yes" if "build" in svc else "no"
+    print(f"{name}|{image}|{has_build}")
+' > "$spec_file"
+
+    while IFS='|' read -r svc image_ref has_build; do
+        if [[ "$has_build" == "yes" ]]; then
+            info "  $svc: build-based service (will rebuild during update)"
+            continue
+        fi
+        if [[ -z "$image_ref" ]]; then
+            continue
+        fi
+
+        if [[ "$image_ref" == *"@sha256:"* ]]; then
+            local source_tag=""
+            for pair in "${OFFICIAL_UPDATE_IMAGE_PAIRS[@]}"; do
+                local pair_svc="${pair%%|*}"
+                if [[ "$pair_svc" == "$svc" ]]; then
+                    local rest="${pair#*|}"
+                    source_tag="${rest%%|*}"
+                    break
+                fi
+            done
+            if [[ -z "$source_tag" ]]; then
+                info "  $svc: pinned image (no upstream mapping configured)"
+                continue
+            fi
+            docker pull "$source_tag" >/dev/null 2>&1 || true
+            local new_ref
+            new_ref=$(docker image inspect "$source_tag" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+            if [[ -n "$new_ref" ]] && [[ "$new_ref" != "$image_ref" ]]; then
+                info "  UPDATE AVAILABLE: $svc -> $new_ref"
+                updates_found=$((updates_found + 1))
+            else
+                info "  Up to date: $svc"
+            fi
+            continue
+        fi
+
+        local old_id new_id
+        old_id=$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || echo "none")
+        docker pull "$image_ref" >/dev/null 2>&1 || true
+        new_id=$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || echo "none")
+        if [[ "$old_id" != "$new_id" ]]; then
+            info "  UPDATE AVAILABLE: $svc ($image_ref)"
+            updates_found=$((updates_found + 1))
+        else
+            info "  Up to date: $svc"
+        fi
+    done < "$spec_file"
+
+    if [[ "$updates_found" -eq 0 ]]; then
+        success "All services are up to date."
     else
-        error "Missing executable: $safe_update_script"
+        warn "$updates_found service update(s) available."
     fi
 }
 
 update_rollback() {
     check_root "update-rollback"
-    local safe_update_script="$SCRIPT_DIR/scripts/safe-update.sh"
-    if [[ -x "$safe_update_script" ]]; then
-        "$safe_update_script" --rollback
-    else
-        error "Missing executable: $safe_update_script"
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd)
+    local latest_compose
+    latest_compose=$(ls -t "$BACKUP_DIR"/docker-compose_*.yml 2>/dev/null | head -1 || true)
+
+    if [[ -z "$latest_compose" ]]; then
+        error "No docker-compose backup found in $BACKUP_DIR"
+        return 1
     fi
+
+    info "Restoring compose file from backup: $latest_compose"
+    cp "$latest_compose" "$DOCKER_COMPOSE_FILE"
+    info "Restarting services with restored compose config..."
+    $compose_cmd up -d
+    success "Rollback completed."
 }
 
 # Write status for dashboard/announcement system immediately after update.
@@ -2417,21 +2704,29 @@ perform_docker_cleanup() {
     info "Current Docker disk usage:"
     docker system df
     
+    # Safety guard: avoid aggressive cleanup when no containers are running.
+    # This prevents accidentally deleting all images after a failed update/startup.
+    local running_count
+    running_count=$(docker ps -q | wc -l | tr -d ' ')
+    if [[ "${running_count:-0}" -eq 0 ]]; then
+        warn "No running containers detected; skipping aggressive Docker cleanup."
+        return 0
+    fi
+
     # Remove stopped containers
     info "Removing stopped containers..."
     docker container prune -f
     
-    # Remove unused images (including dangling images)
-    info "Removing unused images..."
-    docker image prune -a -f
+    # Remove dangling/unused layers only (do not remove all unreferenced images).
+    info "Removing dangling images..."
+    docker image prune -f
     
     # Remove unused volumes (be careful not to remove data volumes)
     info "Removing unused volumes (preserving data volumes)..."
     docker volume prune -f
     
-    # Remove unused networks
-    info "Removing unused networks..."
-    docker network prune -f
+    # Keep networks intact to avoid removing project networks during transient states.
+    info "Skipping network prune to preserve project networking."
     
     # Remove build cache
     info "Removing build cache..."
@@ -2487,11 +2782,13 @@ test_update() {
     docker system df
     echo ""
     
-    # Show official services that are auto-updated
-    echo -e "${YELLOW}🔄 Services to Update:${NC}"
-    for service in "${OFFICIAL_UPDATE_SERVICES[@]}"; do
-        echo "  - $service"
-    done
+    # Show all compose services that participate in update flow
+    echo -e "${YELLOW}🔄 Services in Update Scope:${NC}"
+    local compose_cmd
+    compose_cmd=$(get_docker_compose_cmd)
+    while IFS= read -r service; do
+        [[ -n "$service" ]] && echo "  - $service"
+    done < <($compose_cmd config --services)
     echo ""
     
     info "Dry run completed. Use 'sudo ./tu-vm.sh update' to perform actual update."
@@ -3038,6 +3335,83 @@ recover_openwebui_container() {
     $compose_cmd ps open-webui
 }
 
+check_openwebui_websearch_config() {
+    info "Checking Open WebUI web-search loader configuration..."
+
+    local loader_engine playwright_ws
+    local -a issues=()
+    loader_engine="$(resolve_env_value WEB_LOADER_ENGINE safe_web)"
+    playwright_ws="$(resolve_env_value PLAYWRIGHT_WS_URL "")"
+
+    echo ""
+    echo -e "${WHITE}Open WebUI Web Search Config:${NC}"
+    echo "  WEB_LOADER_ENGINE: ${loader_engine:-<empty>}"
+    echo "  PLAYWRIGHT_WS_URL: ${playwright_ws:-<empty>}"
+    echo ""
+
+    if [[ "$loader_engine" == "playwright" ]]; then
+        if [[ -z "$playwright_ws" ]]; then
+            issues+=("WEB_LOADER_ENGINE=playwright but PLAYWRIGHT_WS_URL is empty")
+        fi
+        if ! check_service_health "browserless"; then
+            issues+=("browserless is not healthy/running while Playwright loader is selected")
+        fi
+    fi
+
+    if [[ ${#issues[@]} -eq 0 ]]; then
+        info "Open WebUI web-search loader configuration looks consistent."
+        return 0
+    fi
+
+    warn "Open WebUI web-search loader issues detected:"
+    for issue in "${issues[@]}"; do
+        warn "  - $issue"
+    done
+    warn "Use safe fallback: WEB_LOADER_ENGINE=safe_web"
+    warn "Or run browserless and set PLAYWRIGHT_WS_URL when using Playwright."
+    return 1
+}
+
+run_langgraph_chain_smoke() {
+    local strict_mode="${1:-false}"
+    local -a required_services=("nginx" "open-webui" "mcp_gateway" "langgraph_supervisor" "n8n")
+    local -a missing_services=()
+
+    for service in "${required_services[@]}"; do
+        if ! check_service_health "$service"; then
+            missing_services+=("$service")
+        fi
+    done
+
+    if [[ ${#missing_services[@]} -gt 0 ]]; then
+        if [[ "$strict_mode" == "true" ]]; then
+            warn "Chain smoke gate failed: required services not ready (${missing_services[*]})"
+            return 1
+        fi
+        info "Skipping chain smoke (services not all running: ${missing_services[*]})"
+        return 0
+    fi
+
+    local token
+    token="$(resolve_env_value LANGGRAPH_SUPERVISOR_TOKEN "")"
+    if [[ -z "$token" ]]; then
+        token="$(resolve_env_value MCP_GATEWAY_TOKEN "")"
+    fi
+    if [[ -z "$token" ]]; then
+        warn "Cannot run chain smoke: LANGGRAPH_SUPERVISOR_TOKEN/MCP_GATEWAY_TOKEN not set."
+        return 1
+    fi
+
+    local smoke_script="$SCRIPT_DIR/scripts/langgraph-e2e-smoke.sh"
+    if [[ ! -x "$smoke_script" ]]; then
+        warn "Chain smoke script not executable: $smoke_script"
+        return 1
+    fi
+
+    info "Running chain smoke: Open WebUI -> LangGraph -> MCP Gateway -> n8n"
+    LANGGRAPH_SUPERVISOR_TOKEN="$token" SMOKE_RESOLVE_IP="127.0.0.1" "$smoke_script" "https://oweb.tu.lan"
+}
+
 check_openwebui_audio_config() {
     info "Checking Open WebUI audio transcription configuration..."
 
@@ -3289,6 +3663,18 @@ run_diagnostics() {
         warn "Open WebUI STT configuration needs repair."
     fi
     echo ""
+
+    # Open WebUI web-search loader consistency
+    if ! check_openwebui_websearch_config; then
+        warn "Open WebUI web-search loader configuration needs attention."
+    fi
+    echo ""
+
+    # Chain smoke (best effort in diagnostics mode)
+    if ! run_langgraph_chain_smoke "false"; then
+        warn "Automation chain smoke test reported warnings."
+    fi
+    echo ""
     
     # Endpoint tests
     test_endpoints
@@ -3338,6 +3724,9 @@ main() {
             
             # Execute command
             case "$1" in
+                quickstart|easy-start|easy)
+                    quickstart_beginner "${2:-}"
+                    ;;
                 setup)
                     setup_platform
                     ;;
@@ -3383,9 +3772,6 @@ main() {
                 update-rollback)
                     update_rollback
                     ;;
-                legacy-update)
-                    TU_VM_USE_LEGACY_UPDATE=1 update_system
-                    ;;
                 test-update)
                     test_update
                     ;;
@@ -3413,8 +3799,14 @@ main() {
                 check-openwebui-audio)
                     check_openwebui_audio_config
                     ;;
+                check-openwebui-websearch)
+                    check_openwebui_websearch_config
+                    ;;
                 fix-openwebui-audio)
                     fix_openwebui_audio_config "${2:-whisper-1}"
+                    ;;
+                chain-smoke)
+                    run_langgraph_chain_smoke "true"
                     ;;
                 info)
                     show_info
@@ -3443,6 +3835,9 @@ main() {
                     ;;
                 setup-minio)
                     setup_minio_buckets
+                    ;;
+                dns-clients)
+                    show_dns_client_setup
                     ;;
                 pdf-status)
                     check_pdf_processing_status

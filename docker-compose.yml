@@ -3,7 +3,7 @@ services:
   # Pinned to 15-alpine: existing volume was initialized with PostgreSQL 15; 18+ also
   # changed data layout. Use 15 to match current data, or migrate with pg_upgrade.
   postgres:
-    image: postgres@sha256:2bf082886c059b4cf5af3f9e8d3a8916c35699062899061c13bc32d5921c631a
+    image: postgres@sha256:1c52f5ad23db5d7648a63634444af76de48e63b860fccbe3e3a5458b2812eaed
     container_name: ai_postgres
     restart: unless-stopped
     environment:
@@ -43,7 +43,7 @@ services:
 
   # Redis Cache (optimized)
   redis:
-    image: redis@sha256:81b6f81d6a6c5b9019231a2e8eb10085e3a139a34f833dcc965a8a959b040b72
+    image: redis@sha256:885cba5f568cc9b05cbeb1fd7d41b860da06983c24bbb0d7027332a2e82def87
     container_name: ai_redis
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password_2024} --maxmemory ${REDIS_MAXMEMORY:-256mb} --maxmemory-policy ${REDIS_MAXMEMORY_POLICY:-allkeys-lru} --save "" --appendonly no --tcp-keepalive 60
@@ -98,7 +98,7 @@ services:
 
   # Ollama AI Models (on-demand - Tier 2)
   ollama:
-    image: ollama/ollama@sha256:bf240c2847a8bc7b2c630b85dab5d1dedcba257b551d5fc9b290ce544d59272a
+    image: ollama/ollama@sha256:d3d553bdfbcc7f55dd5ddf42c4cbe3a927aa9bb1802710d35e94656ca5aea02b
     container_name: ai_ollama
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     # ports removed to enforce Nginx-only access (ollama.tu.lan)
@@ -122,9 +122,9 @@ services:
 
 
   # Open WebUI (lightweight)
-  # Pin to digest for update safety; bump via: scripts/safe-update.sh
+  # Pin to digest for update safety; bump via: sudo ./tu-vm.sh update
   open-webui:
-    image: ghcr.io/open-webui/open-webui@sha256:b80a96e14bb15ea79aec96fbdad4aeab6b3ee7b61520d83b5dbc8c4f47d433a9
+    image: ghcr.io/open-webui/open-webui@sha256:b8095f79a6a8ffad8f830bdacc9b5b0aef805689b31bca0b065cc2424d3cfaeb
     container_name: ai_openwebui
     restart: unless-stopped
     depends_on:
@@ -212,7 +212,7 @@ services:
   # Apache Tika for robust content extraction with OCR support (on-demand - Tier 2)
   # Only needed when processing documents
   tika:
-    image: apache/tika@sha256:2a565f1ea1290bdcb74a7d35957d16a989ed44ef98790dcdcc28121d728fa583-full  # Full version includes Tesseract OCR for image-based PDFs
+    image: apache/tika@sha256:2a565f1ea1290bdcb74a7d35957d16a989ed44ef98790dcdcc28121d728fa583
     container_name: ai_tika
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     environment:
@@ -261,8 +261,8 @@ services:
 
   # n8n Workflow Automation (on-demand - Tier 2)
   n8n:
-    # Pin to digest for update safety; bump via: scripts/safe-update.sh
-    image: n8nio/n8n@sha256:94f108ec1ed2ee17198fff2432d580b184b54c609bc23e27889f5ed6b98a4789
+    # Pin to digest for update safety; bump via: sudo ./tu-vm.sh update
+    image: n8nio/n8n@sha256:ad20607cdd24bac004ec44804b6b8ded9a2fbf92ed46c4496bf007762c883af2
     container_name: ai_n8n
     restart: "no"  # Manual start only via dashboard
     command: start
@@ -308,7 +308,7 @@ services:
 
   # AFFiNE collaborative workspace (on-demand - Tier 2)
   affine:
-    image: ghcr.io/toeverything/affine@sha256:638893c8f62bb7fd0b3028863096f2b057e3c7ca2ac5163574c333698a331f33
+    image: ghcr.io/toeverything/affine@sha256:d1c65f5d545d3e0a51c1696c482739915fbf402ba37cefb31539a1de095531e8
     container_name: ai_affine
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     depends_on:
@@ -337,7 +337,7 @@ services:
       - 172.20.0.16
 
   affine_migration:
-    image: ghcr.io/toeverything/affine@sha256:638893c8f62bb7fd0b3028863096f2b057e3c7ca2ac5163574c333698a331f33
+    image: ghcr.io/toeverything/affine@sha256:d1c65f5d545d3e0a51c1696c482739915fbf402ba37cefb31539a1de095531e8
     container_name: ai_affine_migration
     restart: "no"  # one-shot migration job for AFFiNE
     command: ["sh", "-c", "node ./scripts/self-host-predeploy.js"]
@@ -388,7 +388,7 @@ services:
       - 172.20.0.16
 
   affine_redis:
-    image: redis@sha256:81b6f81d6a6c5b9019231a2e8eb10085e3a139a34f833dcc965a8a959b040b72
+    image: redis@sha256:885cba5f568cc9b05cbeb1fd7d41b860da06983c24bbb0d7027332a2e82def87
     container_name: ai_affine_redis
     restart: "no"  # on-demand (Tier 2) - starts with affine service
     command: redis-server --save "" --appendonly no --tcp-keepalive 60
@@ -503,7 +503,7 @@ services:
   # Headless Chromium for Open WebUI web search when WEB_LOADER_ENGINE=playwright (Tier 2 / on-demand).
   # Connect URL format (Playwright protocol): ws://browserless:3000/chromium/playwright?token=YOUR_TOKEN
   browserless:
-    image: ghcr.io/browserless/chromium:v2.46.0@sha256:7754b85d822000a15df9bfcc9872016bd163384f3c223e2f4b5971f0a5e9c038
+    image: ghcr.io/browserless/chromium@sha256:7754b85d822000a15df9bfcc9872016bd163384f3c223e2f4b5971f0a5e9c038
     container_name: ai_browserless
     restart: "no"
     environment:
@@ -535,7 +535,7 @@ services:
 
   # Pi-hole for Ad Blocking & DNS Security (Primary DNS on port 53)
   pihole:
-    image: pihole/pihole@sha256:ee348529cea9601df86ad94d62a39cad26117e1eac9e82d8876aa0ec7fe1ba27
+    image: pihole/pihole@sha256:300cc8f9e966b00440358aafef21f91b32dfe8887e8bd9a6193ed1c4328655d4
     container_name: ai_pihole
     restart: unless-stopped
     dns:
@@ -591,7 +591,7 @@ services:
 
   # Nginx Reverse Proxy (lightweight)
   nginx:
-    image: nginx@sha256:e7257f1ef28ba17cf7c248cb8ccf6f0c6e0228ab9c315c152f9c203cd34cf6d1
+    image: nginx@sha256:8aa63af009a39ecd6c28d61da578a5447378c10bb097a069e3a3e0fb42bb6b19
     container_name: ai_nginx
     restart: unless-stopped
     ports:

@@ -7,22 +7,25 @@ COMPOSE="docker compose -f $PROJECT_DIR/docker-compose.yml"
 LOG_FILE="$PROJECT_DIR/tu-vm.log"
 BACKUP_DIR="$PROJECT_DIR/backups"
 
-# Official upstream images we auto-update.
-# Custom/self-managed services are intentionally excluded.
-OFFICIAL_IMAGE_PAIRS=(
-    "postgres:15-alpine|postgres|ai_postgres"
-    "redis:alpine|redis|ai_redis"
-    "qdrant/qdrant:latest|qdrant|ai_qdrant"
-    "ollama/ollama:latest|ollama|ai_ollama"
-    "ghcr.io/open-webui/open-webui:latest|open-webui|ai_openwebui"
-    "apache/tika:latest|tika|ai_tika"
-    "minio/minio:latest|minio|ai_minio"
-    "n8nio/n8n:latest|n8n|ai_n8n"
-    "ghcr.io/toeverything/affine:stable|affine|ai_affine"
-    "pgvector/pgvector:pg16|affine_postgres|ai_affine_postgres"
-    "pihole/pihole:latest|pihole|ai_pihole"
-    "nginx:alpine|nginx|ai_nginx"
-    "ghcr.io/browserless/chromium:v2.46.0|browserless|ai_browserless"
+# Service -> upstream tag used to refresh pinned digest refs in docker-compose.yml.
+# If a service image is pinned by digest (image@sha256:...), we pull this source tag,
+# then rewrite that service's image to the new repo digest.
+declare -A PINNED_IMAGE_SOURCES=(
+    ["postgres"]="postgres:15-alpine"
+    ["redis"]="redis:alpine"
+    ["qdrant"]="qdrant/qdrant:latest"
+    ["ollama"]="ollama/ollama:latest"
+    ["open-webui"]="ghcr.io/open-webui/open-webui:latest"
+    ["tika"]="apache/tika:latest"
+    ["minio"]="minio/minio:latest"
+    ["n8n"]="n8nio/n8n:latest"
+    ["affine"]="ghcr.io/toeverything/affine:stable"
+    ["affine_migration"]="ghcr.io/toeverything/affine:stable"
+    ["affine_postgres"]="pgvector/pgvector:pg16"
+    ["affine_redis"]="redis:alpine"
+    ["browserless"]="ghcr.io/browserless/chromium:v2.46.0"
+    ["pihole"]="pihole/pihole:latest"
+    ["nginx"]="nginx:alpine"
 )
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [safe-update] $1" | tee -a "$LOG_FILE"; }
@@ -32,15 +35,15 @@ usage() {
 Usage: safe-update.sh [--check | --apply | --rollback]
 
   --check     Show available updates without applying
-  --apply     Back up, pull new images, run migrations, refresh node types
+  --apply     Back up, update all compose services, refresh node types
   --rollback  Restore docker-compose.yml from last backup and restart
 
-Supported services: open-webui, n8n, qdrant, minio
+Scope: all services in docker-compose.yml
 
 This script:
   1. Backs up docker-compose.yml, DB dumps, model profiles, and pipe functions
-  2. Pulls new images and records their digests
-  3. Restarts services one at a time with health checks
+  2. Pulls latest images and rebuilds build-based services
+  3. Recreates running services and refreshes stopped services without starting them
   4. Re-extracts n8n node types after n8n update
   5. Verifies the MCP Gateway, tool connections, and model profiles still work
   6. Provides rollback instructions if anything fails
@@ -114,51 +117,130 @@ record_digests() {
     log "  Digests: $BACKUP_DIR/digests_${ts}.txt"
 }
 
+list_compose_services() {
+    $COMPOSE config --services 2>/dev/null
+}
+
+list_running_services() {
+    $COMPOSE ps --services --status running 2>/dev/null || true
+}
+
+list_service_specs() {
+    $COMPOSE config --format json | python3 -c '
+import json,sys
+cfg=json.load(sys.stdin)
+for name, svc in sorted(cfg.get("services", {}).items()):
+    image = svc.get("image", "")
+    has_build = "yes" if "build" in svc else "no"
+    print(f"{name}|{image}|{has_build}")
+'
+}
+
+update_service_image_in_compose() {
+    local service="$1"
+    local new_ref="$2"
+    python3 - "$PROJECT_DIR/docker-compose.yml" "$service" "$new_ref" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+compose_path = Path(sys.argv[1])
+service = sys.argv[2]
+new_ref = sys.argv[3]
+content = compose_path.read_text()
+
+pattern = re.compile(
+    rf"(^\s{{2}}{re.escape(service)}:\n(?:\s{{4}}.*\n)*?\s{{4}}image:\s*)([^\n]+)",
+    re.MULTILINE,
+)
+match = pattern.search(content)
+if not match:
+    print(f"WARN: could not find image line for service {service}")
+    sys.exit(0)
+
+updated = content[:match.start(2)] + new_ref + content[match.end(2):]
+compose_path.write_text(updated)
+print(f"Updated {service} image to {new_ref}")
+PY
+}
+
+refresh_service_image_if_pinned() {
+    local service="$1"
+    local image_ref="$2"
+    local source_tag="${PINNED_IMAGE_SOURCES[$service]:-}"
+
+    if [[ "$image_ref" != *"@sha256:"* ]] || [[ -z "$source_tag" ]]; then
+        return 0
+    fi
+
+    docker pull "$source_tag" --quiet >/dev/null 2>&1 || {
+        log "WARNING: Failed to pull source tag for $service: $source_tag"
+        return 1
+    }
+
+    local new_ref
+    new_ref=$(docker image inspect "$source_tag" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+    if [[ -n "$new_ref" ]] && [[ "$new_ref" != "$image_ref" ]]; then
+        update_service_image_in_compose "$service" "$new_ref" >/dev/null
+        log "  Pinned $service to $new_ref"
+    fi
+}
+
 check_updates() {
     log "Checking for available updates..."
     local updates_found=0
 
-    for pair in "${OFFICIAL_IMAGE_PAIRS[@]}"; do
-        local img="${pair%%|*}"
-        local rest="${pair#*|}"
-        local _svc="${rest%%|*}"
-        local container="${rest##*|}"
-        local current_digest new_digest
+    while IFS='|' read -r svc image_ref has_build; do
+        if [[ "$has_build" == "yes" ]]; then
+            log "  Build-based service: $svc (will rebuild on --apply)"
+            continue
+        fi
+        if [[ -z "$image_ref" ]]; then
+            log "  No image configured for $svc (skipped)"
+            continue
+        fi
 
-        current_digest=$(docker inspect "$container" --format '{{.Image}}' 2>/dev/null || echo "none")
+        if [[ "$image_ref" == *"@sha256:"* ]]; then
+            local source_tag="${PINNED_IMAGE_SOURCES[$svc]:-}"
+            if [[ -z "$source_tag" ]]; then
+                log "  Pinned image without source mapping: $svc ($image_ref)"
+                continue
+            fi
+            docker pull "$source_tag" --quiet >/dev/null 2>&1 || {
+                log "  WARNING: Failed to pull source for $svc ($source_tag)"
+                continue
+            }
+            local new_ref
+            new_ref=$(docker image inspect "$source_tag" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)
+            if [[ -n "$new_ref" ]] && [[ "$new_ref" != "$image_ref" ]]; then
+                log "  UPDATE AVAILABLE: $svc -> $new_ref"
+                updates_found=$((updates_found + 1))
+            else
+                log "  Up to date: $svc"
+            fi
+            continue
+        fi
 
-        docker pull "$img" --quiet >/dev/null 2>&1 || true
-        new_digest=$(docker image inspect "$img" --format '{{.Id}}' 2>/dev/null || echo "none")
-
-        if [ "$current_digest" != "$new_digest" ]; then
-            log "  UPDATE AVAILABLE: $img"
-            log "    Current: ${current_digest:0:20}"
-            log "    New:     ${new_digest:0:20}"
+        local old_id new_id
+        old_id=$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || echo "none")
+        docker pull "$image_ref" --quiet >/dev/null 2>&1 || {
+            log "  WARNING: Failed to pull $svc image ($image_ref)"
+            continue
+        }
+        new_id=$(docker image inspect "$image_ref" --format '{{.Id}}' 2>/dev/null || echo "none")
+        if [[ "$old_id" != "$new_id" ]]; then
+            log "  UPDATE AVAILABLE: $svc ($image_ref)"
             updates_found=$((updates_found + 1))
         else
-            log "  Up to date: $img"
+            log "  Up to date: $svc"
         fi
-    done
+    done < <(list_service_specs)
 
-    if [ "$updates_found" -eq 0 ]; then
-        log "All images are up to date."
+    if [[ "$updates_found" -eq 0 ]]; then
+        log "All services are up to date."
     else
         log "$updates_found update(s) available. Run with --apply to update."
     fi
-}
-
-update_digest_in_compose() {
-    local image_base="$1"
-    local new_full_ref="$2"
-
-    python3 -c "
-import re, sys
-compose = open('$PROJECT_DIR/docker-compose.yml').read()
-pattern = re.escape('$image_base') + r'(@sha256:[a-f0-9]+)?'
-compose = re.sub(pattern, '$new_full_ref', compose)
-open('$PROJECT_DIR/docker-compose.yml', 'w').write(compose)
-print('Updated $image_base in docker-compose.yml')
-"
 }
 
 apply_updates() {
@@ -169,51 +251,63 @@ apply_updates() {
     backup_custom_config
     record_digests
 
-    log "Pulling latest official upstream images..."
-    for pair in "${OFFICIAL_IMAGE_PAIRS[@]}"; do
-        local img="${pair%%|*}"
-        local rest="${pair#*|}"
-        local svc="${rest%%|*}"
+    log "Capturing current runtime state..."
+    local -a all_services running_services stopped_services build_services
+    local running_set
 
-        docker pull "$img" --quiet 2>/dev/null || { log "WARNING: Failed to pull $img"; continue; }
-        local new_ref
-        new_ref=$(docker image inspect "$img" --format '{{index .RepoDigests 0}}' 2>/dev/null)
-        if [ -n "$new_ref" ]; then
-            local base_name="${img%%:*}:${img##*:}"
-            update_digest_in_compose "$base_name" "$new_ref"
-            log "  Pinned $svc to $new_ref"
+    mapfile -t all_services < <(list_compose_services)
+    mapfile -t running_services < <(list_running_services)
+    running_set="$(printf "%s\n" "${running_services[@]}")"
+
+    for svc in "${all_services[@]}"; do
+        if printf "%s\n" "$running_set" | grep -x "$svc" >/dev/null; then
+            continue
         fi
+        stopped_services+=("$svc")
     done
 
-    log "Skipping custom service rebuilds (self-managed policy)."
+    log "Updating service images..."
+    while IFS='|' read -r svc image_ref has_build; do
+        if [[ "$has_build" == "yes" ]]; then
+            build_services+=("$svc")
+            continue
+        fi
+        if [[ -z "$image_ref" ]]; then
+            continue
+        fi
 
-    log "Restarting services (one at a time with health checks)..."
+        if [[ "$image_ref" == *"@sha256:"* ]]; then
+            refresh_service_image_if_pinned "$svc" "$image_ref" || true
+        else
+            docker pull "$image_ref" --quiet >/dev/null 2>&1 || log "WARNING: Failed to pull $image_ref"
+        fi
+    done < <(list_service_specs)
 
-    for svc in qdrant minio postgres redis; do
-        log "  Restarting $svc..."
-        $COMPOSE up -d "$svc" 2>&1 | grep -v "^$" || true
-        sleep 5
-    done
-
-    log "  Restarting n8n..."
-    $COMPOSE up -d n8n 2>&1 | grep -v "^$" || true
-    sleep 10
-
-    if docker inspect ai_n8n --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
-        log "  n8n is running. Refreshing node types..."
-        "$SCRIPT_DIR/extract-n8n-node-types.sh" 2>&1 | tail -2
+    if [[ ${#build_services[@]} -gt 0 ]]; then
+        log "Rebuilding build-based services..."
+        for svc in "${build_services[@]}"; do
+            log "  Building $svc..."
+            $COMPOSE build --pull "$svc" >/dev/null 2>&1 || log "WARNING: Build failed for $svc"
+        done
     fi
 
-    log "  Restarting mcp_gateway..."
-    $COMPOSE up -d mcp_gateway 2>&1 | grep -v "^$" || true
-    sleep 5
+    log "Recreating previously running services..."
+    if [[ ${#running_services[@]} -gt 0 ]]; then
+        $COMPOSE up -d "${running_services[@]}" 2>&1 | grep -v "^$" || true
+    fi
 
-    log "  Restarting open-webui..."
-    $COMPOSE up -d open-webui 2>&1 | grep -v "^$" || true
-    sleep 10
+    log "Refreshing stopped services without starting them..."
+    if [[ ${#stopped_services[@]} -gt 0 ]]; then
+        for svc in "${stopped_services[@]}"; do
+            $COMPOSE up -d --no-start "$svc" >/dev/null 2>&1 || log "WARNING: Failed to refresh stopped service $svc"
+        done
+    fi
 
-    log "  Restarting nginx..."
-    $COMPOSE up -d nginx 2>&1 | grep -v "^$" || true
+    if printf "%s\n" "${running_services[@]}" | grep -x "n8n" >/dev/null && \
+        docker inspect ai_n8n --format '{{.State.Running}}' 2>/dev/null | grep -q "true"; then
+        log "n8n is running. Refreshing node types..."
+        "$SCRIPT_DIR/extract-n8n-node-types.sh" 2>&1 | grep -v "^$" | tail -2
+    fi
 
     log "Running post-update verification..."
     verify_pipeline
