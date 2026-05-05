@@ -863,6 +863,10 @@ volumes:
     driver: local
   mcp_memory_data:
     driver: local
+  mcp_shared:
+    driver: local
+  mcp_memory_data:
+    driver: local
 
 networks:
   ai_network:
