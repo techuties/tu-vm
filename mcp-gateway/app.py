@@ -81,7 +81,7 @@ def _normalize_content_item(item: Any) -> dict[str, Any]:
 
 
 def _allowed_servers() -> set[str]:
-    raw = os.getenv("MCP_ALLOWED_SERVERS", "affine,n8n,kb")
+    raw = os.getenv("MCP_ALLOWED_SERVERS", "affine,n8n,n8n_mcp,kb")
     return {x.strip().lower() for x in raw.split(",") if x.strip()}
 
 
@@ -91,6 +91,10 @@ def _affine_enabled() -> bool:
 
 def _n8n_enabled() -> bool:
     return _env_bool("N8N_MCP_ENABLED", True) and "n8n" in _allowed_servers()
+
+
+def _n8n_mcp_enabled() -> bool:
+    return _env_bool("N8N_MCP_SERVER_ENABLED", True) and "n8n_mcp" in _allowed_servers()
 
 
 def _kb_enabled() -> bool:
@@ -435,6 +439,50 @@ class KnowledgeBaseApi:
         return text
 
 
+class N8nMcpApi:
+    def __init__(self) -> None:
+        self.base_url = os.getenv("N8N_MCP_SERVER_URL", "http://ai_n8n_mcp:3000/mcp").rstrip("/")
+        self.auth_token = os.getenv("N8N_MCP_SERVER_TOKEN", "").strip()
+        self.timeout = float(os.getenv("N8N_MCP_SERVER_TIMEOUT_SECONDS", "45"))
+
+    async def rpc(self, method: str, request_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+        }
+        if params is not None:
+            body["params"] = params
+
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "X-Request-ID": request_id,
+        }
+        if self.auth_token:
+            headers["Authorization"] = f"Bearer {self.auth_token}"
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(self.base_url, headers=headers, json=body)
+        if resp.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"n8n-mcp HTTP error: {resp.status_code} {resp.text[:300]}")
+        try:
+            data = resp.json()
+        except Exception:
+            raise HTTPException(status_code=502, detail="n8n-mcp returned invalid JSON")
+
+        if isinstance(data, dict) and data.get("error"):
+            err = data.get("error")
+            message = err.get("message") if isinstance(err, dict) else str(err)
+            raise HTTPException(status_code=502, detail=f"n8n-mcp RPC error: {message}")
+        if isinstance(data, dict) and "result" in data:
+            result = data["result"]
+            return result if isinstance(result, dict) else {"result": result}
+        if isinstance(data, dict):
+            return data
+        raise HTTPException(status_code=502, detail="n8n-mcp returned unexpected response format")
+
+
 def _n8n_tool_schemas() -> list[dict[str, Any]]:
     return [
         {
@@ -642,6 +690,84 @@ def _n8n_tool_schemas() -> list[dict[str, Any]]:
     ]
 
 
+def _n8n_mcp_tool_schemas() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": "n8n_mcp_search_nodes",
+            "description": "Search n8n-mcp node knowledge base across core/community nodes with optional examples.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["query"],
+                "properties": {
+                    "query": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+                    "source": {"type": "string", "enum": ["core", "community", "verified", "all"]},
+                    "includeExamples": {"type": "boolean", "default": True},
+                },
+            },
+        },
+        {
+            "name": "n8n_mcp_get_node",
+            "description": "Get detailed n8n-mcp node metadata/documentation for a specific node type.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["nodeType"],
+                "properties": {
+                    "nodeType": {"type": "string"},
+                    "detail": {"type": "string", "enum": ["minimal", "standard", "full"], "default": "standard"},
+                    "mode": {"type": "string", "enum": ["info", "docs", "search_properties", "versions", "compare", "breaking", "migrations"]},
+                    "propertyQuery": {"type": "string"},
+                    "includeExamples": {"type": "boolean", "default": True},
+                },
+            },
+        },
+        {
+            "name": "n8n_mcp_search_templates",
+            "description": "Search n8n-mcp template library by keyword, task, nodes, or metadata filters.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "searchMode": {"type": "string", "enum": ["keyword", "by_nodes", "by_task", "by_metadata"]},
+                    "nodeTypes": {"type": "array", "items": {"type": "string"}},
+                    "task": {"type": "string"},
+                    "complexity": {"type": "string"},
+                    "requiredService": {"type": "string"},
+                    "targetAudience": {"type": "string"},
+                    "maxSetupMinutes": {"type": "integer", "minimum": 1, "maximum": 240},
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+                },
+            },
+        },
+        {
+            "name": "n8n_mcp_get_template",
+            "description": "Get a full template definition from n8n-mcp by template id.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["templateId"],
+                "properties": {
+                    "templateId": {"type": "string"},
+                    "mode": {"type": "string", "enum": ["nodes_only", "structure", "full"], "default": "full"},
+                },
+            },
+        },
+        {
+            "name": "n8n_mcp_validate_node",
+            "description": "Validate a node configuration via n8n-mcp validation engine.",
+            "inputSchema": {
+                "type": "object",
+                "required": ["nodeType", "config"],
+                "properties": {
+                    "nodeType": {"type": "string"},
+                    "config": {"type": "object"},
+                    "mode": {"type": "string", "enum": ["minimal", "full"], "default": "minimal"},
+                    "profile": {"type": "string"},
+                },
+            },
+        },
+    ]
+
+
 def _kb_tool_schemas() -> list[dict[str, Any]]:
     return [
         {
@@ -729,6 +855,7 @@ def _kb_tool_schemas() -> list[dict[str, Any]]:
 affine_conn = AffineMcpConnection()
 n8n_api = N8nApi()
 kb_api = KnowledgeBaseApi()
+n8n_mcp_api = N8nMcpApi()
 
 _n8n_node_types: list[dict[str, Any]] = []
 _node_types_path = Path("/app/n8n_node_types.json")
@@ -1874,6 +2001,64 @@ def _kb_tool_names() -> set[str]:
     return {x["name"] for x in _kb_tool_schemas()}
 
 
+def _n8n_mcp_tool_names() -> set[str]:
+    return {x["name"] for x in _n8n_mcp_tool_schemas()}
+
+
+async def _invoke_n8n_mcp_tool(tool: str, arguments: dict[str, Any], request_id: str) -> dict[str, Any]:
+    if tool == "n8n_mcp_search_nodes":
+        params: dict[str, Any] = {"query": str(arguments.get("query", "")).strip()}
+        if not params["query"]:
+            raise HTTPException(status_code=400, detail="query is required")
+        for key in ("limit", "source", "includeExamples"):
+            if key in arguments:
+                params[key] = arguments[key]
+        data = await n8n_mcp_api.rpc("search_nodes", request_id, params=params)
+        return {"result": data}
+
+    if tool == "n8n_mcp_get_node":
+        node_type = str(arguments.get("nodeType", "")).strip()
+        if not node_type:
+            raise HTTPException(status_code=400, detail="nodeType is required")
+        params: dict[str, Any] = {"nodeType": node_type}
+        for key in ("detail", "mode", "propertyQuery", "includeExamples"):
+            if key in arguments and arguments.get(key) is not None:
+                params[key] = arguments[key]
+        data = await n8n_mcp_api.rpc("get_node", request_id, params=params)
+        return {"result": data}
+
+    if tool == "n8n_mcp_search_templates":
+        params = {k: v for k, v in arguments.items() if v is not None}
+        data = await n8n_mcp_api.rpc("search_templates", request_id, params=params)
+        return {"result": data}
+
+    if tool == "n8n_mcp_get_template":
+        template_id = str(arguments.get("templateId", "")).strip()
+        if not template_id:
+            raise HTTPException(status_code=400, detail="templateId is required")
+        params: dict[str, Any] = {"templateId": template_id}
+        if "mode" in arguments:
+            params["mode"] = arguments["mode"]
+        data = await n8n_mcp_api.rpc("get_template", request_id, params=params)
+        return {"result": data}
+
+    if tool == "n8n_mcp_validate_node":
+        node_type = str(arguments.get("nodeType", "")).strip()
+        config = arguments.get("config")
+        if not node_type:
+            raise HTTPException(status_code=400, detail="nodeType is required")
+        if not isinstance(config, dict):
+            raise HTTPException(status_code=400, detail="config must be an object")
+        params: dict[str, Any] = {"nodeType": node_type, "config": config}
+        for key in ("mode", "profile"):
+            if key in arguments and arguments.get(key) is not None:
+                params[key] = arguments[key]
+        data = await n8n_mcp_api.rpc("validate_node", request_id, params=params)
+        return {"result": data}
+
+    raise HTTPException(status_code=400, detail=f"Unknown n8n-mcp tool '{tool}'")
+
+
 async def _policy_check(payload: InvokePayload) -> None:
     if _env_bool("MCP_EXECUTION_KILL_SWITCH", False):
         raise HTTPException(status_code=503, detail="EXECUTION_KILL_SWITCH_ACTIVE")
@@ -1903,6 +2088,7 @@ async def health() -> dict[str, Any]:
         "ok": True,
         "affine_enabled": _affine_enabled(),
         "n8n_enabled": _n8n_enabled(),
+        "n8n_mcp_enabled": _n8n_mcp_enabled(),
         "kb_enabled": _kb_enabled(),
         "write_approval_required": _write_approval_required(),
         "allowed_servers": sorted(_allowed_servers()),
@@ -1939,6 +2125,8 @@ async def list_tools(
             return JSONResponse(status_code=503, content={"tools": [], "error": str(exc)})
     if _n8n_enabled():
         tools.extend(_n8n_tool_schemas())
+    if _n8n_mcp_enabled():
+        tools.extend(_n8n_mcp_tool_schemas())
     if _kb_enabled():
         tools.extend(_kb_tool_schemas())
     return {"tools": tools}
@@ -1951,6 +2139,8 @@ async def openapi_tools_spec() -> JSONResponse:
     all_tools: list[dict[str, Any]] = []
     if _n8n_enabled():
         all_tools.extend(_n8n_tool_schemas())
+    if _n8n_mcp_enabled():
+        all_tools.extend(_n8n_mcp_tool_schemas())
     if _kb_enabled():
         all_tools.extend(_kb_tool_schemas())
     for tdef in all_tools:
@@ -2051,7 +2241,7 @@ async def invoke(
             logger.exception("Supervisor delegation failed unexpectedly; falling back to direct execution.")
 
     await quota_manager.check_and_record(payload.tenantId, write=write_tool)
-    is_n8n_tool = tool.startswith("n8n_")
+    is_n8n_tool = tool in _n8n_tool_names()
     if is_n8n_tool:
         await circuit_breaker.allow()
 
@@ -2064,11 +2254,16 @@ async def invoke(
 
     async def _execute() -> dict[str, Any]:
         if tool.startswith("n8n_"):
-            if not _n8n_enabled():
-                raise HTTPException(status_code=503, detail="n8n tools are disabled")
-            if tool not in _n8n_tool_names():
+            if tool in _n8n_tool_names():
+                if not _n8n_enabled():
+                    raise HTTPException(status_code=503, detail="n8n tools are disabled")
+                result = await _invoke_n8n_tool(tool, arguments, rid)
+            elif tool in _n8n_mcp_tool_names():
+                if not _n8n_mcp_enabled():
+                    raise HTTPException(status_code=503, detail="n8n-mcp tools are disabled")
+                result = await _invoke_n8n_mcp_tool(tool, arguments, rid)
+            else:
                 raise HTTPException(status_code=400, detail=f"Unknown n8n tool '{tool}'")
-            result = await _invoke_n8n_tool(tool, arguments, rid)
         elif tool.startswith("kb_"):
             if tool not in _kb_tool_names():
                 raise HTTPException(status_code=400, detail=f"Unknown kb tool '{tool}'")

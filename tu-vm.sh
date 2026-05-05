@@ -43,6 +43,7 @@ readonly TIER1_SERVICES=(
 readonly TIER2_SERVICES=(
     "ollama"
     "n8n"
+    "n8n_mcp"
     "minio"
     "qdrant"
     "tika"
@@ -77,6 +78,7 @@ readonly OFFICIAL_UPDATE_SERVICES=(
     "ollama"
     "open-webui"
     "n8n"
+    "n8n_mcp"
     "tika"
     "minio"
     "affine"
@@ -96,6 +98,7 @@ readonly OFFICIAL_UPDATE_IMAGE_PAIRS=(
     "ollama|ollama/ollama:latest|ollama/ollama"
     "open-webui|ghcr.io/open-webui/open-webui:latest|ghcr.io/open-webui/open-webui"
     "n8n|n8nio/n8n:latest|n8nio/n8n"
+    "n8n_mcp|ghcr.io/czlonkowski/n8n-mcp:latest|ghcr.io/czlonkowski/n8n-mcp"
     "tika|apache/tika:latest|apache/tika"
     "minio|minio/minio:latest|minio/minio"
     "affine|ghcr.io/toeverything/affine:stable|ghcr.io/toeverything/affine"
@@ -115,6 +118,7 @@ declare -A SERVICE_CONTAINER=(
     ["ollama"]="ai_ollama"
     ["open-webui"]="ai_openwebui"
     ["n8n"]="ai_n8n"
+    ["n8n_mcp"]="ai_n8n_mcp"
     ["pihole"]="ai_pihole"
     ["nginx"]="ai_nginx"
     ["helper_index"]="ai_helper_index"
@@ -304,6 +308,9 @@ if ! [[ "$LOG_LEVEL" =~ ^[0-9]+$ ]]; then
     LOG_LEVEL=$LOG_LEVEL_INFO
 fi
 
+# Docker `.env` may redefine LOG_LEVEL as a name (e.g. INFO) when sourced later; keep numeric threshold for tu-vm.sh logging.
+SCRIPT_LOG_LEVEL=$LOG_LEVEL
+
 # Colors for output
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -358,7 +365,7 @@ log() {
     esac
     
     # Only show if log level is appropriate
-    if [[ $level -ge $LOG_LEVEL ]]; then
+    if [[ $level -ge $SCRIPT_LOG_LEVEL ]]; then
         echo -e "${color}${icon} [${timestamp}] ${level_name}: ${message}${NC}"
     fi
     
@@ -689,12 +696,85 @@ resolve_dns_record_ip() {
     fi
 }
 
+# LAN-facing IP for *.tu.lan dual-stack records (prefer HOST_IP, else routed VM IP).
+resolve_lan_dns_ip() {
+    local host_ip="${HOST_IP:-}"
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        host_ip="${HOST_IP:-$host_ip}"
+    fi
+    if [[ -n "$host_ip" ]]; then
+        echo "$host_ip"
+        return 0
+    fi
+    get_vm_ip
+}
+
+# Tailscale IPv4 for *.tu.lan dual-stack records (.env or live tailscale CLI).
+resolve_tailscale_dns_ip() {
+    local ts="${TAILSCALE_IP:-}"
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        ts="${TAILSCALE_IP:-$ts}"
+    fi
+    if [[ -n "$ts" ]]; then
+        echo "$ts"
+        return 0
+    fi
+    get_tailscale_ip
+}
+
 # Sync Pi-hole local DNS records for the tu.lan service domain.
 sync_pihole_dns_records() {
     local dns_file="pihole/01-custom.conf"
-    local target_ip
-    target_ip="$(resolve_dns_record_ip)"
-    local host_line="$target_ip tu.lan oweb.tu.lan n8n.tu.lan affine.tu.lan pihole.tu.lan ollama.tu.lan minio.tu.lan api.minio.tu.lan"
+    local names="tu.lan oweb.tu.lan n8n.tu.lan affine.tu.lan pihole.tu.lan ollama.tu.lan minio.tu.lan api.minio.tu.lan"
+    local dns_override=""
+    local lan_ip=""
+    local ts_ip=""
+    local target_ip=""
+    local host_line=""
+
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+        dns_override="${DNS_RECORD_IP:-}"
+    fi
+
+    # Explicit single IP wins (legacy / VPN-only / manual).
+    if [[ -n "$dns_override" ]]; then
+        target_ip="$dns_override"
+    else
+        lan_ip="$(resolve_lan_dns_ip)"
+        ts_ip="$(resolve_tailscale_dns_ip)"
+    fi
+
+    # Dual-stack: LAN + Tailscale clients each get a reachable *.tu.lan address (dnsmasq localise-queries).
+    if [[ -z "$dns_override" && -n "$lan_ip" && -n "$ts_ip" && "$lan_ip" != "$ts_ip" ]]; then
+        info "Syncing Pi-hole DNS records (*.tu.lan -> $lan_ip on LAN, $ts_ip on Tailscale via localise-queries)..."
+        cat > "$dns_file" <<EOF
+# Pi-hole Custom DNS Configuration
+# Managed by tu-vm.sh sync_pihole_dns_records()
+#
+# *.tu.lan is served from /etc/pihole/hosts/tu-lan.hosts (two IPs). dnsmasq returns the address on the
+# client's subnet when DNSMASQ_LOCALISE_QUERIES=true (see docker-compose.yml).
+
+# Upstream resolvers
+server=127.0.0.11
+server=1.1.1.1
+server=1.0.0.1
+EOF
+        if docker ps --format "{{.Names}}" | grep -q "^ai_pihole$"; then
+            docker exec ai_pihole sh -lc "mkdir -p /etc/pihole/hosts && printf '%s\n' \"$lan_ip $names\" \"$ts_ip $names\" > /etc/pihole/hosts/tu-lan.hosts" >/dev/null 2>&1 || true
+            docker exec ai_pihole pihole reloaddns >/dev/null 2>&1 || true
+        fi
+        info "✅ Pi-hole DNS records synced"
+        return 0
+    fi
+
+    target_ip="${target_ip:-$(resolve_dns_record_ip)}"
+    host_line="$target_ip $names"
 
     if [[ -z "$target_ip" ]]; then
         warn "Could not determine DNS target IP. Skipping Pi-hole DNS record sync."
@@ -726,7 +806,6 @@ address=/minio.tu.lan/$target_ip
 address=/api.minio.tu.lan/$target_ip
 EOF
 
-    # If Pi-hole is running, also write v6 local hosts records and reload DNS.
     if docker ps --format "{{.Names}}" | grep -q "^ai_pihole$"; then
         docker exec ai_pihole sh -lc "mkdir -p /etc/pihole/hosts && printf '%s\n' \"$host_line\" > /etc/pihole/hosts/tu-lan.hosts" >/dev/null 2>&1 || true
         docker exec ai_pihole pihole reloaddns >/dev/null 2>&1 || true
@@ -736,16 +815,35 @@ EOF
 }
 
 show_dns_client_setup() {
+    if [[ -f "$ENV_FILE" ]]; then
+        # shellcheck disable=SC1090
+        . "$ENV_FILE" 2>/dev/null || true
+    fi
     local dns_ip
     dns_ip="$(resolve_dns_record_ip)"
     local tailscale_ip
     tailscale_ip="$(get_tailscale_ip)"
+    local lan_guess
+    lan_guess="$(resolve_lan_dns_ip)"
+    local ts_guess
+    ts_guess="$(resolve_tailscale_dns_ip)"
 
     echo -e "${WHITE}DNS Client Setup (No hosts-file needed)${NC}"
     echo "========================================="
     echo ""
-    echo "Pi-hole DNS server for clients: $dns_ip"
-    echo "Wildcard local domain: *.tu.lan -> $dns_ip"
+    if [[ -n "${DNS_RECORD_IP:-}" ]]; then
+        echo "Pi-hole DNS: set per client to this host's LAN or Tailscale IP (port 53)."
+        echo "Wildcard local domain: *.tu.lan -> $dns_ip (DNS_RECORD_IP override)"
+    elif [[ -n "$lan_guess" && -n "$ts_guess" && "$lan_guess" != "$ts_guess" ]]; then
+        echo "Pi-hole DNS (dual-stack):"
+        echo "  - LAN clients:       use nameserver $lan_guess"
+        echo "  - Tailscale clients: use nameserver $ts_guess  (MagicDNS not required)"
+        echo "Wildcard *.tu.lan: returns $lan_guess on LAN and $ts_guess on Tailscale (dnsmasq localise-queries)."
+        echo "Set PIHOLE_DNS_BIND_ADDR=0.0.0.0 in .env so UDP/TCP 53 listens on both interfaces."
+    else
+        echo "Pi-hole DNS server for clients: $dns_ip"
+        echo "Wildcard local domain: *.tu.lan -> $dns_ip"
+    fi
     echo ""
     echo "What this gives you:"
     echo "  - oweb.tu.lan, n8n.tu.lan, affine.tu.lan, minio.tu.lan, etc."
@@ -772,7 +870,8 @@ show_dns_client_setup() {
         echo ""
         echo "Tailscale note:"
         echo "  - Current Tailscale IP detected: $tailscale_ip"
-        echo "  - Keep DNS_RECORD_IP/HOST_IP aligned with your intended client network."
+        echo "  - With HOST_IP + TAILSCALE_IP set, ./$SCRIPT_NAME sync-dns uses both for *.tu.lan."
+        echo "  - If you push nameservers via Tailscale admin, ensure clients accept tailnet DNS (no MagicDNS required)."
     fi
 }
 

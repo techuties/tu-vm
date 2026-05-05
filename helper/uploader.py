@@ -705,6 +705,8 @@ def control_service(service, action):
             # Dashboard-controlled services (on-demand)
             'open-webui': ('ai_openwebui', 'open-webui'),
             'n8n': ('ai_n8n', 'n8n'),
+            'n8n_mcp': ('ai_n8n_mcp', 'n8n_mcp'),
+            'n8n-mcp': ('ai_n8n_mcp', 'n8n_mcp'),
             'affine': ('ai_affine', 'affine'),
             'pihole': ('ai_pihole', 'pihole'),
             'minio': ('ai_minio', 'minio'),

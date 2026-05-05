@@ -104,6 +104,7 @@ nebulity.techuties.com/b2r8zn6/
 | [Apache Tika](https://tika.apache.org/) | `ai_tika` | 9998 | Document processing with OCR support |
 | [AFFiNE](https://affine.pro/) | `ai_affine` | 3010 | Collaborative knowledge workspace |
 | [MCP Gateway](#mcp-gateway) | `ai_mcp_gateway` | 9002 | Tool router for LLM-to-service communication |
+| [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) | `ai_n8n_mcp` | 3000 | Enriched n8n node/template intelligence sidecar (internal only) |
 | [LangGraph Supervisor](#langgraph-supervisor) | `ai_langgraph_supervisor` | 9010 | Write operation verification and audit |
 | Tika-MinIO Processor | `tika_minio_processor` | — | Automated document extraction pipeline |
 | [Browserless Chromium](https://github.com/browserless/browserless) | `ai_browserless` | 3000 | Optional headless browser for Open WebUI web search when using Playwright |
@@ -122,6 +123,7 @@ Open WebUI ──▶ PostgreSQL (users, chats, settings)
 n8n ──▶ PostgreSQL (workflows, credentials, schema: n8n)
 
 MCP Gateway ──▶ n8n API (workflow CRUD, executions)
+            ──▶ n8n-mcp (extended node docs/templates/validation)
             ──▶ MinIO (knowledge base storage)
             ──▶ Tika (document extraction)
             ──▶ LangGraph Supervisor (write verification)
@@ -132,11 +134,12 @@ AFFiNE ──▶ affine_postgres (separate PG instance, pgvector)
 
 ## MCP Gateway
 
-The MCP Gateway (`mcp-gateway/`) is a FastAPI application that acts as a secure tool router between Open WebUI's LLMs and backend services (n8n, MinIO knowledge base, AFFiNE). It exposes an OpenAPI spec that Open WebUI consumes as tool definitions.
+The MCP Gateway (`mcp-gateway/`) is a FastAPI application that acts as a secure tool router between Open WebUI's LLMs and backend services (n8n, n8n-mcp, MinIO knowledge base, AFFiNE). It exposes an OpenAPI spec that Open WebUI consumes as tool definitions.
 
 ### Capabilities
 
 - **Tool suite** exposed via OpenAPI (n8n workflow CRUD, executions, diagnostics, knowledge base, references)
+- **n8n-mcp bridge tools** for template/node intelligence under the same gateway endpoint (`n8n_mcp_*`)
 - **Auto-generated n8n node type definitions** (hundreds) with parameter schemas, credential requirements, and version info
 - **Pre-flight validation** of workflow payloads before sending to n8n
 - **Smart parameter filtering** by operation/mode to reduce context window usage
@@ -166,6 +169,8 @@ The MCP Gateway (`mcp-gateway/`) is a FastAPI application that acts as a secure 
 | `MCP_GATEWAY_TOKEN` | Yes | Bearer token for all API requests |
 | `N8N_API_KEY` | Yes | n8n API authentication |
 | `N8N_INTERNAL_URL` | Yes | n8n container URL (default: `http://ai_n8n:5678`) |
+| `N8N_MCP_SERVER_URL` | No | Internal n8n-mcp endpoint (default: `http://ai_n8n_mcp:3000/mcp`) |
+| `N8N_MCP_SERVER_TOKEN` | No | Bearer token for n8n-mcp HTTP mode |
 | `MCP_PROOF_SIGNING_KEY` | Yes | HMAC key for proof-of-execution signatures |
 | `KB_MINIO_ACCESS_KEY` | If KB enabled | MinIO access for knowledge base |
 | `KB_MINIO_SECRET_KEY` | If KB enabled | MinIO secret for knowledge base |
