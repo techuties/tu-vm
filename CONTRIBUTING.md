@@ -2,6 +2,34 @@
 
 TU-VM is operated from this repository and Docker Compose. We keep contribution friction low while preserving LAN-first defaults and safe operational boundaries.
 
+## GitHub does not “create” our Markdown for you
+
+Everything under version control—including `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, `CHANGELOG.md`, `docs/playbooks/`, `suggestions/`, and `.github/` (workflows + issue templates)—**only appears on GitHub after you push (or merge) to the remote**. An empty org/repo will stay empty until commits land on the **default branch** (`Settings → General → Default branch`).
+
+Use the checklist below once your first push is on GitHub so you can confirm templates, policies, and automation are wired up.
+
+### Checklist: confirm integration on GitHub
+
+1. **Default branch** — Ensure the branch you merged (`main`, `dev`, etc.) is the default branch you expect; many features (Release Drafter, issue template picker) read from **default** only.
+
+2. **Actions enabled** — `Settings → Actions → General`: allow workflows (subject to org policy). Open the **Actions** tab; you should see workflows such as **CI**, **Docs links**, **Trivy**, **Release Drafter**, **Stale**. If nothing ran yet, open a workflow → **Run workflow** (where `workflow_dispatch` is available) or push a tiny commit.
+
+3. **Docs link job** — Workflow **Docs links** runs on **every** push/PR to `main` / `dev` and lists the Markdown files it checks in the run **Summary**. A green run means lychee validated links in those files; red means a URL needs fixing or excluding.
+
+4. **Issue templates** — `Issues → New issue`: you should see **Bug report** and **Idea / suggestion**. If GitHub only offers a blank issue, confirm `.github/ISSUE_TEMPLATE/*.yml` and `config.yml` exist on the default branch.
+
+5. **`SECURITY.md`** — `Security → Security policy` (or **Report a vulnerability** if the org enabled private reporting). The policy text comes from the `SECURITY.md` file in the repo root on the default branch.
+
+6. **Pull request template** — Open **New pull request**: the description should start from [`.github/pull_request_template.md`](.github/pull_request_template.md).
+
+7. **Labels** — GitHub does not pre-seed our label set. Create the ones you use (`bug`, `suggestion`, `triage`, `needs-info`, …) under `Issues → Labels`, or issue templates that set `labels: [...]` may fail until those labels exist.
+
+8. **Dependabot** — [`.github/dependabot.yml`](.github/dependabot.yml) opens PRs when enabled for the repo/org (`Settings → Code security and analysis`). The first PR can take up to the scheduled interval.
+
+9. **CODEOWNERS** — [CODEOWNERS](CODEOWNERS) uses a **placeholder team** until you replace `@techuties/tu-vm-maintainers` with real `@org/team` or `@username` handles; invalid handles do not assign reviewers until fixed.
+
+10. **Release Drafter** — [`.github/workflows/release-drafter.yml`](.github/workflows/release-drafter.yml) runs on **pushes to `main`** (and manual dispatch). Pushes only to `dev` will **not** update the draft release until you merge to `main` or run the workflow against `main`.
+
 ## Suggestions and roadmap
 
 - **Ideas and enhancements**: open a GitHub Issue using the **Idea / suggestion** template, or start from [Issues](https://github.com/techuties/tu-vm/issues).
@@ -38,7 +66,7 @@ Human-edited highlights remain welcome in [CHANGELOG.md](CHANGELOG.md); mirror o
 
 ### Design discussion
 
-Use [Discussions](https://github.com/techuties/tu-vm/discussions) when an issue would be premature.
+When **Discussions** is enabled for this repository (**Settings → General → Features**), use them for early design chat; if the tab is not available, open a **Idea / suggestion** issue instead.
 
 ## Local checks before you push
 
@@ -92,7 +120,7 @@ Nginx exposes helper [`GET /status`](helper/uploader.py) as `/status/full`. If y
 ### Extra CI automation
 
 - [`.github/workflows/docs-links.yml`](.github/workflows/docs-links.yml) — lychee link checks on core Markdown.
-- [`.github/workflows/trivy.yml`](.github/workflows/trivy.yml) — Trivy **config** scan for Compose misconfiguration (`exit-code: 0`; tighten policy later if desired).
+- [`.github/workflows/trivy.yml`](.github/workflows/trivy.yml) — Trivy **config** scan of the repo root (Compose + Dockerfiles; misconfiguration hints). Uses `exit-code: 0` so findings are informational until you tighten policy.
 - [`.github/dependabot.yml`](.github/dependabot.yml) — weekly GitHub Actions bump PRs.
 
 ## Code and config style

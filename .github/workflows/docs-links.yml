@@ -1,16 +1,12 @@
 name: Docs links
 
+# Run on every push/PR to main and dev so link health is visible even when only code changes
+# (Markdown in the repo is still checked against live URLs every time).
 on:
   push:
     branches: [main, dev]
-    paths:
-      - "**.md"
-      - ".github/workflows/docs-links.yml"
   pull_request:
     branches: [main, dev]
-    paths:
-      - "**.md"
-      - ".github/workflows/docs-links.yml"
   workflow_dispatch:
 
 permissions:
@@ -39,3 +35,23 @@ jobs:
             suggestions/README.md
             suggestions/index.md
             suggestions/implementation-backlog.md
+
+      - name: Job summary — files checked
+        if: always()
+        run: |
+          {
+            echo "### Markdown checked by lychee"
+            echo "These paths are validated on every push to \`main\` / \`dev\` (see workflow \`docs-links.yml\`):"
+            echo ""
+            echo "| Path | Role |"
+            echo "|------|------|"
+            echo "| \`README.md\` | Project overview |"
+            echo "| \`CONTRIBUTING.md\` | Contribution + GitHub checklist |"
+            echo "| \`SECURITY.md\` | Security policy (Security tab → Policy) |"
+            echo "| \`AGENTS.md\` | Agent / automation notes |"
+            echo "| \`CHANGELOG.md\` | Release history |"
+            echo "| \`docs/playbooks/README.md\` | Operator playbooks |"
+            echo "| \`suggestions/README.md\` | Suggestions hub index |"
+            echo "| \`suggestions/index.md\` | Suggestion map |"
+            echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
+          } >> "$GITHUB_STEP_SUMMARY"

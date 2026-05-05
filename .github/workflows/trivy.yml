@@ -24,12 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Misconfiguration + best-practice findings for Compose (does not replace image CVE scans).
-      - name: Trivy Docker Compose config
-        uses: aquasecurity/trivy-action@0.28.0
+      # IaC / Dockerfile misconfiguration scan (repo root). Pointing scan-ref at only
+      # docker-compose.yml is not detected reliably by Trivy; '.' picks up Compose + Dockerfiles.
+      - name: Trivy config (misconfig)
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-type: config
-          scan-ref: ./docker-compose.yml
+          scan-ref: "."
           severity: CRITICAL,HIGH,MEDIUM
           exit-code: "0"
           format: table
