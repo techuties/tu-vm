@@ -751,7 +751,8 @@ services:
     restart: "no"
     networks:
       ai_network:
-        ipv4_address: 172.20.0.30
+        # Was 172.20.0.30 — conflicts with n8n_mcp (same IP breaks compose networking).
+        ipv4_address: 172.20.0.34
     deploy:
       resources:
         limits:
