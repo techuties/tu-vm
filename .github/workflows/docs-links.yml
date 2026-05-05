@@ -18,14 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # GITHUB_TOKEN raises GitHub API rate limits for github.com links; exclude user-attachments
+      # (redirect through short-lived signed URLs that can flake in CI).
       - name: Link checker
         uses: lycheeverse/lychee-action@v2
         with:
+          token: ${{ github.token }}
           args: >-
             --verbose
             --no-progress
-            --max-retries 2
+            --max-retries 4
             --exclude '^https://github\.com/techuties/tu-vm/compare/'
+            --exclude '^https://github\.com/user-attachments/'
             README.md
             CONTRIBUTING.md
             SECURITY.md

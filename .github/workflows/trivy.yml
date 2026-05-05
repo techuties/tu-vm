@@ -26,8 +26,9 @@ jobs:
 
       # IaC / Dockerfile misconfiguration scan (repo root). Pointing scan-ref at only
       # docker-compose.yml is not detected reliably by Trivy; '.' picks up Compose + Dockerfiles.
+      # Tag must include the leading "v" (e.g. v0.35.0), not bare 0.35.0.
       - name: Trivy config (misconfig)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.35.0
         with:
           scan-type: config
           scan-ref: "."
