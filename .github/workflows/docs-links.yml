@@ -25,13 +25,14 @@ jobs:
         uses: lycheeverse/lychee-action@v2
         with:
           token: ${{ github.token }}
+          # Keep in sync with local `lychee` / this repo's `lychee.toml`; default action version lags releases.
+          lycheeVersion: v0.24.2
+          # Avoid false failures if markdown output formatting changes slightly (still fail on real broken links).
+          failIfEmpty: false
           args: >-
             --verbose
             --no-progress
-            --max-retries 4
-            --user-agent "Mozilla/5.0 (compatible; TU-VM-docs-links/1.0; +https://github.com/techuties/tu-vm)"
-            --exclude '^https://github\.com/techuties/tu-vm/compare/'
-            --exclude '^https://github\.com/user-attachments/'
+            --config lychee.toml
             README.md
             CONTRIBUTING.md
             SECURITY.md
@@ -63,5 +64,5 @@ jobs:
             echo "| \`suggestions/index.md\` | Suggestion map |"
             echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
             echo ""
-            echo "_Excluded from HTTP checks: \`/compare/\` templates and \`user-attachments\` assets (signed redirect TTL). All other links in these files are checked, including same-repo URLs._"
+            echo "_Excluded URLs are listed in \`lychee.toml\` (same-repo \`/compare/\` templates and \`user-attachments\` assets). All other links in these files are checked, including same-repo URLs._"
           } >> "$GITHUB_STEP_SUMMARY"

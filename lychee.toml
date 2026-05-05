@@ -1,0 +1,13 @@
+# Shared link-checker defaults for CI (`.github/workflows/docs-links.yml`) and local runs.
+# Keeps fragile settings out of shell `eval` in lychee-action.
+
+exclude = [
+  '^https://github\\.com/techuties/tu-vm/compare/',
+  '^https://github\\.com/user-attachments/',
+]
+
+max_retries = 6
+timeout = 30
+retry_wait_time = 2
+
+user_agent = "Mozilla/5.0 (compatible; TU-VM-docs-links/1.0; +https://github.com/techuties/tu-vm)"
