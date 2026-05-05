@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        For **security vulnerabilities**, use [Report a vulnerability](https://github.com/techuties/tu-vm/security/advisories/new) (Security tab) or read [SECURITY.md](https://github.com/techuties/tu-vm/blob/main/SECURITY.md) — do not file public exploits here.
+        For **security vulnerabilities**, use [Report a vulnerability](https://github.com/techuties/tu-vm/security/advisories/new) (Security tab) or read [SECURITY.md](https://github.com/techuties/tu-vm/blob/dev/SECURITY.md) — do not file public exploits here.
 
   - type: textarea
     id: summary

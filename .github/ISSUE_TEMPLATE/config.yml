@@ -3,6 +3,6 @@ contact_links:
   - name: Report a vulnerability
     url: https://github.com/techuties/tu-vm/security/advisories/new
     about: Private security reports (preferred over public bug issues when exploitation details exist)
-  - name: GitHub Discussions
-    url: https://github.com/techuties/tu-vm/discussions
-    about: Questions and design chatter before opening an issue
+  - name: Issue picker (ideas & bugs)
+    url: https://github.com/techuties/tu-vm/issues/new/choose
+    about: Use templates — enable Discussions in repo Settings if you want a forum-style space

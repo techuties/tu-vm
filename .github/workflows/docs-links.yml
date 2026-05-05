@@ -29,6 +29,7 @@ jobs:
             --verbose
             --no-progress
             --max-retries 4
+            --user-agent "Mozilla/5.0 (compatible; TU-VM-docs-links/1.0; +https://github.com/techuties/tu-vm)"
             --exclude '^https://github\.com/techuties/tu-vm/compare/'
             --exclude '^https://github\.com/user-attachments/'
             README.md
@@ -36,6 +37,7 @@ jobs:
             SECURITY.md
             AGENTS.md
             CHANGELOG.md
+            QUICK_REFERENCE.md
             docs/playbooks/README.md
             suggestions/README.md
             suggestions/index.md
@@ -55,6 +57,7 @@ jobs:
             echo "| \`SECURITY.md\` | Security policy (Security tab → Policy) |"
             echo "| \`AGENTS.md\` | Agent / automation notes |"
             echo "| \`CHANGELOG.md\` | Release history |"
+            echo "| \`QUICK_REFERENCE.md\` | Short command / URL reference |"
             echo "| \`docs/playbooks/README.md\` | Operator playbooks |"
             echo "| \`suggestions/README.md\` | Suggestions hub index |"
             echo "| \`suggestions/index.md\` | Suggestion map |"

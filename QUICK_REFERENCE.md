@@ -46,14 +46,14 @@ sudo ./tu-vm.sh secure
 ## 🔧 Access Setup
 
 1. `sudo ./tu-vm.sh secure`
-2. Access at `https://<your-vm-ip>` or `https://tu.local` (if DNS configured)
+2. Access at `https://<your-vm-ip>` or the landing host **`tu.lan`** over HTTPS (if DNS configured)
 
 ## 🌐 Access URLs
 
-- **Landing**: `https://tu.local` or `https://<your-vm-ip>`
-- **Open WebUI**: `https://oweb.tu.local` or `https://<your-vm-ip>`
-- **n8n**: `https://n8n.tu.local` or `https://<your-vm-ip>`
-- **Pi-hole**: `https://pihole.tu.local` or `https://<your-vm-ip>`
+- **Landing**: **`tu.lan`** (HTTPS) or `https://<your-vm-ip>`
+- **Open WebUI**: `https://oweb.tu.lan` or `https://<your-vm-ip>`
+- **n8n**: `https://n8n.tu.lan` or `https://<your-vm-ip>`
+- **Pi-hole**: `https://pihole.tu.lan` or `https://<your-vm-ip>`
 
 ## 🚨 Troubleshooting
 
