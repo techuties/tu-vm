@@ -18,8 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # GITHUB_TOKEN raises GitHub API rate limits for github.com links; exclude user-attachments
-      # (redirect through short-lived signed URLs that can flake in CI).
+      # Exclude same-repo github.com/techuties/tu-vm/* HTTP checks: private repos return 404 to
+      # anonymous/unauthenticated probes; fork PR workflows also lack access to upstream URLs.
+      # External documentation links are still validated.
       - name: Link checker
         uses: lycheeverse/lychee-action@v2
         with:
@@ -29,6 +30,7 @@ jobs:
             --no-progress
             --max-retries 4
             --exclude '^https://github\.com/techuties/tu-vm/compare/'
+            --exclude '^https://github\.com/techuties/tu-vm(\.git)?(/|$)'
             --exclude '^https://github\.com/user-attachments/'
             README.md
             CONTRIBUTING.md
@@ -58,4 +60,6 @@ jobs:
             echo "| \`suggestions/README.md\` | Suggestions hub index |"
             echo "| \`suggestions/index.md\` | Suggestion map |"
             echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
+            echo ""
+            echo "_Same-repository \`github.com/techuties/tu-vm/...\` URLs are skipped by lychee (private-repo and fork-safe); third-party links are still checked._"
           } >> "$GITHUB_STEP_SUMMARY"

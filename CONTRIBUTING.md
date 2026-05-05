@@ -14,7 +14,7 @@ Use the checklist below once your first push is on GitHub so you can confirm tem
 
 2. **Actions enabled** — `Settings → Actions → General`: allow workflows (subject to org policy). Open the **Actions** tab; you should see workflows such as **CI**, **Docs links**, **Trivy**, **Release Drafter**, **Stale**. If nothing ran yet, open a workflow → **Run workflow** (where `workflow_dispatch` is available) or push a tiny commit.
 
-3. **Docs link job** — Workflow **Docs links** runs on **every** push/PR to `main` / `dev` and lists the Markdown files it checks in the run **Summary**. A green run means lychee validated links in those files; red means a URL needs fixing or excluding.
+3. **Docs link job** — Workflow **Docs links** runs on **every** push/PR to `main` / `dev` and lists scanned files in the run **Summary**. Lychee checks **third-party** URLs; links under **`github.com/techuties/tu-vm/***` are skipped so **private** repos and **fork** PRs do not false-fail.
 
 4. **Issue templates** — `Issues → New issue`: you should see **Bug report** and **Idea / suggestion**. If GitHub only offers a blank issue, confirm `.github/ISSUE_TEMPLATE/*.yml` and `config.yml` exist on the default branch.
 
@@ -119,7 +119,7 @@ Nginx exposes helper [`GET /status`](helper/uploader.py) as `/status/full`. If y
 
 ### Extra CI automation
 
-- [`.github/workflows/docs-links.yml`](.github/workflows/docs-links.yml) — lychee link checks on core Markdown.
+- [`.github/workflows/docs-links.yml`](.github/workflows/docs-links.yml) — lychee on core Markdown; **same-repo** `github.com/techuties/tu-vm/…` URLs are excluded so **private** repos and **fork** PRs do not false-fail (external links are still checked).
 - [`.github/workflows/trivy.yml`](.github/workflows/trivy.yml) — Trivy **config** scan of the repo root (Compose + Dockerfiles; misconfiguration hints). Uses `exit-code: 0` so findings are informational until you tighten policy.
 - [`.github/dependabot.yml`](.github/dependabot.yml) — weekly GitHub Actions bump PRs.
 
