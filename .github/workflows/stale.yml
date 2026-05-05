@@ -1,0 +1,50 @@
+name: Stale issues
+
+on:
+  schedule:
+    - cron: "37 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Issues waiting on reporter (needs-info)
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
+          only-labels: needs-info
+          exempt-issue-labels: pinned,security
+          days-before-stale: 21
+          days-before-close: -1
+          stale-issue-message: >
+            This issue is labeled **needs-info** and has had no activity for a while.
+            Please add the requested details; if nothing else is needed, a maintainer can remove the label.
+          stale-issue-label: stale
+          operations-per-run: 30
+
+      - name: Idle issues (general)
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
+          exempt-issue-labels: pinned,security,stale,good first issue
+          exempt-all-milestones: true
+          days-before-stale: 90
+          days-before-close: -1
+          stale-issue-message: >
+            Marking as **stale** due to inactivity. Comment if this still applies on a current TU-VM revision;
+            maintainers can remove the **stale** label.
+          stale-issue-label: stale
+          days-before-pr-stale: 60
+          days-before-pr-close: -1
+          stale-pr-message: >
+            This PR has been inactive. Please comment or update the branch if it should stay open.
+          stale-pr-label: stale
+          exempt-draft-pr: true
+          operations-per-run: 30

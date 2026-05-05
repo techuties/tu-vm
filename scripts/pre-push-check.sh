@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 echo "[pre-push] Running local smoke checks..."
 
-echo "[0/5] git worktree integrity"
+echo "[1/4] git worktree integrity + required files"
 unstaged_deleted="$(git diff --name-only --diff-filter=D | wc -l | tr -d ' ')"
 staged_deleted="$(git diff --cached --name-only --diff-filter=D | wc -l | tr -d ' ')"
 total_deleted=$((unstaged_deleted + staged_deleted))
@@ -28,21 +28,13 @@ for required in "tu-vm.sh" "docker-compose.yml" "README.md" "env.example"; do
   fi
 done
 
-echo "[1/5] docker compose config"
-docker compose config >/dev/null
+echo "[2/4] scripts/smoke-test.sh (compose render, bash -n, check-config)"
+./scripts/smoke-test.sh
 
-echo "[2/5] ./tu-vm.sh help"
+echo "[3/4] ./tu-vm.sh help"
 ./tu-vm.sh help >/dev/null
 
-echo "[3/5] bash -n tu-vm.sh"
-bash -n tu-vm.sh
-
-echo "[4/5] bash -n scripts/*.sh"
-while IFS= read -r script_file; do
-  bash -n "$script_file"
-done < <(ls -1 scripts/*.sh 2>/dev/null)
-
-echo "[5/5] git status sanity"
+echo "[4/4] git status sanity"
 git status --short --branch >/dev/null
 
 echo "[pre-push] All checks passed."

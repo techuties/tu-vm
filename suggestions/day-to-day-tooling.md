@@ -14,11 +14,14 @@ Adopt repeatable local environments so contributors spend less time on setup iss
 - Task runner for common commands (`make` or `just`)
 - Standardized environment checks (`doctor` command)
 
-Suggested starter commands:
+Suggested starter commands (still optional — repo uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
+
 - `make setup` (bootstrap dependencies/config)
 - `make check` (lint + static checks)
 - `make test` (test suite)
 - `make docs` (validate documentation)
+
+Implemented baseline: `./tu-vm.sh doctor`, `./scripts/check-config.sh`, `./scripts/smoke-test.sh`, `./scripts/helper-contract-check.sh`, [`scripts/pre-push-check.sh`](../scripts/pre-push-check.sh), and GitHub Actions CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
 
 ### 2) Quality and safety automation
 
@@ -74,9 +77,13 @@ These are mature ecosystems with strong community support, reducing maintenance 
 ## Adoption plan
 
 ### Phase 1: Baseline (2 weeks)
-- Introduce task runner and pre-commit hooks
-- Add docs validation in CI
-- Define contribution templates
+
+Done: contribution templates, compose/script validation and smoke checks in CI, `doctor`/config/smoke tooling.
+
+Still open:
+
+- Optional task runner (`make`/`just`) wrapping the same scripts
+- Pre-commit hooks and markdown/link validation in CI
 
 ### Phase 2: Automation (2-4 weeks)
 - Add n8n triage/reminder workflows

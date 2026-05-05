@@ -36,3 +36,7 @@ Recurring themes identified across historical branches:
 2. Add modular improvements over deep rewrites.
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
+
+To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
+
+For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).

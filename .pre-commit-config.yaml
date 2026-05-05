@@ -1,0 +1,19 @@
+# Optional — install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-yaml
+        exclude: ^docker-compose\.yml$
+
+  - repo: local
+    hooks:
+      - id: bash-syntax-scripts
+        name: bash -n tu-vm.sh + scripts/*.sh
+        entry: bash -c 'bash -n tu-vm.sh && while IFS= read -r f; do bash -n "$f"; done < <(find scripts -maxdepth 1 -name "*.sh" -type f | sort)'
+        language: system
+        pass_filenames: false

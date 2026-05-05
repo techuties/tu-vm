@@ -32,16 +32,24 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 ## Suggested execution sequence
 
 ### Phase 1 (Foundation)
-- Introduce suggestion lifecycle and templates
-- Set up docs website structure and navigation
-- Add contribution guardrails (checklists, labels, ownership)
+
+Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](../CONTRIBUTING.md), CI smoke/check-config, starter [`docs/playbooks/`](../docs/playbooks/README.md), landing links.
+
+Still open:
+
+- Dedicated docs site structure and navigation (optional static site later)
+- Explicit maintainer label/ownership conventions documented beside Issues
 
 ### Phase 2 (Acceleration)
-- Add automation for triage and proposal status updates
-- Publish starter playbooks and reusable workflow templates
-- Track adoption metrics (proposal cycle time, merge time, contributor retention)
+
+- Automation for triage and stale-issue workflows (labels, bots)
+- Playbook surfacing from the dashboard with clear anchors
+- Lightweight adoption metrics (release cadence, time-to-close by label)
 
 ### Phase 3 (Scale)
+
 - Open community working groups
 - Create plugin/integration curation process
 - Publish quarterly roadmap and retrospective summaries
+
+See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.

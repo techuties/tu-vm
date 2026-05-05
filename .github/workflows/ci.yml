@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env for compose interpolation
+        run: cp env.example .env
+
+      - name: Docker Compose render check
+        run: docker compose config --quiet
+
+      - name: Bash syntax (tu-vm.sh)
+        run: bash -n tu-vm.sh
+
+      - name: Bash syntax (scripts)
+        run: |
+          while IFS= read -r script_file; do
+            bash -n "$script_file"
+          done < <(find scripts -maxdepth 1 -name '*.sh' -type f | sort)
+
+      - name: Configuration validation (--ci)
+        run: ./scripts/check-config.sh --ci
+
+      - name: Smoke test (static)
+        run: ./scripts/smoke-test.sh
+
+      - name: /status/full JSON contract (fixture)
+        run: python3 scripts/validate_status_full_contract.py
+
+      - name: Strict config gate (pull requests only)
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p ssl
+          openssl req -x509 -nodes -newkey rsa:2048 \
+            -keyout ssl/nginx.key -out ssl/nginx.crt \
+            -days 1 -subj '/CN=localhost' 2>/dev/null
+          cp env.example .env
+          sed -i 's/CHANGE_ME/ci_fixture/g;s/PLACEHOLDER/ci_fixture/g' .env
+          docker compose config --quiet
+          ./scripts/check-config.sh --strict

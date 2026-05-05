@@ -1,0 +1,8 @@
+# Code ownership — optional until GitHub team handles exist.
+# Replace @techuties/tu-vm-maintainers with your org team or @user handles (Settings → Code owners).
+# Then enable branch protection: require review from Code Owners on matching paths.
+
+/docker-compose.yml @techuties/tu-vm-maintainers
+/.github/ @techuties/tu-vm-maintainers
+/nginx/ @techuties/tu-vm-maintainers
+/helper/ @techuties/tu-vm-maintainers

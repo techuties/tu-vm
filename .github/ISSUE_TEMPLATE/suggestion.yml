@@ -1,0 +1,30 @@
+name: Idea / suggestion
+description: Propose an improvement or new capability for TU-VM
+labels: ["suggestion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are tracked here on GitHub (no separate suggestions API). For vulnerabilities use [SECURITY.md](https://github.com/techuties/tu-vm/blob/main/SECURITY.md) or the Security tab — avoid posting exploit details in public issues until coordinated.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What should change, and what problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance / constraints
+      description: LAN-first behavior, Docker Compose boundaries, docs/playbooks touched, etc.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched open issues for duplicates
+          required: true

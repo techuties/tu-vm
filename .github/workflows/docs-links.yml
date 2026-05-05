@@ -1,0 +1,41 @@
+name: Docs links
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "**.md"
+      - ".github/workflows/docs-links.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "**.md"
+      - ".github/workflows/docs-links.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Link checker
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --verbose
+            --no-progress
+            --max-retries 2
+            --exclude '^https://github\.com/techuties/tu-vm/compare/'
+            README.md
+            CONTRIBUTING.md
+            SECURITY.md
+            AGENTS.md
+            CHANGELOG.md
+            docs/playbooks/README.md
+            suggestions/README.md
+            suggestions/index.md
+            suggestions/implementation-backlog.md

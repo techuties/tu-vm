@@ -33,6 +33,10 @@ The power of TU-VM is in how the parts work together: Open WebUI for operator-fa
 
 Perfect for developers and researchers who need a reliable, private environment for AI development without the complexity of manual setup or the risks of cloud services.
 
+### Contributing & suggestions
+
+Ideas and improvements are tracked on [GitHub Issues](https://github.com/techuties/tu-vm/issues); see [CONTRIBUTING.md](CONTRIBUTING.md) for labels, releases, and triage. Report vulnerabilities per [SECURITY.md](SECURITY.md). Operator-focused recipes are under [docs/playbooks/](docs/playbooks/).
+
 <img width="754" height="735" alt="tu-vm_dashboard" src="https://github.com/user-attachments/assets/8129c82c-748b-40be-95f2-d719b597d993" />
 
 The Dashboard

@@ -171,6 +171,16 @@
   .footer-contrib { color: var(--muted); font-size: 12px; }
   .footer-contrib a { color: var(--accent2); text-decoration: none; font-weight: 500; }
 
+  .community-panel { background: rgba(13,17,23,0.65); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 18px; margin-top: 18px; }
+  .community-panel .community-links { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 10px; align-items: center; }
+  .community-panel .community-links a { color: var(--accent2); text-decoration: none; font-size: 13px; font-weight: 500; }
+  .community-panel .community-links a:hover { text-decoration: underline; }
+  .community-blurb { font-size: 13px; color: var(--muted); margin: 6px 0 0; font-weight: 300; line-height: 1.45; max-width: 720px; }
+
+  .operator-hub { background: rgba(13,17,23,0.55); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 18px; margin-top: 14px; }
+  .operator-hub-row { margin-top: 10px; }
+  .operator-hub-row:first-child { margin-top: 0; }
+
   @media (max-width: 640px) {
     .hero-head { flex-direction: column; }
     .pipeline-flow { flex-direction: column; }
@@ -199,6 +209,34 @@
           <div class="dropdown-panel">
             <div id="announcements-list"></div>
           </div>
+        </div>
+      </div>
+    </div>
+    <div class="community-panel" role="region" aria-label="Community">
+      <span class="section-label" style="display:block; margin-bottom:2px;">Community</span>
+      <p class="community-blurb">Suggestions and docs live on GitHub: open an issue for ideas, read contributing notes, or follow operator playbooks.</p>
+      <div class="community-links">
+        <a href="https://github.com/techuties/tu-vm/issues/new/choose" target="_blank" rel="noopener noreferrer">Open an issue</a>
+        <a href="https://github.com/techuties/tu-vm/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer">Contributing</a>
+        <a href="https://github.com/techuties/tu-vm/tree/main/docs/playbooks" target="_blank" rel="noopener noreferrer">Playbooks folder</a>
+      </div>
+    </div>
+    <div class="operator-hub" role="region" aria-label="Operator playbooks and releases">
+      <div class="operator-hub-row">
+        <span class="section-label" style="display:block; margin-bottom:2px;">Playbooks</span>
+        <div class="community-links">
+          <a href="https://github.com/techuties/tu-vm/blob/main/docs/playbooks/README.md#playbook-safe-update" target="_blank" rel="noopener noreferrer">Safe update</a>
+          <a href="https://github.com/techuties/tu-vm/blob/main/docs/playbooks/README.md#playbook-recovery" target="_blank" rel="noopener noreferrer">Recovery</a>
+          <a href="https://github.com/techuties/tu-vm/blob/main/docs/playbooks/README.md#playbook-pihole-tailscale" target="_blank" rel="noopener noreferrer">Pi-hole + Tailscale</a>
+          <a href="https://github.com/techuties/tu-vm/blob/main/docs/playbooks/README.md#playbook-mcp-smoke" target="_blank" rel="noopener noreferrer">MCP smoke</a>
+        </div>
+      </div>
+      <div class="operator-hub-row">
+        <span class="section-label" style="display:block; margin-bottom:2px;">What is new</span>
+        <p class="community-blurb" style="margin-top:4px;">Shipped changes on GitHub (Release Drafter drafts track merges to <code style="font-size:11px;">main</code>).</p>
+        <div class="community-links">
+          <a href="https://github.com/techuties/tu-vm/releases/latest" target="_blank" rel="noopener noreferrer">Latest release</a>
+          <a href="https://github.com/techuties/tu-vm/blob/main/CHANGELOG.md" target="_blank" rel="noopener noreferrer">CHANGELOG</a>
         </div>
       </div>
     </div>

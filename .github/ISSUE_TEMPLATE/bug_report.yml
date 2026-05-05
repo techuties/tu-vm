@@ -1,0 +1,66 @@
+name: Bug report
+description: Something is broken or behaves incorrectly in TU-VM
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For **security vulnerabilities**, use [Report a vulnerability](https://github.com/techuties/tu-vm/security/advisories/new) (Security tab) or read [SECURITY.md](https://github.com/techuties/tu-vm/blob/main/SECURITY.md) — do not file public exploits here.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What went wrong in one short paragraph?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, UI actions, or config changes — be specific.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Logs, HTTP status, or error text (redact secrets and tokens).
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: e.g. `git rev-parse --short HEAD` or release tag
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Host OS, Docker version (`docker version`), relevant `.env` flags (never paste secrets).
+      placeholder: Ubuntu 22.04, Docker 29.x, portable vs server mode, …
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched open issues for duplicates
+          required: true

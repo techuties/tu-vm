@@ -40,6 +40,7 @@ No automated test suite exists. Validation is done by:
 1. Checking container health: `sudo docker compose ps`
 2. Hitting API endpoints: `curl -sk https://127.0.0.1/status/full -H "Host: tu.local"`
 3. Individual status endpoints: `/status/oweb`, `/status/pihole`, `/status/ollama`, `/status/minio`, etc.
+4. Static checks in CI / locally: `./scripts/smoke-test.sh`, `python3 scripts/validate_status_full_contract.py` (canonical `/status/full` shape), `./scripts/helper-contract-check.sh` when helper is up.
 
 ### Key files
 

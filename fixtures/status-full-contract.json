@@ -1,0 +1,22 @@
+{
+  "vm_ip": "192.168.1.10",
+  "services": {
+    "landing": "https://tu.lan",
+    "openwebui": "https://oweb.tu.lan",
+    "mcp_gateway": "https://oweb.tu.lan/api/mcp/",
+    "langgraph_supervisor": "https://oweb.tu.lan/api/langgraph/",
+    "n8n": "https://n8n.tu.lan",
+    "affine": "https://affine.tu.lan",
+    "pihole": "https://pihole.tu.lan"
+  },
+  "postgres": true,
+  "redis": true,
+  "qdrant": false,
+  "ollama": false,
+  "tika": false,
+  "minio": false,
+  "memory_mb": { "total": 8192, "used": 4096, "free": 4096 },
+  "disk_mb": { "total": 100000, "used": 50000, "free": 50000 },
+  "cpu_cores": 4,
+  "load_avg": { "1m": 0.1, "5m": 0.2, "15m": 0.15 }
+}

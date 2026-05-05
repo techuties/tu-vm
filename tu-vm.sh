@@ -1086,6 +1086,11 @@ show_help() {
     echo "  health                   Check service health"
     echo "  test                     Test all service endpoints"
     echo "  diagnose                 Run comprehensive diagnostics"
+    echo "  doctor [--json]          Quick machine/stack snapshot (does not create .env)"
+    echo "  check-config [--strict|--ci]  Static checks (compose, scripts, TLS; optional .env keys)"
+    echo "  smoke-test [--live]      Offline compose/shell checks; --live curls HTTPS via nginx"
+    echo "  helper-contract-check    Validate helper JSON + unauthenticated POST returns 401"
+    echo "  release-notes [tag]      Print changelog-ready bullets since tag (git-only)"
     echo "  check-openwebui-audio    Validate Open WebUI STT config consistency"
     echo "  fix-openwebui-audio      Repair Open WebUI STT config (DB + Redis)"
     echo "  check-openwebui-websearch Validate Open WebUI web-search loader config"
@@ -1124,6 +1129,10 @@ show_help() {
     echo "  ./$SCRIPT_NAME logs nginx               # Show nginx logs"
     echo "  ./$SCRIPT_NAME pdf-status               # Check PDF processing"
     echo "  ./$SCRIPT_NAME health                   # Check service health"
+    echo "  ./$SCRIPT_NAME doctor --json             # Machine-readable snapshot"
+    echo "  ./$SCRIPT_NAME check-config --strict    # Fail on warnings"
+    echo "  ./$SCRIPT_NAME smoke-test --live        # Curl nginx if stack running"
+    echo "  ./$SCRIPT_NAME release-notes v2.0.0      # Commit bullets since tag"
     echo "  ./$SCRIPT_NAME update-check             # Check what can be updated"
     echo "  ./$SCRIPT_NAME update                   # Apply full-stack update flow"
     echo "  ./$SCRIPT_NAME update-rollback          # Roll back latest update"
@@ -3814,8 +3823,13 @@ main() {
             show_info
             ;;
         *)
-            # Check prerequisites for most commands
-            if [[ "$1" != "help" && "$1" != "version" ]]; then
+            # Prerequisites: diagnostics can run without mutating .env
+            if [[ "$1" == "release-notes" ]]; then
+                :
+            elif [[ "$1" == "doctor" || "$1" == "check-config" || "$1" == "smoke-test" || "$1" == "helper-contract-check" ]]; then
+                check_docker
+                check_docker_compose
+            elif [[ "$1" != "help" && "$1" != "version" ]]; then
                 check_docker
                 check_docker_compose
                 check_env_file
@@ -3913,6 +3927,21 @@ main() {
                     ;;
                 generate-secrets)
                     generate_secrets
+                    ;;
+                doctor)
+                    bash "${SCRIPT_DIR}/scripts/doctor.sh" "${@:2}"
+                    ;;
+                check-config)
+                    bash "${SCRIPT_DIR}/scripts/check-config.sh" "${@:2}"
+                    ;;
+                smoke-test)
+                    bash "${SCRIPT_DIR}/scripts/smoke-test.sh" "${@:2}"
+                    ;;
+                helper-contract-check)
+                    bash "${SCRIPT_DIR}/scripts/helper-contract-check.sh" "${@:2}"
+                    ;;
+                release-notes)
+                    bash "${SCRIPT_DIR}/scripts/release-note-helper.sh" "${@:2}"
                     ;;
                 validate-security)
                     validate_security

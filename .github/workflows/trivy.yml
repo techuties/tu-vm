@@ -1,0 +1,35 @@
+name: Trivy
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - docker-compose.yml
+      - .github/workflows/trivy.yml
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - docker-compose.yml
+      - .github/workflows/trivy.yml
+  schedule:
+    - cron: "0 11 * * 3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Misconfiguration + best-practice findings for Compose (does not replace image CVE scans).
+      - name: Trivy Docker Compose config
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: ./docker-compose.yml
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"
+          format: table

@@ -22,79 +22,11 @@ This allows tooling to be added as thin wrappers and consistency checks, not as 
 
 ## Tooling recommendations
 
-### 1) Unified diagnostics command (`tu-vm.sh doctor`)
+### 1–4) Implemented in-repo
 
-#### Why
+These are live: `./tu-vm.sh doctor` (human + `--json`), `./scripts/check-config.sh`, `./scripts/smoke-test.sh` (`--live` for HTTPS probes), `./scripts/helper-contract-check.sh`, CI wiring and [`CONTRIBUTING.md`](../CONTRIBUTING.md). Historical detail kept for context — see scripts and [`implementation-backlog.md`](./implementation-backlog.md).
 
-Contributors currently need several commands to diagnose issues. A deterministic diagnostics command shortens triage loops and standardizes bug reports.
-
-#### Proposed output sections
-
-- Docker and Compose health
-- Required environment variable presence (without printing secret values)
-- Container status summary by tier
-- Nginx config test result
-- Core endpoint checks
-- Resource pressure warnings (CPU/memory/disk)
-- Suggested next actions
-
-#### Modes
-
-- Human-readable default
-- Optional machine-readable output (`--json`) for automation
-
-### 2) Pre-flight configuration validator (`scripts/check-config.sh`)
-
-#### Why
-
-Many runtime failures are caused by predictable config gaps that can be detected before startup.
-
-#### Checks
-
-- `.env` exists and required keys are non-empty
-- Placeholder/default credentials are flagged
-- Required config files exist
-- Core domain/IP settings are coherent
-
-#### Integration
-
-- Local: run before `./tu-vm.sh start`
-- CI: run on pull requests to prevent broken merges
-
-### 3) Smoke test command (`scripts/smoke-test.sh`)
-
-#### Why
-
-A shared smoke baseline improves confidence for new contributors and avoids "works on my machine" drift.
-
-#### Core smoke checks
-
-- `docker compose config` renders successfully
-- `./tu-vm.sh start --tier1` succeeds
-- `/status/full` includes expected top-level keys
-- Landing page responds and includes dashboard shell
-- Control endpoints reject unauthenticated calls as expected
-
-#### Optional deep checks
-
-`--full` mode can include Tier 2 startup checks and pipeline verification.
-
-### 4) Helper API contract checks
-
-#### Why
-
-Dashboard and helper API evolve together. Contract drift creates regressions even when services are "up".
-
-#### Suggested endpoints to validate
-
-- `/status`
-- `/status/full`
-- `/status/{service}`
-- `/announcements`
-- `/updates`
-- `/status/pdf-processing`
-
-Focus on response shape and required fields rather than exact runtime values.
+Remaining helper contract breadth (optional): extend checks toward `/updates`, `/status/pdf-processing`, and `/status/full` shape validation in CI when the stack or fixtures allow.
 
 ### 5) Release note assistant (`scripts/release-note-helper.sh`)
 
@@ -136,12 +68,10 @@ To avoid script sprawl:
 
 ## Priority order
 
-1. `tu-vm.sh doctor`
-2. `scripts/check-config.sh`
-3. `scripts/smoke-test.sh`
-4. helper API contract checks
-5. docs quality gate
-6. release note assistant
+1. docs quality gate (links, headings for core docs)
+2. `scripts/release-note-helper.sh`
+3. deeper `/status/full` contract validation in CI (fixtures or narrow compose profile)
+4. optional `--full` smoke tier / Tier 2 coverage where maintainable
 
 ## Website/community impact
 
