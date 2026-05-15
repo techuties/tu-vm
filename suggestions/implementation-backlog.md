@@ -43,6 +43,58 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Static website/community framework selection
+
+### Scope
+
+Choose and scaffold one static website framework for community docs and suggestion pages. Historical suggestions mention Docusaurus, Astro/Starlight, VitePress, and MkDocs Material; the selection should be based on contributor workflow rather than novelty.
+
+Recommended decision:
+
+- **Docusaurus** if docs, proposal pages, versioning, and GitHub-style contributor flow are primary.
+- **Astro/Starlight** if a broader content website with custom landing pages is primary.
+- **VitePress/MkDocs Material** only if maintainer familiarity makes them clearly easier to sustain.
+
+### Acceptance criteria
+
+- Framework choice is documented in `suggestions/website-information-architecture.md`.
+- Website source keeps Markdown as the main authoring format.
+- Existing `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `docs/playbooks/`, and `suggestions/` content are linked or imported without copy/paste drift.
+- Generated site can be served by existing Nginx without replacing the operational dashboard.
+- Local preview command is documented for contributors.
+
+---
+
+## P1-3: Suggestion archive metadata and index
+
+### Scope
+
+Make the existing `suggestions/` archive navigable by status, area, and relationship to historical proposals.
+
+### Acceptance criteria
+
+- New or touched proposal files may include front matter fields: `status`, `area`, `related`, `supersedes`, `superseded_by`.
+- A canonical index groups suggestions by active, accepted, implemented, deferred, rejected, duplicate, and superseded.
+- Duplicate suggestions link to a canonical page instead of repeating the same framework or tooling recommendation.
+- Historical files remain readable; cleanup is incremental and does not require rewriting every old suggestion at once.
+
+---
+
+## P1-4: Community triage and daily-workflow tooling
+
+### Scope
+
+Add small tools that make recurring maintainer work easier without introducing a custom community platform database.
+
+### Acceptance criteria
+
+- A docs/suggestion quality check reports broken links, missing headings, and missing proposal metadata for changed files.
+- A triage report identifies stale accepted suggestions, duplicate candidates, and implemented items missing changelog references.
+- Any tool has non-interactive usage, actionable errors, and predictable exit codes so contributors and CI can use it reliably.
+- The tools integrate with existing script conventions and can be exposed through `tu-vm.sh` only when they become stable.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -91,9 +143,12 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-2** — select/scaffold the static website framework and define the contributor preview flow.
+2. **P1-3** — add suggestion archive metadata and a generated/canonical index.
+3. **P1-4** — add lightweight quality and triage tooling for community maintainers.
+4. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+5. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+6. **P2-1**, **P2-2**, **P2-3**
 
 ---
 

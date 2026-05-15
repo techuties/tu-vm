@@ -55,6 +55,73 @@ A community-driven website depends on docs consistency and navigability.
 
 Can run in CI and optional local pre-commit flows.
 
+### 7) Suggestion metadata checker
+
+#### Why
+
+As the `suggestions/` archive grows, contributors need fast feedback when a proposal is missing status, ownership, related links, or validation notes.
+
+#### Behavior
+
+- Scan `suggestions/*.md` for optional front matter.
+- Warn when a proposal lacks:
+  - `status`
+  - `area`
+  - related historical suggestion links
+  - acceptance or deferral rationale
+- Report duplicate titles or near-identical headings.
+- Exit non-zero only for files touched in the current branch when used in CI, so historical files do not block incremental cleanup.
+
+#### Community benefit
+
+- Reduces maintainer triage time.
+- Makes proposal pages more consistent.
+- Helps new contributors find related historical work before opening a repeated idea.
+
+### 8) Local website preview command
+
+#### Why
+
+Community contributors should be able to preview website/docs changes without understanding the whole Docker Compose stack.
+
+#### Behavior
+
+- Add a single documented command once the static site framework is chosen, for example:
+  - `npm run docs:dev`
+  - or `./tu-vm.sh docs-preview`
+- Print the local URL and common troubleshooting hints.
+- Keep preview independent from Tier 1 service startup.
+
+#### Community benefit
+
+- Faster review of Markdown and navigation changes.
+- Lower barrier for docs-only contributions.
+- Less need to run heavy services for website edits.
+
+### 9) Community triage report
+
+#### Why
+
+Maintainers need a simple view of stale suggestions, missing owners, and shipped items that still need documentation updates.
+
+#### Behavior
+
+- Generate a Markdown or JSON report from:
+  - GitHub Issues labeled `suggestion`
+  - `suggestions/*.md` metadata
+  - `CHANGELOG.md` release entries
+- Highlight:
+  - accepted suggestions without implementation links
+  - implemented suggestions without changelog references
+  - duplicate candidates
+  - proposals touching security-sensitive areas
+
+#### Community benefit
+
+- Keeps the suggestion system transparent.
+- Makes recurring triage work easier to delegate.
+- Creates a durable weekly/monthly status artifact without a custom dashboard database.
+
 ## Integration pattern
 
 To avoid script sprawl:
@@ -72,6 +139,9 @@ To avoid script sprawl:
 2. `scripts/release-note-helper.sh`
 3. deeper `/status/full` contract validation in CI (fixtures or narrow compose profile)
 4. optional `--full` smoke tier / Tier 2 coverage where maintainable
+5. suggestion metadata checker for new/changed proposal pages
+6. local docs website preview command after framework selection
+7. community triage report once proposal metadata exists
 
 ## Website/community impact
 

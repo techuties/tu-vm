@@ -26,6 +26,8 @@ Recommendation: preserve this architecture and layer a docs/community website fr
 
 ## Recommended website framework options
 
+Historical suggestion files propose Docusaurus, Astro/Starlight, VitePress, and MkDocs Material. They are all better than a custom documentation engine. The project should choose the smallest framework that satisfies the community workflow rather than creating bespoke navigation, search, or versioning.
+
 ### Option A (primary): Docusaurus
 
 Best when the priority is docs quality, versioning, search, and community contribution flow:
@@ -34,6 +36,7 @@ Best when the priority is docs quality, versioning, search, and community contri
 - Versioned docs and sidebars
 - Strong plugin ecosystem
 - Low barrier for contributor pull requests
+- Native fit for proposal/RFC pages, docs sidebars, and "edit this page" links
 
 ### Option B (secondary): Astro with Starlight
 
@@ -42,11 +45,47 @@ Best when broader marketing/content composition is expected:
 - Fast and modern static site output
 - Strong markdown pipeline
 - Flexible custom page composition
+- Cleaner path if the project wants landing pages, showcases, or component-rich community pages
+
+### Option C (lightweight fallback): VitePress or MkDocs Material
+
+Use one of these only if the team wants a smaller docs-only toolchain:
+
+- **VitePress** if the contributor base prefers a lightweight JavaScript/Vite stack.
+- **MkDocs Material** if the contributor base prefers Python tooling and mature docs search/navigation.
 
 ### Selection rule
 
 - Choose Docusaurus if docs, contribution guides, and proposal pages are the center of gravity.
 - Choose Astro if a richer multi-purpose website is the top requirement.
+- Choose VitePress/MkDocs only when their ecosystem and maintainer familiarity are a better local fit.
+- Avoid building custom docs routing, search, sidebar generation, or proposal indexing unless the chosen framework cannot support a requirement.
+
+## Markdown source-of-truth model
+
+Keep source content simple and reviewable:
+
+| Content type | Source location | Website behavior |
+|--------------|-----------------|------------------|
+| Install and operations docs | `README.md`, `QUICK_REFERENCE.md`, `docs/playbooks/` | Imported or linked as task-oriented docs pages |
+| Community workflow | `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/` | Published as contributor guide pages |
+| Historical suggestions | `suggestions/*.md` | Indexed as proposal archive with status metadata |
+| Release history | `CHANGELOG.md`, GitHub Releases | Shown as release notes / "what changed" pages |
+| Security policy | `SECURITY.md` | Published as security and disclosure guidance |
+
+For future proposal pages, add small front matter where useful:
+
+```yaml
+---
+status: proposed
+area: website
+related:
+  - suggestions/website-community-framework.md
+  - suggestions/implementation-backlog.md
+---
+```
+
+This makes the eventual website indexable without making contributors learn a database or custom CMS.
 
 ## Proposed navigation model
 
@@ -79,6 +118,7 @@ Best when broader marketing/content composition is expected:
    - Historical suggestions baseline
    - Active proposals
    - Accepted/rejected decisions and rationale
+   - Duplicate/superseded links so repeated ideas point to canonical proposals
 
 ## Suggested docs taxonomy
 
@@ -120,6 +160,8 @@ Apply these standards for all website pages and interactive controls:
 3. Add a dedicated suggestions section sourced from this folder.
 4. Add cross-links from existing landing page and docs root.
 5. Add documentation quality checks (broken links, heading structure).
+6. Add an "edit this page" link and issue-template link to every community-facing page.
+7. Publish a generated suggestion index grouped by status, area, and superseded-by relation.
 
 ## Success criteria
 

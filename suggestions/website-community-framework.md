@@ -51,6 +51,31 @@ Define an ownership map for faster review routing:
 
 Each subsystem should have one primary owner and one backup reviewer.
 
+## Suggestion archive and anti-duplication workflow
+
+The existing `suggestions/` directory is already a large historical archive. The community system should make that archive useful rather than adding more parallel documents with the same recommendation.
+
+### Intake rule
+
+Before a new website/community suggestion is accepted for discussion, the submitter or triage maintainer should check:
+
+1. `suggestions/README.md` and `suggestions/index.md`
+2. `suggestions/historical-suggestions-baseline.md`
+3. `suggestions/implementation-backlog.md`
+4. active GitHub Issues labeled `suggestion` or `enhancement`
+5. recently shipped items in `CHANGELOG.md`
+
+### Canonicalization rule
+
+When overlap exists:
+
+- **Duplicate**: link to the canonical suggestion and close or mark as duplicate.
+- **Partial overlap**: merge useful details into the canonical file and note the source.
+- **Superseded idea**: keep the old file for history, but add a clear pointer to the newer recommendation.
+- **Implemented idea**: move the action item into `implementation-backlog.md` under completed/superseded with the relevant file or PR reference.
+
+This protects the community from re-litigating the same framework choices and gives new contributors a reliable starting point.
+
 ## Decision lanes
 
 ### Fast lane (minor changes)
@@ -82,6 +107,47 @@ Use this shape for significant changes:
 8. Documentation impact
 
 This stays short and practical while improving alignment.
+
+## Website/community feature framework
+
+The community-facing website should focus on discoverability and workflow clarity, not replace GitHub as the issue tracker.
+
+### Core pages
+
+1. **Start here**
+   - install path
+   - service model
+   - "where to ask for help" links
+2. **Contribute**
+   - issue templates
+   - PR expectations
+   - local checks and review standards
+3. **Suggestions**
+   - historical archive
+   - active proposal index
+   - duplicate/superseded mapping
+4. **Roadmap**
+   - accepted next work
+   - shipped community requests
+   - deferred ideas with rationale
+5. **Operations**
+   - day-to-day commands
+   - troubleshooting playbooks
+   - status endpoint contract references
+
+### Community interaction surfaces
+
+- Use GitHub Issues for formal suggestions.
+- Use Discussions for early design exploration when enabled.
+- Use Markdown proposal pages for durable decisions and implementation guidance.
+- Use release notes and `CHANGELOG.md` to close the loop after accepted ideas ship.
+
+### Moderation and safety boundaries
+
+- Keep control/admin operations private and token-gated.
+- Do not expose operator telemetry publicly by default.
+- Require explicit maintainer approval for suggestions that change networking, authentication, backup/restore, or service startup behavior.
+- Prefer static website content for community pages so public information can be reviewed before publication.
 
 ## Contribution workflow standards
 
