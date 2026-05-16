@@ -2,105 +2,232 @@
 
 ## Summary
 
-Build a community-driven suggestion system directly into the existing website stack so contributors can propose improvements, vote on priorities, and track implementation status without leaving the platform.
+Build a community-based suggestion system for TU-VM by reusing existing project surfaces first:
 
-This should **extend current components** (`nginx/html/index.html` + `helper/uploader.py`) rather than introduce a new web framework immediately.
+- GitHub Issues, PRs, labels, Discussions, and Release Drafter for public collaboration.
+- Markdown files in `suggestions/` as the durable proposal and decision record.
+- A static docs website for browsing suggestions, governance, roadmap, and playbooks.
+- The existing `nginx/html/index.html` dashboard for read-only community highlights.
+- Helper API extensions only after the Markdown/GitHub workflow proves insufficient.
 
-## Problem Statement
+This is a staged system, not a request to build a custom application on day one.
 
-Current dashboard capabilities are operational (status, control, announcements), but community collaboration is still ad hoc. There is no structured workflow for:
+## Historical scan findings
 
-- submitting suggestions,
-- detecting duplicates,
-- discussing priority,
-- showing lifecycle state from idea to delivery.
+The existing `suggestions/` folder contains repeated recommendations in four areas:
 
-## Proposed Framework (Reuse-First)
+1. Docs-first website structure around install, operation, security, community, and suggestions.
+2. Lightweight governance with duplicate checks, status transitions, owners, and decision rationale.
+3. Day-to-day maintainer tools such as doctor checks, smoke tests, release-note helpers, and docs quality gates.
+4. Dashboard evolution through modular assets and optional status/community panels.
 
-### 1) Data Model (MVP)
+The constructional recommendation is to consolidate these into a single workflow instead of creating another isolated suggestion store.
 
-Add a simple JSON-backed store first, then migrate to Postgres only if volume requires it.
+## Problem statement
 
-`suggestion` fields:
+Community collaboration is currently spread across long-form docs, issue templates, prior suggestion files, and dashboard links. Without a clear system:
 
-- `id` (uuid)
-- `title`
-- `problem`
-- `proposal`
-- `category` (security, UX, automation, docs, reliability, performance)
-- `impact_score` (1-5)
-- `effort_score` (1-5)
-- `risk_score` (1-5)
-- `status` (`proposed`, `accepted`, `implemented`, `rejected`)
-- `author`
-- `created_at`
-- `updated_at`
-- `duplicate_of` (nullable)
-- `notes`
+- duplicate proposals are likely,
+- contributors cannot easily see whether an idea is active, accepted, rejected, or shipped,
+- maintainers have to manually connect issues, PRs, docs, changelog entries, and dashboard links,
+- website improvements risk becoming a custom platform before the process is mature.
 
-### 2) API Extensions (Helper Service)
+## Proposed staged architecture
 
-Extend `helper/uploader.py` with endpoints:
+### Stage 1: Markdown and GitHub as source of truth
 
-- `GET /suggestions`  
-  List with query filters (`status`, `category`, search text).
-- `POST /suggestions`  
-  Create new suggestion with required validation.
-- `GET /suggestions/<id>`  
-  Fetch detail.
-- `POST /suggestions/<id>/vote`  
-  Upvote/downvote (basic token/IP throttling in MVP).
-- `POST /suggestions/<id>/status`  
-  Maintainer-only transition with audit note.
-- `GET /suggestions/stats`  
-  Counts by category/status and top-voted items.
+Keep suggestion records in repository Markdown and use GitHub for discussion:
 
-### 3) Website UX (Landing Page Section)
+- Each canonical suggestion gets one Markdown page under `suggestions/`.
+- The page links to related GitHub Issues, PRs, Discussions, and changelog entries.
+- Duplicate historical files are merged into the canonical page and listed in `canonical_of`.
+- Status changes happen through PR review so decisions are auditable.
 
-Add a “Community Suggestions” module in `nginx/html/index.html`:
+Recommended frontmatter:
 
-- **New Suggestion form** (title/problem/proposal/category).
-- **Suggestion list** with filters:
-  - status chips,
-  - category chips,
-  - sort by votes/updated.
-- **Detail drawer/modal**:
-  - lifecycle status,
-  - rationale,
-  - linked duplicate if applicable.
-- **Top Priorities panel** driven by `/suggestions/stats`.
+```yaml
+id: website-community-platform
+title: Community Suggestions Platform
+status: proposed
+area: community
+owner: maintainers
+risk: medium
+created: 2026-05-16
+updated: 2026-05-16
+canonical_of:
+  - community-system-suggestions.md
+  - community-suggestions-framework.md
+discussion: null
+```
 
-### 4) Governance Flow
+Recommended body sections:
 
-Define a simple moderation policy:
+1. Problem statement
+2. Historical context and duplicates reviewed
+3. Proposed approach
+4. Reused components and frameworks
+5. Implementation steps
+6. Security, abuse, and resource impact
+7. Rollback or disable path
+8. Acceptance criteria
+9. Success metrics
+10. Decision log
 
-1. New submission lands in `proposed`.
-2. Maintainer triage sets:
-   - duplicate link, or
-   - accepts with prioritization note.
-3. Accepted work transitions to `implemented` when merged.
-4. Rejected items require explicit reason to preserve transparency.
+### Stage 2: Static website publishing
 
-## Why This Avoids Re-inventing the Wheel
+Publish `suggestions/` through a docs framework such as Docusaurus or MkDocs Material:
 
-- Reuses **existing helper API** pattern and auth model.
-- Reuses **existing dashboard UI style** and notification behaviors.
-- Reuses **existing operational concepts** (status chips, announcements).
-- Delays heavy framework migration until there is clear scaling need.
+- Generate indexes by `status`, `area`, `owner`, and `updated`.
+- Add full-text search for proposals, decisions, and playbooks.
+- Show "recently changed suggestions" and "accepted next work" pages.
+- Link from the existing dashboard and root `README.md`.
 
-## Technical Risks and Mitigations
+This gives the community a website experience while keeping review and history in Git.
 
-1. **JSON store concurrency risk**  
-   Mitigation: atomic writes + file lock; move to Postgres when contention appears.
-2. **Abuse/spam submissions**  
-   Mitigation: token-gated submit mode or basic rate limiting by IP.
-3. **Status drift from code reality**  
-   Mitigation: require maintainer update note with PR/commit reference in status transitions.
+### Stage 3: Dashboard community summary
 
-## Success Criteria
+Add a read-only community panel to the existing dashboard after the static records are stable:
 
-- Contributors can submit suggestions from the website in under 2 minutes.
-- Duplicate suggestions are visibly linked to canonical items.
-- Maintainers can change status with traceable reasoning.
-- Community can see top priorities and what was recently implemented.
-- No new infrastructure service is required for MVP.
+- latest accepted suggestions,
+- recently implemented suggestions,
+- top open requests by issue reactions or label priority,
+- links to the docs website, GitHub Issues, and contribution guide.
+
+Implementation should avoid direct browser calls to third-party APIs from private LAN dashboards. Prefer a generated static JSON artifact, build-time data, or a same-origin cached helper endpoint.
+
+### Stage 4: Optional writable helper API
+
+Only add custom helper endpoints if the community needs in-dashboard submission or voting and maintainers are ready to operate abuse controls.
+
+Candidate endpoints:
+
+- `GET /suggestions` - list generated or cached suggestion summaries.
+- `GET /suggestions/<id>` - return a single generated record.
+- `POST /suggestions` - create a proposal draft after auth and rate-limit checks.
+- `POST /suggestions/<id>/vote` - record a signal, never a binding decision.
+- `POST /suggestions/<id>/status` - maintainer-only status transition with audit note.
+
+Gate this stage on:
+
+- clear auth model,
+- rate limiting and spam handling,
+- audit trail,
+- backup/restore behavior,
+- owner for ongoing moderation.
+
+## Frameworks and tools to reuse
+
+- **Docusaurus or MkDocs Material** for static docs and suggestion pages.
+- **GitHub Issues and Discussions** for collaboration instead of custom comment storage.
+- **Release Drafter and CHANGELOG.md** for shipped-suggestion closure.
+- **Existing docs-links workflow** as the starting point for link checks.
+- **Markdown lint and frontmatter validation** for suggestion quality.
+- **Existing helper API and Nginx routing** for any eventual read-only dashboard integration.
+- **Existing `tu-vm.sh` and scripts** for contributor checks, not a separate CLI.
+
+## Detailed website pages
+
+### Suggestions index
+
+Purpose: show all canonical proposals with filters.
+
+Fields:
+
+- title,
+- status,
+- area,
+- owner,
+- risk,
+- updated date,
+- linked issue/discussion,
+- next action.
+
+### Suggestion detail page
+
+Purpose: make one proposal understandable and reviewable.
+
+Required content:
+
+- problem and user impact,
+- what existing tools/frameworks are reused,
+- implementation outline,
+- security and resource impact,
+- acceptance criteria,
+- validation plan,
+- rollback path,
+- decision log.
+
+### Governance page
+
+Purpose: explain how the community moves ideas forward.
+
+Content:
+
+- lifecycle states,
+- duplicate policy,
+- roles and owners,
+- decision rubric,
+- completion criteria.
+
+### Roadmap page
+
+Purpose: connect suggestions to implementable work.
+
+Content:
+
+- accepted suggestions,
+- current priority order,
+- dependencies,
+- completed and superseded items,
+- links to changelog entries when shipped.
+
+### Contributor start page
+
+Purpose: reduce day-to-day friction.
+
+Content:
+
+- how to open a suggestion,
+- how to run local checks,
+- how to link PRs and issues,
+- how to update docs and changelog,
+- what validation evidence maintainers expect.
+
+## Duplicate prevention workflow
+
+Before accepting a new suggestion:
+
+1. Search `suggestions/` for the problem area and related terms.
+2. Search GitHub Issues and Discussions for matching requests.
+3. Check `CHANGELOG.md` for already shipped behavior.
+4. If overlap exists, update the canonical suggestion instead of creating a new file.
+5. If the new idea is distinct, link nearby historical suggestions in the "Historical context" section.
+
+## Acceptance criteria
+
+- The website can list canonical suggestions by status and area.
+- Every canonical suggestion has required fields and a decision log.
+- Duplicate historical suggestions are linked or merged into canonical records.
+- The dashboard links to the community/suggestions website without changing secure defaults.
+- No writable custom API is introduced before auth, rate limiting, audit, and moderation ownership are defined.
+
+## Risks and mitigations
+
+1. **Risk: duplicate Markdown records continue to grow.**
+   - Mitigation: require canonical ownership fields and reject new files when an existing canonical page fits.
+2. **Risk: website status drifts from GitHub and changelog reality.**
+   - Mitigation: generate indexes from source files and require shipped suggestions to link PRs or changelog entries.
+3. **Risk: custom voting becomes a popularity contest.**
+   - Mitigation: treat votes as advisory input; require security, operations, and maintenance review before acceptance.
+4. **Risk: dashboard calls leak private operator traffic.**
+   - Mitigation: use same-origin cached/generated data for community summaries.
+5. **Risk: docs framework adds maintenance burden.**
+   - Mitigation: start static, keep Markdown portable, and avoid framework-specific syntax where plain Markdown works.
+
+## Success metrics
+
+- Fewer duplicate suggestion files or issues over time.
+- New contributors can find the suggestion process from the website in two clicks.
+- Accepted suggestions include owner, next action, validation path, and rollback notes.
+- Implemented suggestions are linked from PRs and `CHANGELOG.md`.
+- Dashboard/community links improve discoverability without adding new Tier 1 runtime dependencies.

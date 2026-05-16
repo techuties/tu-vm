@@ -2,6 +2,20 @@
 
 This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
 
+## Current review note
+
+The `suggestions/` folder already exists and contains historical website, tooling, and governance proposals. Treat this folder as the source of truth for constructional suggestions: before adding a new proposal, check for overlap and merge useful detail into the closest canonical file.
+
+Current canonical files for the website/community system:
+
+- `website-community-platform.md` - staged community suggestion system architecture.
+- `website-and-docs-framework.md` - website/docs framework recommendation and publishing model.
+- `community-workflow-and-governance.md` - lifecycle, triage, roles, scoring, and completion rules.
+- `day-to-day-tooling-and-automation.md` - practical tools for maintainers and contributors.
+- `implementation-backlog.md` - trimmed implementation backlog and priority order.
+
+Older overlapping files are still useful historical material, but new work should update the canonical files above unless a genuinely new topic appears.
+
 ## Historical baseline used
 
 These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.

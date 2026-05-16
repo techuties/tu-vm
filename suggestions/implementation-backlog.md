@@ -30,7 +30,45 @@ These directions are satisfied without a custom suggestions stack:
 
 ---
 
-## P1-1: Dynamic “What is new” content (optional polish)
+## P1-0: Canonical suggestion records for website publishing
+
+### Scope
+
+Normalize the current `suggestions/` folder into a website-ready source of truth:
+
+- identify canonical suggestion files for website, governance, tooling, and roadmap topics,
+- add consistent frontmatter or required sections for status, owner, area, risk, and updated date,
+- document which historical files are duplicates, superseded, or merged,
+- generate or maintain a simple index by status and area.
+
+### Acceptance criteria
+
+- A contributor can identify the current canonical suggestion for a topic without reading every historical file.
+- New suggestion files are only added when no suitable canonical page exists.
+- The website/docs framework can build a suggestions index without manual status copying.
+
+---
+
+## P1-1: Dedicated community docs website pilot
+
+### Scope
+
+Create a static website pilot that exposes existing Markdown without changing the runtime dashboard:
+
+- pick Docusaurus or MkDocs Material using the selection rules in `website-and-docs-framework.md`,
+- publish sections for Install, Operate, Security, Community, Suggestions, and Playbooks,
+- link the site from `README.md` and the landing dashboard,
+- keep generated output compatible with Nginx static hosting.
+
+### Acceptance criteria
+
+- Existing Markdown remains editable through normal pull requests.
+- The suggestions index is browsable by status and area.
+- No new Tier 1 service dependency is required.
+
+---
+
+## P1-2: Dynamic “What is new” content (optional polish)
 
 ### Scope
 
@@ -91,9 +129,11 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-0** — make the existing suggestions folder canonical and website-ready.
+2. **P1-1** — pilot a static community/docs website from repository Markdown.
+3. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+4. **P1-2** — only if operators want inline release bullets without clicking GitHub.
+5. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -101,13 +141,13 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+1. **Canonical suggestion metadata** — Normalize active suggestion files with status, owner, area, risk, and duplicate/superseded links (**P1-0**).
+2. **Static community docs website pilot** — Render repository Markdown and suggestions through Docusaurus or MkDocs Material (**P1-1**).
+3. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
+4. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
+5. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
+6. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
+7. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+8. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
+9. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
+10. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
