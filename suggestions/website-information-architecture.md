@@ -34,6 +34,8 @@ Best when the priority is docs quality, versioning, search, and community contri
 - Versioned docs and sidebars
 - Strong plugin ecosystem
 - Low barrier for contributor pull requests
+- Good fit for generated suggestion indexes from markdown frontmatter
+- Clear ownership model through sidebars, versioned docs, and docs-only PRs
 
 ### Option B (secondary): Astro with Starlight
 
@@ -42,11 +44,22 @@ Best when broader marketing/content composition is expected:
 - Fast and modern static site output
 - Strong markdown pipeline
 - Flexible custom page composition
+- Excellent for a polished landing/marketing layer around docs
+
+### Option C (defer): full custom Next.js community app
+
+Only use this when static docs plus GitHub-native workflow no longer cover community needs:
+
+- suggestion voting requires authenticated users
+- maintainers need custom dashboards beyond GitHub Projects/Issues
+- roadmap state must be served from an application database
+- community integrations need APIs that cannot be generated from markdown/GitHub
 
 ### Selection rule
 
 - Choose Docusaurus if docs, contribution guides, and proposal pages are the center of gravity.
 - Choose Astro if a richer multi-purpose website is the top requirement.
+- Defer a custom app until the repository has enough suggestion volume to justify owning auth, moderation, data storage, and abuse controls.
 
 ## Proposed navigation model
 
@@ -80,6 +93,11 @@ Best when broader marketing/content composition is expected:
    - Active proposals
    - Accepted/rejected decisions and rationale
 
+7. **Roadmap**
+   - planned, in-progress, completed, and deferred work
+   - links to issues, PRs, changelog entries, and releases
+   - community impact notes for shipped suggestions
+
 ## Suggested docs taxonomy
 
 - `docs/getting-started/*`
@@ -89,19 +107,56 @@ Best when broader marketing/content composition is expected:
 - `docs/suggestions/*`
 - `docs/architecture/*`
 
+For the website source tree, keep a clean separation between authored content and generated artifacts:
+
+```text
+website/
+  docs/
+    getting-started/
+    operations/
+    security/
+    community/
+    suggestions/
+    architecture/
+  src/
+    components/
+    pages/
+  sidebars.js
+  package.json
+```
+
 Each suggestion document should be linked from a single index page so users can browse proposal history consistently.
 
 ## Suggested page template for proposal-style content
 
 Use this repeatable structure to keep suggestion quality high:
 
+Recommended frontmatter:
+
+```yaml
+---
+id: website-community-suggestions
+title: Community Suggestions System
+status: proposed
+area: community
+risk: low
+owners:
+  - docs-maintainers
+updated: 2026-05-17
+---
+```
+
+Recommended body:
+
 1. Problem statement
-2. Current state
-3. Proposed change
-4. Implementation steps
-5. Risk and mitigation notes
-6. Success metrics
-7. Ownership and review path
+2. Current state and related historical suggestions
+3. Existing frameworks/tools to reuse
+4. Proposed change
+5. Implementation steps
+6. Risk and mitigation notes
+7. Rollback or disable path
+8. Success metrics
+9. Ownership and review path
 
 ## Accessibility and UX standards
 
@@ -120,6 +175,8 @@ Apply these standards for all website pages and interactive controls:
 3. Add a dedicated suggestions section sourced from this folder.
 4. Add cross-links from existing landing page and docs root.
 5. Add documentation quality checks (broken links, heading structure).
+6. Generate suggestion indexes from frontmatter once the metadata convention is stable.
+7. Keep operational dashboard controls in the current Nginx/helper surfaces unless a later proposal proves a migration is safer.
 
 ## Success criteria
 
@@ -127,3 +184,4 @@ Apply these standards for all website pages and interactive controls:
 - Operators can solve routine tasks without scanning the full README.
 - Suggestions are discoverable and trackable from proposal to decision.
 - Website content remains maintainable by distributed community contributors.
+- Maintainers can add, update, and archive suggestions without editing website code.

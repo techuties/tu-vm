@@ -8,21 +8,25 @@ Add a community-oriented website layer without destabilizing the current VM dash
 ## Phase A - Keep current stack, add structure
 - Keep `nginx/html/index.html` as the operational dashboard.
 - Keep `helper/uploader.py` for operations/status control.
-- Add a new **community web app route** behind Nginx (example: `/community`).
+- Add a new **community website route** behind Nginx (example: `/community`) once static site output exists.
 
 This avoids a risky rewrite and enables gradual adoption.
 
-## Phase B - Community web app framework
-- Use **Next.js (TypeScript)** for the community-facing site.
+## Phase B - Static community website framework
+- Use **Docusaurus** for the community-facing documentation/suggestions site when docs and proposal pages are the center of gravity.
   - Reasons:
-    - mature routing + layouts for docs, roadmap, and suggestion views
-    - static generation and server rendering options
-    - easy markdown/MDX content support
+    - mature routing, sidebars, versioning, and layouts for docs, roadmap, and suggestion views
+    - static generation works well behind the existing Nginx deployment model
+    - easy markdown/MDX content support with generated indexes from frontmatter
     - broad community support and plugin ecosystem
-- Keep visual system simple with **Tailwind CSS** + accessible components.
+- Consider **Astro/Starlight** if the project needs a more polished public website shell around docs.
+- Keep visual system simple with framework defaults plus accessible components; avoid a custom design system until repeated UI needs appear.
+
+## Phase C - Application layer only when justified
+- Use **Next.js (TypeScript)** only if the community surface needs authenticated workflows, complex dashboards, or dynamic moderation features that static pages plus GitHub Issues/Discussions cannot handle.
 - Add `pnpm` workspace support if frontend grows into multiple apps/packages.
 
-## Phase C - API strategy (avoid reinvention)
+## Phase D - API strategy (avoid reinvention)
 - Continue using Flask helper for VM operations.
 - Add a dedicated `community-api` service only for community data if needed
   (suggestions, votes, comments, statuses).
@@ -37,9 +41,9 @@ This avoids a risky rewrite and enables gradual adoption.
   - service control endpoints
 
 ### New (scoped)
-- `community-web` (Next.js):
+- `community-web` (Docusaurus/Astro static site first):
   - suggestion listing/search UI
-  - voting UI
+  - GitHub-linked demand signals
   - roadmap/status UI
   - contributor onboarding pages
 - `community-api` (optional in first iteration):
@@ -55,6 +59,8 @@ This avoids a risky rewrite and enables gradual adoption.
 - `/community/contribute` -> contributor onboarding and process
 
 ## Data Model (minimal first version)
+
+For the first static-site iteration, represent these fields as markdown frontmatter and links to GitHub artifacts. Convert them to database tables only if an application layer becomes necessary.
 
 ### Suggestion
 - `id`

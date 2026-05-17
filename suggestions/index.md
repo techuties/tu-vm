@@ -13,14 +13,26 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
-   Defines how suggestions are proposed, reviewed, accepted, and implemented.
+1. [Website Historical Baseline](./website-historical-baseline.md)  
+   Summarizes historical suggestion work and the reuse-first baseline.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
-   Recommends a docs website stack and contribution model for clear public communication.
+2. [Website Information Architecture](./website-information-architecture.md)  
+   Defines the community website structure, content model, and framework selection rules.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
-   Covers operational tooling, automation, quality gates, and contributor productivity.
+3. [Website and Documentation Framework](./website-and-docs-framework.md)  
+   Recommends mature static-site tooling and generated suggestion indexes.
+
+4. [Website Community Framework](./website-community-framework.md)  
+   Defines governance, ownership, decision lanes, and review standards.
+
+5. [Website Contributor Tooling](./website-contributor-tooling.md)  
+   Covers diagnostics, docs checks, release hygiene, and day-to-day contributor productivity.
+
+6. [Website Roadmap From Historical Suggestions](./website-roadmap-from-historical-suggestions.md)  
+   Converts repeated historical themes into a phased implementation path.
+
+7. [Implementation Backlog](./implementation-backlog.md)  
+   Separates completed/superseded items from the next practical recommendations.
 
 ## Working principles
 
@@ -37,14 +49,16 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Dedicated docs site structure and navigation (Docusaurus, MkDocs Material, or Astro/Starlight)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Suggestion frontmatter convention and generated website indexes
 
 ### Phase 2 (Acceleration)
 
 - Automation for triage and stale-issue workflows (labels, bots)
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- Changelog/release linkage for completed suggestions
 
 ### Phase 3 (Scale)
 
