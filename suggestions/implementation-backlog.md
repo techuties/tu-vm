@@ -107,7 +107,7 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
 5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
+7. **Markdown publishing quality gate** — implement the checks from [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md): narrow markdownlint rules, required frontmatter for new proposal pages, and broken-link feedback for `docs/` + `suggestions/`.
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.

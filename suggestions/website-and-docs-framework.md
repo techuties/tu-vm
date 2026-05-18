@@ -55,6 +55,8 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+For the reusable frontmatter schema, markdown content types, and quality gates, use the canonical [Website Markdown Publishing System](./website-markdown-publishing-system.md).
+
 ## Website automation suggestions
 
 ### Link and structure quality
