@@ -30,7 +30,7 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Canonical markdown-first publishing model for website suggestions, frontmatter, indexes, and docs quality gates.
 
 ## Design principles for all suggestions
