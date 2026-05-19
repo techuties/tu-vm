@@ -19,6 +19,7 @@ These directions are satisfied without a custom suggestions stack:
 - **Starter playbooks**: [`docs/playbooks/README.md`](../docs/playbooks/README.md) with stable anchor IDs for dashboard deep-links.
 - **Landing dashboard**: Community strip **and** operator hub (per-playbook shortcuts + “What is new” → Releases / CHANGELOG) in [`nginx/html/index.html`](../nginx/html/index.html).
 - **`/status/full` contract**: canonical shape in [`fixtures/status-full-contract.json`](../fixtures/status-full-contract.json), checked by [`scripts/validate_status_full_contract.py`](../scripts/validate_status_full_contract.py).
+- **Markdown-first website suggestion policy**: [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) defines frontmatter, page types, framework decision rules, and docs quality gates.
 
 ---
 
@@ -107,7 +108,7 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
 5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
+7. **Markdown style lint + frontmatter validation** — markdownlint on `docs/`, root policy files, and proposal-grade `suggestions/` pages with required-field checks from [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
