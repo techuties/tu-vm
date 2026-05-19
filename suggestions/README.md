@@ -27,7 +27,7 @@ Recurring themes identified across historical branches:
 - `website-contributor-tooling.md`  
   Concrete tooling proposals that improve day-to-day contributor productivity.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Markdown-first publishing policy for website suggestions, frontmatter, CI
   quality gates, and static-site framework selection.
 
