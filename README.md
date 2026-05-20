@@ -35,7 +35,7 @@ Perfect for developers and researchers who need a reliable, private environment 
 
 ### Contributing & suggestions
 
-Ideas and improvements are tracked on [GitHub Issues](https://github.com/techuties/tu-vm/issues); see [CONTRIBUTING.md](CONTRIBUTING.md) for labels, releases, and a **post-push GitHub checklist** (Actions, templates, `SECURITY.md`, Dependabot). Report vulnerabilities per [SECURITY.md](SECURITY.md). Operator-focused recipes are under [docs/playbooks/](docs/playbooks/).
+Ideas and improvements are tracked on [GitHub Issues](https://github.com/techuties/tu-vm/issues); see [CONTRIBUTING.md](CONTRIBUTING.md) for labels, releases, and a **post-push GitHub checklist** (Actions, templates, `SECURITY.md`, Dependabot). The consolidated community and website suggestion hub lives in [suggestions/](suggestions/README.md), including historical baselines so contributors can extend prior ideas instead of repeating them. Report vulnerabilities per [SECURITY.md](SECURITY.md). Operator-focused recipes are under [docs/playbooks/](docs/playbooks/).
 
 <img width="754" height="735" alt="tu-vm_dashboard" src="https://github.com/user-attachments/assets/8129c82c-748b-40be-95f2-d719b597d993" />
 

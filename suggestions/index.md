@@ -13,14 +13,22 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+Start with the [Suggestions Hub README](./README.md) for the canonical reading path and file inventory.
+
+1. [Historical Suggestions](./historical-suggestions.md) and [Website Historical Baseline](./website-historical-baseline.md)  
+   Check these first so new work extends earlier ideas instead of duplicating them.
+
+2. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)  
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
+
+5. [Implementation Backlog](./implementation-backlog.md)  
+   Lists shipped baselines, remaining recommendations, and implementation-ready next steps.
 
 ## Working principles
 
