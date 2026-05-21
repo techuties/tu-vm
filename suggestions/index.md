@@ -13,7 +13,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-0. [Website Community System Blueprint](./website-community-system-blueprint.md)  
+0. [Website Community System Blueprint](./website-community-system-blueprint.md)
    Canonical synthesis of historical suggestions, framework choices, lifecycle states, governance, tooling, and implementation order.
 
 1. [Community System Framework](./community-system-framework.md)  

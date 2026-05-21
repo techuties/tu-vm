@@ -17,7 +17,7 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-community-system-blueprint.md`  
+- `website-community-system-blueprint.md`
   Canonical current blueprint for the website/community system, including framework recommendation, suggestion lifecycle, tooling, governance, and implementation order.
 
 - `website-historical-baseline.md`  
