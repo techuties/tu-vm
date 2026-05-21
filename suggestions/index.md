@@ -13,6 +13,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Website Community System Blueprint](./website-community-system-blueprint.md)  
+   Canonical synthesis of historical suggestions, framework choices, lifecycle states, governance, tooling, and implementation order.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
@@ -28,6 +31,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 - **Low-friction contribution**: templates, examples, and automation for common tasks
 - **Operational reliability**: every accepted idea includes rollout and rollback guidance
 - **Security and privacy by default**: preserve TU-VM's private-AI posture while expanding ecosystem value
+- **Reuse before custom build**: prefer mature docs frameworks, GitHub-native workflows, and existing scripts before adding new services
 
 ## Suggested execution sequence
 
@@ -39,6 +43,7 @@ Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Frontmatter convention and generated index for curated suggestion pages
 
 ### Phase 2 (Acceleration)
 
