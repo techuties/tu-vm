@@ -43,6 +43,30 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Markdown publishing system for website suggestions
+
+### Scope
+
+Turn the existing `suggestions/` archive into website-ready markdown without a custom CMS:
+
+- standard frontmatter for status/category/tags/owners;
+- required sections for problem, historical overlap, implementation, risk, rollback, and success signals;
+- generated indexes by status and category;
+- CI checks for links, schema, and required sections;
+- a static-site route such as `/suggestions/` that renders the repository markdown.
+
+See [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) for the full proposal.
+
+### Acceptance criteria
+
+- Canonical suggestion pages can render in the selected docs framework with no manual copy/paste.
+- New website-published suggestion files have valid frontmatter and required sections.
+- Link/schema checks run in CI or a documented local wrapper.
+- Existing GitHub issue intake remains supported as the low-friction path for community members.
+- Rollback is simple: disabling the website build still leaves readable markdown in this folder.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -91,9 +115,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-2** — standardize markdown publishing before adding more website proposal files.
+2. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+3. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+4. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -107,7 +132,7 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
 5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
+7. **Markdown publishing checks** — frontmatter/status schema plus markdownlint on `suggestions/`, `docs/`, and root policy files with a narrow rule set.
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
