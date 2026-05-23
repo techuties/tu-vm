@@ -12,6 +12,7 @@ Recurring themes identified across historical branches:
 2. Community governance and contribution workflow
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
+5. Markdown-first publishing so suggestions can become website pages without a custom backend
 
 ## Files in this folder
 
@@ -20,6 +21,9 @@ Recurring themes identified across historical branches:
 
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
+
+- `website-markdown-publishing-system.md`
+  Canonical Markdown-first website publishing proposal, including metadata, workflow, CI checks, and generated indexes.
 
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.

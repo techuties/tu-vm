@@ -66,6 +66,7 @@ Most roadmap suggestions referenced existing project notes rather than introduci
 - Community governance and review framework
 - Contributor tooling standards
 - A phased roadmap tied to historical proposals already surfaced in changelog and prior branches
+- Markdown-first publishing that turns reviewed suggestions into website pages without a custom backend
 
 ### Avoid
 - Replacing functioning systems wholesale
@@ -84,6 +85,7 @@ Most roadmap suggestions referenced existing project notes rather than introduci
 This baseline is operationalized in:
 
 - `website-information-architecture.md`
+- `website-markdown-publishing-system.md`
 - `website-community-framework.md`
 - `website-contributor-tooling.md`
 - `website-roadmap-from-historical-suggestions.md`
