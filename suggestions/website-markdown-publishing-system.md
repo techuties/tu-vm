@@ -248,4 +248,3 @@ If the website framework or publishing flow does not work well:
 2. Remove the static-site Nginx route or generated build artifacts.
 3. Keep GitHub Issues, pull requests, and `CONTRIBUTING.md` as the community workflow.
 4. Retain the metadata schema only if it continues to help maintainers triage proposals.
-
