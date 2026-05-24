@@ -30,6 +30,9 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+- `website-markdown-publishing-system.md`  
+  Markdown-first website publishing model, frontmatter schema, routing, CI checks, and rollback guidance for community suggestions.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).

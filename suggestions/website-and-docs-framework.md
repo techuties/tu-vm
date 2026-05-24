@@ -55,6 +55,8 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+Use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the canonical schema and publishing plan for website-ready suggestion pages.
+
 ## Website automation suggestions
 
 ### Link and structure quality
