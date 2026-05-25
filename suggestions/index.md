@@ -19,7 +19,10 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 2. [Website and Documentation Framework](./website-and-docs-framework.md)  
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+3. [Website Markdown Publishing System](./website-markdown-publishing-system.md)
+   Defines the Markdown source-of-truth model, frontmatter schema, generated indexes, and CI validation path for website-ready suggestions.
+
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
@@ -37,7 +40,7 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Dedicated docs site structure and navigation using the [`Website Markdown Publishing System`](./website-markdown-publishing-system.md) as the source-of-truth model
 - Explicit maintainer label/ownership conventions documented beside Issues
 
 ### Phase 2 (Acceleration)

@@ -21,6 +21,9 @@ Recurring themes identified across historical branches:
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
 
+- `website-markdown-publishing-system.md`
+  Markdown-first website publishing model, frontmatter schema, generated indexes, and validation workflow for community proposals.
+
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 

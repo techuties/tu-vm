@@ -42,6 +42,7 @@ jobs:
             docs/playbooks/README.md
             suggestions/README.md
             suggestions/index.md
+            suggestions/website-markdown-publishing-system.md
             suggestions/implementation-backlog.md
 
       - name: Job summary — files checked
@@ -62,6 +63,7 @@ jobs:
             echo "| \`docs/playbooks/README.md\` | Operator playbooks |"
             echo "| \`suggestions/README.md\` | Suggestions hub index |"
             echo "| \`suggestions/index.md\` | Suggestion map |"
+            echo "| \`suggestions/website-markdown-publishing-system.md\` | Markdown publishing proposal |"
             echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
             echo ""
             echo "_Excluded URLs are listed in \`lychee.toml\` (same-repo \`/compare/\` templates and \`user-attachments\` assets). All other links in these files are checked, including same-repo URLs._"
