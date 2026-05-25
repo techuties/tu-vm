@@ -22,7 +22,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Website Markdown Publishing System](./website-markdown-publishing-system.md)
    Defines the Markdown source-of-truth model, frontmatter schema, generated indexes, and CI validation path for website-ready suggestions.
 
-4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
