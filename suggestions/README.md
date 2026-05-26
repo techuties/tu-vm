@@ -13,21 +13,24 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
-## Files in this folder
+## Canonical website suggestion files
 
-- `website-historical-baseline.md`  
+- `website-historical-baseline.md`
   Historical suggestion patterns and how they were merged into a single framework.
 
-- `website-information-architecture.md`  
+- `website-information-architecture.md`
   Detailed website structure, content model, and docs framework recommendation.
 
-- `website-community-framework.md`  
+- `website-community-pages.md`
+  Markdown-first website page plan, frontmatter schema, publishing workflow, and acceptance criteria for a community suggestions system.
+
+- `website-community-framework.md`
   Community operating model, governance, ownership, and review standards.
 
-- `website-contributor-tooling.md`  
+- `website-contributor-tooling.md`
   Concrete tooling proposals that improve day-to-day contributor productivity.
 
-- `website-roadmap-from-historical-suggestions.md`  
+- `website-roadmap-from-historical-suggestions.md`
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
 ## Design principles for all suggestions

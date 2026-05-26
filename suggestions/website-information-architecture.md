@@ -79,6 +79,7 @@ Best when broader marketing/content composition is expected:
    - Historical suggestions baseline
    - Active proposals
    - Accepted/rejected decisions and rationale
+   - Markdown publishing template and status-board schema
 
 ## Suggested docs taxonomy
 
@@ -89,7 +90,7 @@ Best when broader marketing/content composition is expected:
 - `docs/suggestions/*`
 - `docs/architecture/*`
 
-Each suggestion document should be linked from a single index page so users can browse proposal history consistently.
+Each suggestion document should be linked from a single index page so users can browse proposal history consistently. Use [`website-community-pages.md`](./website-community-pages.md) as the canonical page-set and frontmatter schema for turning markdown suggestions into website content.
 
 ## Suggested page template for proposal-style content
 

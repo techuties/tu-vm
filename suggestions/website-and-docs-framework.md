@@ -44,7 +44,7 @@ Proposed top-level site sections:
 
 ## Suggestion page design
 
-Each suggestion page should include:
+Each suggestion page should follow the canonical template in [`website-community-pages.md`](./website-community-pages.md). At minimum, include:
 
 - Title + one-line summary
 - Status badge (`draft`, `review`, `accepted`, etc.)
@@ -54,6 +54,10 @@ Each suggestion page should include:
 - Impact and risks
 - Implementation checklist
 - Decision log entries (if any)
+- Rollout/rollback notes
+- Success metrics
+
+Use frontmatter for status, category, owner, impact, risk, and related links so indexes can be generated from markdown rather than manually maintained.
 
 ## Website automation suggestions
 
@@ -85,17 +89,19 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Rollout stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Framework and content map
+- Pick the docs framework (Docusaurus, MkDocs Material, Astro Starlight, or VitePress).
+- Define the initial navigation and migration map.
+- Link the existing `/suggestions/` archive as historical source material.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2: Markdown suggestion workflow
+- Publish the suggestion template pages and review guide.
+- Normalize high-value existing suggestion files with frontmatter.
+- Add a manually curated status board while the schema stabilizes.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3: Automation and discoverability
+- Add CI checks for markdown style, links, headings, and required frontmatter.
+- Enable search and generated suggestion indexes.
+- Publish a contributor-facing status dashboard once generated data is reliable.
