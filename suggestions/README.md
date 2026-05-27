@@ -15,11 +15,20 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- `index.md`
+  Canonical navigation entry for the community suggestions system and current execution sequence.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
+
+- `website-and-docs-framework.md`
+  Reuse-first static website framework recommendation, page model, and validation stages.
+
+- `website-community-pages.md`
+  Concrete website markdown page set for suggestion intake, status, decisions, and shipped work.
 
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
@@ -36,6 +45,17 @@ Recurring themes identified across historical branches:
 2. Add modular improvements over deep rewrites.
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
+
+## Reuse-first rule for new suggestions
+
+Before adding another file, contributors should check this hub and extend the closest existing document when the new idea is a refinement of:
+
+- the website markdown publishing system
+- community intake and governance
+- day-to-day contributor tooling
+- roadmap sequencing from historical suggestions
+
+Create a new suggestion file only when the proposal introduces a distinct implementation surface or decision record that cannot be clearly housed in an existing page.
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 

@@ -6,16 +6,27 @@ Create a documentation website that makes community participation simple: discov
 
 ## Recommended stack
 
-To avoid custom reinvention, use a mature docs framework:
+To avoid custom reinvention, use a mature docs framework and keep authoring markdown-first:
 
 - **Primary recommendation**: Docusaurus
   - Excellent markdown support, versioning, and community plugin ecosystem
   - Built-in search integration options
   - Strong navigation and contributor-friendly structure
 
+- **Alternative**: Astro Starlight
+  - Strong markdown and MDX pipeline
+  - Good fit if the project later needs richer marketing or landing pages
+  - Fast static output with accessible defaults
+
 - **Alternative**: MkDocs Material
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
+
+Selection guidance:
+
+- Choose Docusaurus when docs versioning, sidebars, and proposal pages are the center of gravity.
+- Choose Astro Starlight when a broader website with custom content blocks becomes important.
+- Choose MkDocs Material when the team wants the lowest maintenance static docs path.
 
 ## Information architecture
 
@@ -55,19 +66,33 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+For the concrete website markdown page set, use [`website-community-pages.md`](./website-community-pages.md) as the source proposal.
+
 ## Website automation suggestions
 
 ### Link and structure quality
 - Run markdown lint and link checks in CI on every PR
 - Prevent merges when required suggestion fields are missing
+- Validate front matter fields for suggestion IDs, status, theme, and update date
+- Detect missing reciprocal links between status board rows and decision records
 
 ### Search and discoverability
 - Enable full-text search (Algolia or local search plugin)
 - Add tags for domains (`docs`, `automation`, `infra`, `security`, `ux`)
+- Generate tag pages or filtered indexes from markdown metadata
 
 ### Status surfacing
 - Auto-generate suggestion indexes by status from frontmatter
 - Add "recently updated suggestions" page for contributor visibility
+- Include shipped suggestion IDs in release-note helper output when possible
+
+### Contributor guardrails
+- Provide a local command or CI job that reports:
+  - broken internal links
+  - missing required headings
+  - duplicate suggestion IDs
+  - suggestions without rollback or validation notes
+- Keep failures actionable with file names and section names.
 
 ## Accessibility and readability baseline
 
@@ -85,17 +110,30 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Static markdown baseline
+- Choose Docusaurus, Astro Starlight, or MkDocs Material.
+- Create the initial docs tree and sidebar/navigation map.
+- Publish suggestion landing, submission, status, and template pages.
+- Link back to `suggestions/` as historical source material.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2: Community workflow integration
+- Normalize proposal front matter and status values.
+- Add decision-log and implemented-suggestions pages.
+- Cross-link accepted suggestions to Issues, PRs, and `CHANGELOG.md`.
+- Add ownership guidance for docs, operations, security, and dashboard areas.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3: Automation and dashboard surfacing
+- Add link checks, metadata checks, and duplicate ID checks in CI.
+- Enable local search and generated suggestion indexes.
+- Surface key community links from `nginx/html/index.html` without moving runtime controls out of their secured paths.
+- Add release-note helper support for shipped suggestion IDs.
+
+## Acceptance criteria
+
+- A new contributor can find how to submit a suggestion from the docs home or landing dashboard.
+- The status board links each active item to either a proposal, issue, or decision note.
+- Each accepted suggestion includes validation and rollback notes.
+- Website checks can run non-interactively in CI and produce clear errors.
+- Security-sensitive runtime controls remain behind existing TU-VM access protections.
