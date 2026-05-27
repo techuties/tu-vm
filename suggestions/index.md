@@ -13,22 +13,22 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Website Historical Baseline](./website-historical-baseline.md)  
+1. [Website Historical Baseline](./website-historical-baseline.md)
    Summarizes recurring historical suggestions so new work starts from prior decisions.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+2. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Website Community Pages](./website-community-pages.md)  
+3. [Website Community Pages](./website-community-pages.md)
    Defines the markdown files, metadata, and content outlines for the public suggestions section.
 
-4. [Community System Framework](./community-system-framework.md)  
+4. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-5. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+5. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
-6. [Implementation Backlog](./implementation-backlog.md)  
+6. [Implementation Backlog](./implementation-backlog.md)
    Tracks what is already implemented, what remains useful, and which items are next.
 
 ## Working principles
