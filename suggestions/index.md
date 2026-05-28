@@ -19,8 +19,14 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 2. [Website and Documentation Framework](./website-and-docs-framework.md)  
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+3. [Website Community Pages and Markdown Publishing System](./website-community-pages.md)  
+   Defines the website Markdown page set, front matter schema, status board, archive, and duplicate-avoidance workflow.
+
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
+
+5. [Implementation Backlog](./implementation-backlog.md)  
+   Separates completed or superseded work from the next prioritized recommendations.
 
 ## Working principles
 
@@ -37,7 +43,8 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Dedicated Markdown-first docs site structure and navigation
+- Published `community/suggestions/` website pages based on [`website-community-pages.md`](./website-community-pages.md)
 - Explicit maintainer label/ownership conventions documented beside Issues
 
 ### Phase 2 (Acceleration)

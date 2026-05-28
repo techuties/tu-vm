@@ -17,6 +17,27 @@ To avoid custom reinvention, use a mature docs framework:
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
 
+- **Alternative**: Astro Starlight
+  - Fast content site with strong accessibility-oriented defaults
+  - Good fit when the website needs richer landing-page components over time
+
+Selection should favor the framework that lets maintainers publish Markdown,
+generate indexes from front matter, and preview locally with the least custom
+application code.
+
+## Reuse-first implementation choices
+
+Use existing project surfaces as the first publishing layer:
+
+- Keep GitHub Issues as the default suggestion intake path.
+- Keep `CONTRIBUTING.md` as the source for contributor expectations.
+- Keep `CHANGELOG.md` and Release Drafter as the release communication path.
+- Link operational runbooks from `docs/playbooks/` instead of duplicating them.
+- Treat `/suggestions/` as the historical and planning archive.
+
+Only add a custom service when static Markdown, GitHub labels, and generated
+indexes can no longer represent the workflow clearly.
+
 ## Information architecture
 
 Proposed top-level site sections:
@@ -54,6 +75,8 @@ Each suggestion page should include:
 - Impact and risks
 - Implementation checklist
 - Decision log entries (if any)
+- Links to related historical suggestions
+- Rollback or exit criteria for accepted work
 
 ## Website automation suggestions
 
@@ -68,6 +91,8 @@ Each suggestion page should include:
 ### Status surfacing
 - Auto-generate suggestion indexes by status from frontmatter
 - Add "recently updated suggestions" page for contributor visibility
+- Publish shipped items into a short "implemented suggestions" page that links
+  to releases, changelog entries, or PRs
 
 ## Accessibility and readability baseline
 
@@ -85,17 +110,26 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Phased rollout plan
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Phase 1: Publish the curated structure
+- Pick the framework (Docusaurus, MkDocs Material, or Astro Starlight).
+- Create the top-level navigation and migration map.
+- Publish the core suggestion pages from
+  [`website-community-pages.md`](./website-community-pages.md).
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Phase 2: Migrate high-value content
+- Move or mirror the most-used setup, operations, and contribution guidance.
+- Keep deep operational details linked to existing runbooks.
+- Add related-suggestion links so contributors can trace historical context.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Phase 3: Add quality automation
+- Add Markdown linting, link checking, and front matter validation.
+- Enable search and generated suggestion indexes.
+- Publish lightweight community status summaries from existing labels or
+  front matter.
+
+### Phase 4: Scale carefully
+- Add richer dashboard widgets only after the static content model is stable.
+- Prefer generated pages over a bespoke database-backed suggestion app.
+- Review duplicate rates and contributor feedback before adding new tooling.

@@ -13,22 +13,32 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
-## Files in this folder
+## Start here
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
+Use this canonical reading path before creating new suggestion files:
 
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
+1. `website-historical-baseline.md` - historical suggestion patterns and how
+   repeated ideas were merged into a single framework.
+2. `website-and-docs-framework.md` - recommended Markdown-first website stack,
+   information architecture, and reuse-first publishing approach.
+3. `website-community-pages.md` - detailed website Markdown page set,
+   front matter schema, publishing workflow, and duplicate-avoidance process.
+4. `community-system-framework.md` - suggestion lifecycle, governance,
+   ownership, and review standards.
+5. `day-to-day-tooling.md` - practical tooling for contributor and maintainer
+   workflows.
+6. `implementation-backlog.md` - shipped, superseded, and next-priority work.
 
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
+## Historical archive guidance
 
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
+The folder intentionally keeps historical suggestion files so prior work remains
+discoverable. When adding new guidance:
 
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+- Search this folder first.
+- Extend the closest canonical file instead of creating a near-duplicate.
+- Link related historical files from the new or updated section.
+- Mark ideas as superseded, merged, or implemented in
+  `implementation-backlog.md` when applicable.
 
 ## Design principles for all suggestions
 

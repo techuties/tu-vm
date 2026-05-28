@@ -85,7 +85,7 @@ Track these to keep the process healthy:
 - Decision-to-implementation cycle time
 - Acceptance ratio
 - Duplicate suggestion rate
-- Active contributor count (30/90 days)
+- Active contributor count by reporting window
 - Reopened proposals (quality signal)
 
 ## Risk controls
@@ -95,9 +95,9 @@ Track these to keep the process healthy:
 - Security review required for network, auth, data, or secret changes
 - Archive stale proposals after review window with clear reason
 
-## First 30-day actions
+## First foundation actions
 
 1. Add a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
 2. Define owner rotation for weekly triage.
 3. Automate duplicate checks and stale-review reminders.
-4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
+4. Publish recurring community updates summarizing accepted/rejected suggestions and rationale.
