@@ -76,7 +76,7 @@ These are mature ecosystems with strong community support, reducing maintenance 
 
 ## Adoption plan
 
-### Phase 1: Baseline (2 weeks)
+### Phase 1: Baseline
 
 Done: contribution templates, compose/script validation and smoke checks in CI, `doctor`/config/smoke tooling.
 
@@ -85,12 +85,12 @@ Still open:
 - Optional task runner (`make`/`just`) wrapping the same scripts
 - Pre-commit hooks and markdown/link validation in CI
 
-### Phase 2: Automation (2-4 weeks)
+### Phase 2: Automation
 - Add n8n triage/reminder workflows
 - Add contributor metrics summary job
 - Standardize labels and status mapping
 
-### Phase 3: Optimization (ongoing)
+### Phase 3: Optimization
 - Remove redundant custom scripts replaced by framework-native patterns
 - Track lead-time improvements
 - Collect contributor feedback quarterly and iterate

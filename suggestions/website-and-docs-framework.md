@@ -17,6 +17,22 @@ To avoid custom reinvention, use a mature docs framework:
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
 
+- **Alternative**: Astro Starlight
+  - Modern content collections and fast static output
+  - Strong fit if the project wants custom landing pages while keeping docs simple
+
+### Selection criteria
+
+Choose the framework by matching project needs, not novelty:
+
+| Need | Best fit | Why |
+|---|---|---|
+| Versioned public docs and plugin ecosystem | Docusaurus | Mature docs primitives and broad contributor familiarity |
+| Minimal setup and Python-friendly tooling | MkDocs Material | Simple markdown workflow and low maintenance overhead |
+| Custom marketing/community pages around docs | Astro Starlight | Flexible layouts with structured content collections |
+
+All options should keep markdown and GitHub review as the source of truth.
+
 ## Information architecture
 
 Proposed top-level site sections:
@@ -55,19 +71,25 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+For a full website-ready metadata model, use [Website Markdown Publishing System](./website-markdown-publishing-system.md).
+
 ## Website automation suggestions
 
 ### Link and structure quality
 - Run markdown lint and link checks in CI on every PR
 - Prevent merges when required suggestion fields are missing
+- Validate frontmatter status values and related-file links
+- Flag likely duplicates before maintainers spend review time
 
 ### Search and discoverability
 - Enable full-text search (Algolia or local search plugin)
 - Add tags for domains (`docs`, `automation`, `infra`, `security`, `ux`)
+- Generate index pages by status, theme, and subsystem from markdown metadata
 
 ### Status surfacing
 - Auto-generate suggestion indexes by status from frontmatter
 - Add "recently updated suggestions" page for contributor visibility
+- Link shipped suggestions to release notes, changelog entries, or merged PRs
 
 ## Accessibility and readability baseline
 
@@ -85,17 +107,27 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation sequence
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Foundation
+- Pick the docs framework using the selection criteria above.
+- Create a migration map from current repository docs to website sections.
+- Mark canonical suggestion pages in `suggestions/README.md` and `suggestions/index.md`.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Publishing workflow
+- Adopt the suggestion frontmatter schema for new and substantially revised website-ready proposals.
+- Publish template pages for submission, status, decisions, and implemented ideas.
+- Add CI checks for metadata, markdown structure, and links.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Community visibility
+- Enable search and auto-generated suggestion indexes.
+- Publish contributor-facing status and decision pages.
+- Surface shipped community suggestions in release notes and the dashboard where useful.
+
+## Acceptance criteria
+
+- Contributors can find how to submit a suggestion from the website navigation.
+- Historical suggestions are searchable and linked before new duplicates are accepted.
+- Suggestion status is visible without reading maintainers' private notes.
+- Docs changes can be reviewed through ordinary GitHub pull requests.
+- The selected framework does not require a custom backend for the initial community workflow.
