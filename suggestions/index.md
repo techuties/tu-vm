@@ -13,6 +13,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Canonical Website Community System](./website-community-system-canonical.md)  
+   Start here for the consolidated framework, lifecycle statuses, suggestion file contract, and tooling roadmap.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 

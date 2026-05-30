@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- `website-community-system-canonical.md`  
+  Start here for the canonical synthesis, framework decision rules, suggestion lifecycle, and markdown contract.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
