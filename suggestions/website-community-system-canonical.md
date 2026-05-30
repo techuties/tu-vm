@@ -10,14 +10,14 @@ Use this page first when planning website, governance, contributor tooling, or d
 
 | Topic | Reuse first | Why it matters |
 |---|---|---|
-| Historical baseline | `website-historical-baseline.md` | Summarizes repeated ideas from prior `community-suggestions-*` branches. |
-| Website structure | `website-information-architecture.md` | Defines the docs/community website navigation and content model. |
-| Community governance | `website-community-framework.md` | Covers roles, decision lanes, ownership, and review standards. |
-| Contributor tooling | `website-contributor-tooling.md` | Lists practical checks and tools for daily contribution work. |
-| Roadmap | `website-roadmap-from-historical-suggestions.md` | Sequences prior feature ideas into implementation phases. |
-| Current backlog | `implementation-backlog.md` | Separates shipped items from open recommendations. |
-| Project patterns | `historical-patterns-from-project.md` | Keeps proposals aligned with TU-VM's actual architecture. |
-| Integration model | `extensions-and-integration-framework.md` | Covers the distinct extension/plugin direction. |
+| Historical baseline | [`website-historical-baseline.md`](./website-historical-baseline.md) | Summarizes repeated ideas from prior `community-suggestions-*` branches. |
+| Website structure | [`website-information-architecture.md`](./website-information-architecture.md) | Defines the docs/community website navigation and content model. |
+| Community governance | [`website-community-framework.md`](./website-community-framework.md) | Covers roles, decision lanes, ownership, and review standards. |
+| Contributor tooling | [`website-contributor-tooling.md`](./website-contributor-tooling.md) | Lists practical checks and tools for daily contribution work. |
+| Roadmap | [`website-roadmap-from-historical-suggestions.md`](./website-roadmap-from-historical-suggestions.md) | Sequences prior feature ideas into implementation phases. |
+| Current backlog | [`implementation-backlog.md`](./implementation-backlog.md) | Separates shipped items from open recommendations. |
+| Project patterns | [`historical-patterns-from-project.md`](./historical-patterns-from-project.md) | Keeps proposals aligned with TU-VM's actual architecture. |
+| Integration model | [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md) | Covers the distinct extension/plugin direction. |
 
 ## Framework recommendation
 
@@ -25,12 +25,12 @@ Use this page first when planning website, governance, contributor tooling, or d
 
 The project already has a working public documentation surface:
 
-- `README.md` for the complete technical narrative
-- `QUICK_REFERENCE.md` for operator commands
-- `CONTRIBUTING.md` for contribution and release workflow
-- `docs/playbooks/` for operator recipes
-- `nginx/html/index.html` for the dashboard and website entry point
-- `helper/uploader.py` for status/control data surfaced to the website
+- [`README.md`](../README.md) for the complete technical narrative
+- [`QUICK_REFERENCE.md`](../QUICK_REFERENCE.md) for operator commands
+- [`CONTRIBUTING.md`](../CONTRIBUTING.md) for contribution and release workflow
+- [`docs/playbooks/`](../docs/playbooks/README.md) for operator recipes
+- [`nginx/html/index.html`](../nginx/html/index.html) for the dashboard and website entry point
+- [`helper/uploader.py`](../helper/uploader.py) for status/control data surfaced to the website
 
 Keep this as the default until the community needs versioned docs, full-text search, or a larger contributor documentation tree.
 
@@ -171,7 +171,7 @@ Every proposal-lane item should include:
 
 ### Phase 1: Canonicalize
 
-- Treat this file and `README.md` in `suggestions/` as the entry point.
+- Treat this file and [`README.md`](./README.md) in `suggestions/` as the entry point.
 - Add frontmatter to new suggestion files.
 - Keep older historical files as source material instead of deleting them.
 - Add "related suggestions" links whenever a new file overlaps prior work.
