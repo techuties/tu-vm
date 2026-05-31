@@ -158,7 +158,7 @@ Before adding a new suggestion page:
 If a duplicate historical page must remain for traceability, add a short note at the top:
 
 ```markdown
-> Status: superseded by [Canonical page title](./canonical-page.md).
+> Status: superseded by Canonical page title in `suggestions/canonical-page.md`.
 ```
 
 ## Day-to-day tooling suggestions
