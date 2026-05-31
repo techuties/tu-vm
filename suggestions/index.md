@@ -13,14 +13,20 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Website Markdown Publishing System](./website-markdown-publishing-system.md)
+   Defines the website-ready markdown model, metadata, canonical page sections, and duplicate-avoidance workflow.
+
+2. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
+
+5. [Implementation Backlog](./implementation-backlog.md)
+   Lists what is already shipped or superseded and the next prioritized recommendations.
 
 ## Working principles
 
@@ -28,10 +34,11 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 - **Low-friction contribution**: templates, examples, and automation for common tasks
 - **Operational reliability**: every accepted idea includes rollout and rollback guidance
 - **Security and privacy by default**: preserve TU-VM's private-AI posture while expanding ecosystem value
+- **Reuse first**: extend existing GitHub, docs, dashboard, and script surfaces before proposing custom systems
 
 ## Suggested execution sequence
 
-### Phase 1 (Foundation)
+### Phase 1: Foundation
 
 Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](../CONTRIBUTING.md), CI smoke/check-config, starter [`docs/playbooks/`](../docs/playbooks/README.md), landing links.
 
@@ -39,14 +46,16 @@ Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Consistent frontmatter and required sections for website-publishable suggestion pages
 
-### Phase 2 (Acceleration)
+### Phase 2: Acceleration
 
 - Automation for triage and stale-issue workflows (labels, bots)
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- Generated suggestion indexes by status/theme once metadata is consistent
 
-### Phase 3 (Scale)
+### Phase 3: Scale
 
 - Open community working groups
 - Create plugin/integration curation process
