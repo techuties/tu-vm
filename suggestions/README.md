@@ -29,10 +29,10 @@ Use these files as the canonical website proposal set:
 - `website-community-framework.md`  
   Community operating model, governance, ownership, review standards, and quality gates.
 
-- `website-community-platform.md`  
+- `website-community-platform.md`
   Website-native suggestion system proposal covering intake, duplicate detection, lifecycle status, and helper API extensions.
 
-- `website-tools-and-automation.md`  
+- `website-tools-and-automation.md`
   Maintainer and contributor tooling ideas for daily operations, validation, summaries, and release traceability.
 
 - `website-contributor-tooling.md`  
@@ -41,7 +41,7 @@ Use these files as the canonical website proposal set:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
-- `implementation-backlog.md`  
+- `implementation-backlog.md`
   Trimmed backlog with shipped items removed and the next high-value recommendations listed.
 
 ## Recommended framework direction

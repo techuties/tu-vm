@@ -24,25 +24,25 @@ The current folder already contains multiple generations of community and websit
 
 ## Curated suggestion map
 
-1. [Website Information Architecture](./website-information-architecture.md)  
+1. [Website Information Architecture](./website-information-architecture.md)
    Defines the proposed website sections, content taxonomy, docs framework options, and page templates.
 
-2. [Website Community Framework](./website-community-framework.md)  
+2. [Website Community Framework](./website-community-framework.md)
    Defines community roles, ownership, review lanes, release communication, and security guardrails.
 
-3. [Website Community Platform](./website-community-platform.md)  
+3. [Website Community Platform](./website-community-platform.md)
    Describes a website-native suggestion system that can start with GitHub and Markdown, then optionally extend into helper API endpoints.
 
-4. [Website Tools and Automation](./website-tools-and-automation.md)  
+4. [Website Tools and Automation](./website-tools-and-automation.md)
    Covers day-to-day tooling, duplicate checks, dashboards, AI-assisted review helpers, and release traceability.
 
-5. [Contributor Tooling](./website-contributor-tooling.md)  
+5. [Contributor Tooling](./website-contributor-tooling.md)
    Focuses on diagnostics, validation, docs quality, and release support for contributors.
 
-6. [Roadmap From Historical Suggestions](./website-roadmap-from-historical-suggestions.md)  
+6. [Roadmap From Historical Suggestions](./website-roadmap-from-historical-suggestions.md)
    Sequences the historical proposals into website, governance, tooling, profile, and optimization phases.
 
-7. [Implementation Backlog](./implementation-backlog.md)  
+7. [Implementation Backlog](./implementation-backlog.md)
    Tracks what is already implemented or superseded and lists the remaining high-value recommendations.
 
 ## Recommended framework stack

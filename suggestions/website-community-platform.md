@@ -162,9 +162,9 @@ Major suggestions should use the RFC-lite shape from `website-community-framewor
    Mitigation: token-gated submit mode or basic rate limiting by IP.
 3. **Status drift from code reality**  
    Mitigation: require maintainer update note with PR/commit reference in status transitions.
-4. **Community trust risk from opaque ranking**  
+4. **Community trust risk from opaque ranking**
    Mitigation: publish scoring rules and keep all prioritization advisory until maintainers record a decision.
-5. **Overbuilding before need is proven**  
+5. **Overbuilding before need is proven**
    Mitigation: require measurable pain before moving from generated Markdown/JSON to a writable platform.
 
 ## Success Criteria
