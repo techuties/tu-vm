@@ -47,6 +47,33 @@ Best when broader marketing/content composition is expected:
 
 - Choose Docusaurus if docs, contribution guides, and proposal pages are the center of gravity.
 - Choose Astro if a richer multi-purpose website is the top requirement.
+- Keep the current Nginx landing dashboard as the operator entrypoint in both cases.
+- Do not introduce a client-side application framework unless static Markdown and small helper endpoints cannot satisfy the workflow.
+
+## Recommended implementation pattern
+
+Start with a website-ready Markdown structure, then add a static-site generator only when navigation, search, or versioning becomes painful.
+
+### Stage 1: Curated Markdown
+
+- Keep `suggestions/` as the canonical historical proposal folder.
+- Normalize key pages with consistent headings and related-suggestion links.
+- Link curated suggestion pages from `README.md`, `CONTRIBUTING.md`, and the landing dashboard.
+- Generate a simple index table from Markdown metadata when the number of active items grows.
+
+### Stage 2: Static docs site
+
+- Add a docs site that imports or mirrors proposal Markdown.
+- Keep the generated site static so it can be served by existing Nginx patterns.
+- Include search, sidebars, versioned docs, and edit-on-GitHub links.
+- Preserve direct Markdown review in pull requests.
+
+### Stage 3: Local dynamic enhancements
+
+- Add helper API endpoints only for runtime status, local dashboard summaries, or generated proposal statistics.
+- Avoid custom user accounts, custom voting, or database-backed workflows until GitHub-native workflows no longer meet the need.
+
+This staged approach delivers community value without committing to a large platform rewrite.
 
 ## Proposed navigation model
 
@@ -91,6 +118,19 @@ Best when broader marketing/content composition is expected:
 
 Each suggestion document should be linked from a single index page so users can browse proposal history consistently.
 
+## Community website page types
+
+The website should include these reusable page types:
+
+| Page type | Purpose | Source of truth |
+|---|---|---|
+| Suggestion index | Shows active, accepted, shipped, rejected, and merged proposals | `suggestions/` Markdown plus generated metadata |
+| Suggestion detail | Explains problem, proposal, risk, status, and related work | Individual suggestion Markdown |
+| Community guide | Explains how to submit, discuss, and review ideas | `CONTRIBUTING.md` plus community docs |
+| Governance page | Shows roles, labels, ownership, review lanes, and decision rules | `website-community-framework.md` |
+| Tooling page | Lists validation, smoke-test, docs, and release commands | `website-tools-and-automation.md` and scripts |
+| Roadmap page | Groups accepted work by phase and links release outcomes | `website-roadmap-from-historical-suggestions.md` |
+
 ## Suggested page template for proposal-style content
 
 Use this repeatable structure to keep suggestion quality high:
@@ -102,6 +142,24 @@ Use this repeatable structure to keep suggestion quality high:
 5. Risk and mitigation notes
 6. Success metrics
 7. Ownership and review path
+8. Related suggestions and duplicate history
+
+## Suggestion metadata fields
+
+Use frontmatter or a generated sidecar index when the docs site needs structured views:
+
+- `title`
+- `status`
+- `category`
+- `area`
+- `owner`
+- `source`
+- `related`
+- `duplicate_of`
+- `implementation_links`
+- `last_reviewed`
+
+Metadata should support browsing and triage; it should not become a replacement for the narrative proposal.
 
 ## Accessibility and UX standards
 
