@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+For the canonical publishing model, frontmatter schema, automation path, and lifecycle definitions, see [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.
@@ -45,7 +47,7 @@ Purpose:
 
 Suggested sections:
 
-- Table by status (new, triaged, accepted, in-progress, shipped)
+- Table by status (`draft`, `triage`, `accepted`, `in-progress`, `implemented`, `deferred`, `rejected`, `superseded`)
 - Last-updated timestamp
 - Links to decision records
 

@@ -44,10 +44,12 @@ Proposed top-level site sections:
 
 ## Suggestion page design
 
+Use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the detailed publishing policy for suggestion page inventory, frontmatter, statuses, and automation.
+
 Each suggestion page should include:
 
 - Title + one-line summary
-- Status badge (`draft`, `review`, `accepted`, etc.)
+- Status badge (`draft`, `triage`, `accepted`, `implemented`, etc.)
 - Problem and context
 - Existing alternatives reviewed
 - Proposed approach
@@ -85,17 +87,22 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Choose the static docs path
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+- Pick Docusaurus, Astro Starlight, or MkDocs Material using the criteria above and in the markdown publishing system proposal.
+- Create the initial docs structure and migration map.
+- Keep `suggestions/` as the historical proposal archive.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 2: Publish community suggestion pages
+
+- Migrate high-value existing docs.
+- Publish suggestion template pages, review guide, status board, and decision log.
+- Link the website pages back to historical suggestions for duplicate checks.
+
+### Stage 3: Add quality gates and discovery
+
+- Add CI checks for markdown links, required frontmatter, and heading structure.
+- Enable search and auto-generated suggestion indexes.
+- Publish contribution and suggestion status views for transparency.
