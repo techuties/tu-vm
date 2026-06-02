@@ -22,7 +22,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Website Markdown Publishing System](./website-markdown-publishing-system.md)
    Defines the website-ready markdown page set, frontmatter schema, status lifecycle, and automation path.
 
-4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
