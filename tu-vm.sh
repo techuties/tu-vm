@@ -1066,6 +1066,7 @@ show_help() {
     echo "  update-check             Check available updates (no changes)"
     echo "  update-rollback          Roll back to latest compose backup snapshot"
     echo "  test-update              Test update process (dry run)"
+    echo "  install-cron             Install MinIO sync, daily checkup, weekly update crons"
     echo "  backup [name]            Create backup with optional name"
     echo "  restore <file>           Restore from backup file"
     echo "  cleanup                  Clean up old backups and logs"
@@ -1404,8 +1405,9 @@ start_services() {
         # Ensure cron-based MinIO sync is installed (idempotent)
         ensure_sync_cron_job
         
-        # Ensure daily checkup cron job is installed (idempotent)
+        # Ensure daily checkup + weekly stack update cron jobs (idempotent)
         ensure_daily_checkup_cron_job
+        ensure_weekly_update_cron_job
         
         show_access_info
     else
@@ -1605,14 +1607,39 @@ ensure_sync_cron_job() {
 ensure_daily_checkup_cron_job() {
     info "Ensuring daily checkup cron job is installed..."
     local cron_line="0 9 * * * $SCRIPT_DIR/scripts/daily-checkup.sh"
-    # Install user crontab if missing entry
     local current_cron
     current_cron=$(crontab -l 2>/dev/null || true)
-    if echo "$current_cron" | grep -Fq "$cron_line"; then
-        info "Daily checkup cron job already present"
-    else
-        (echo "$current_cron"; echo "$cron_line") | crontab -
-        info "Daily checkup cron job installed: $cron_line"
+    current_cron=$(echo "$current_cron" | sed '/daily-checkup\.sh/d')
+    (echo "$current_cron"; echo "$cron_line") | crontab -
+    info "Daily checkup cron job installed/updated: $cron_line"
+}
+
+# Weekly full-stack update (Sunday 03:30 Europe/Zurich by default).
+ensure_weekly_update_cron_job() {
+    info "Ensuring weekly stack update cron job is installed..."
+    local schedule="${TU_VM_WEEKLY_UPDATE_CRON:-30 3 * * 0}"
+    local tz="${TU_VM_WEEKLY_UPDATE_TZ:-Europe/Zurich}"
+    local log_file="$SCRIPT_DIR/logs/weekly-update.log"
+    mkdir -p "$SCRIPT_DIR/logs"
+    chmod +x "$SCRIPT_DIR/scripts/weekly-stack-update.sh" 2>/dev/null || true
+    local cron_line="$schedule TZ=$tz $SCRIPT_DIR/scripts/weekly-stack-update.sh >> $log_file 2>&1"
+    local current_cron
+    current_cron=$(crontab -l 2>/dev/null || true)
+    current_cron=$(echo "$current_cron" | sed '/weekly-stack-update\.sh/d')
+    (echo "$current_cron"; echo "$cron_line") | crontab -
+    info "Weekly update cron job installed/updated: $cron_line"
+}
+
+# Install or refresh all TU-VM cron jobs (MinIO sync, daily checkup, weekly update).
+install_cron_jobs() {
+    ensure_sync_cron_job
+    ensure_daily_checkup_cron_job
+    ensure_weekly_update_cron_job
+    info "Cron jobs installed. Weekly update log: $SCRIPT_DIR/logs/weekly-update.log"
+    if [[ $EUID -ne 0 ]] && ! sudo -n true 2>/dev/null; then
+        warn "Weekly update needs root. If cron runs as $(whoami), install:"
+        warn "  sudo cp $SCRIPT_DIR/scripts/tu-vm-update.sudoers.example /etc/sudoers.d/tu-vm-update"
+        warn "  (edit username/path), then: sudo visudo -cf /etc/sudoers.d/tu-vm-update"
     fi
 }
 
@@ -3887,6 +3914,9 @@ main() {
                     ;;
                 test-update)
                     test_update
+                    ;;
+                install-cron)
+                    install_cron_jobs
                     ;;
                 backup)
                     create_backup "$2"

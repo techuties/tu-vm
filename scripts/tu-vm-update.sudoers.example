@@ -1,0 +1,7 @@
+# Passwordless sudo for weekly cron updates (copy to /etc/sudoers.d/tu-vm-update).
+# Replace 'srv' with the user that owns the TU-VM checkout and runs cron.
+#
+#   sudo visudo -cf /etc/sudoers.d/tu-vm-update   # validate
+#   sudo chmod 440 /etc/sudoers.d/tu-vm-update
+#
+srv ALL=(root) NOPASSWD: /home/srv/tu-vm/tu-vm.sh update
