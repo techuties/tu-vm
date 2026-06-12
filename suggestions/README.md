@@ -21,7 +21,7 @@ Recurring themes identified across historical branches:
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Markdown-first website publishing model, static-site framework decision, page metadata contract, Nginx integration, and quality gates.
 
 - `website-community-framework.md`  
