@@ -21,6 +21,9 @@ Recurring themes identified across historical branches:
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
 
+- `website-markdown-publishing-system.md`  
+  Markdown-first website publishing model, static-site framework decision, page metadata contract, Nginx integration, and quality gates.
+
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 
@@ -36,6 +39,7 @@ Recurring themes identified across historical branches:
 2. Add modular improvements over deep rewrites.
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
+5. Publish accepted community knowledge from markdown with traceable links back to historical suggestions.
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 

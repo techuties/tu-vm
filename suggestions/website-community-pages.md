@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+Use these page recommendations with the publishing contract in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md), which defines the frontmatter, build, and Nginx serving model for markdown website content.
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.
@@ -77,7 +79,7 @@ Suggested sections:
 
 ## Suggested metadata format (front matter)
 
-Use a consistent metadata block in each website markdown page:
+Use a consistent metadata block in each website markdown page. The publishing-system document defines the full suggestion-page schema; these community pages can use the smaller page-level block below:
 
 ```yaml
 title: Community Suggestions - Status Board

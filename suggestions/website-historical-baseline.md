@@ -84,6 +84,7 @@ Most roadmap suggestions referenced existing project notes rather than introduci
 This baseline is operationalized in:
 
 - `website-information-architecture.md`
+- `website-markdown-publishing-system.md`
 - `website-community-framework.md`
 - `website-contributor-tooling.md`
 - `website-roadmap-from-historical-suggestions.md`

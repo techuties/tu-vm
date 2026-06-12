@@ -17,6 +17,8 @@ To avoid custom reinvention, use a mature docs framework:
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
 
+For the detailed publishing contract, frontmatter model, build flow, and Nginx integration, see [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Information architecture
 
 Proposed top-level site sections:
@@ -85,17 +87,26 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Framework decision and content map
+- Confirm Docusaurus as the default framework unless project requirements favor MkDocs Material.
+- Map existing `README.md`, `QUICK_REFERENCE.md`, `docs/playbooks/`, and `suggestions/` content into the proposed navigation.
+- Identify which historical suggestions should remain archive-only and which should become published docs pages.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2: Website scaffold and initial pages
+- Create a dedicated docs website scaffold when implementation starts.
+- Publish high-value pages first: getting started, operations, security, community suggestions, and review guidance.
+- Keep the existing Nginx landing dashboard as the operator home page and link from it to the generated docs site.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3: Automation and discoverability
+- Add CI checks for links, required frontmatter, heading structure, and static-site build.
+- Enable search and auto-generated suggestion indexes from frontmatter.
+- Publish status-board and decision-log pages for transparent community follow-through.
+
+## Acceptance criteria
+
+- Contributors can discover how to submit, track, and extend suggestions without reading the full repository.
+- The docs website builds from markdown using documented commands.
+- Published suggestion pages link back to historical sources or decision records.
+- Website publishing does not weaken existing Nginx control-plane or allowlist boundaries.
