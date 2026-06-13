@@ -314,4 +314,3 @@ Before adding another website/community/framework file:
 - Duplicate proposals can be identified before maintainers review them.
 - Website content can be previewed and checked locally.
 - The docs site can be served as static files without weakening LAN-first and secure-by-default behavior.
-
