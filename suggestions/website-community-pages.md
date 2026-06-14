@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+For the full publishing policy, including frontmatter, templates, quality gates, and day-to-day workflow, see [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.

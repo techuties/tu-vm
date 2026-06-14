@@ -55,6 +55,8 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+For the concrete website markdown page set, frontmatter schema, template, and publishing workflow, use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the canonical companion plan.
+
 ## Website automation suggestions
 
 ### Link and structure quality
@@ -85,17 +87,19 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation phases
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
+### Phase A: Framework selection and structure
+- Pick framework (Docusaurus, Astro Starlight, or MkDocs Material)
 - Create initial docs structure and migration map
+- Publish the initial community suggestion pages from the markdown publishing plan
 
-### Weeks 3-4
+### Phase B: High-value migration
 - Migrate high-value existing docs
 - Publish suggestion template pages and review guide
+- Link suggestions to GitHub Issues, `CHANGELOG.md`, and playbooks where relevant
 
-### Weeks 5-8
+### Phase C: Quality gates and discoverability
 - Add CI checks (lint, links, spelling optional)
 - Enable search and auto-generated suggestion indexes
 - Publish contribution dashboard for transparency
