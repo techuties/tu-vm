@@ -11,7 +11,7 @@ TU-VM is a Docker Compose-based private AI platform. There is no application sou
 
 ### Starting services
 
-- **Tier 1 (always-on core):** `sudo docker compose up -d postgres redis open-webui pihole nginx helper_index`
+- **Tier 1 (always-on core):** `sudo docker compose up -d postgres redis qdrant tika minio tika_minio_processor open-webui pihole nginx helper_index`
 - **Tier 2 (on-demand):** start individually, e.g. `sudo docker compose up -d ollama`
 - The main control script `./tu-vm.sh start` automates Tier 1 startup plus SSL cert generation and `.env` creation, but requires Docker socket access and may invoke host-level operations (cron, rclone) that are unnecessary in a cloud agent context.
 

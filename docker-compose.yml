@@ -70,19 +70,23 @@ services:
       - 172.20.0.16
 
 
-  # Qdrant Vector Database (on-demand - Tier 2)
-  # Only needed when using embeddings/RAG features
+  # Qdrant Vector Database (Tier 1 — Open WebUI RAG / embeddings)
   qdrant:
     image: qdrant/qdrant@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c
     container_name: ai_qdrant
-    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    restart: unless-stopped
     # keep internal only; access via internal URLs or add an authenticated proxy if needed
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
       ai_network:
         ipv4_address: 172.20.0.12
-    # Healthcheck disabled for on-demand service (Tier 2)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
     deploy:
       resources:
         limits:
@@ -98,7 +102,7 @@ services:
 
   # Ollama AI Models (on-demand - Tier 2)
   ollama:
-    image: ollama/ollama@sha256:fbaaecc6c632a73c2b4ca25ef52dbee0b68d07783fcb850f916404c004040f90
+    image: ollama/ollama@sha256:05b6fe5143ed006d6d4abd39bdd575f962a5822bdf81e6fbb5e6894eb984ab9c
     container_name: ai_ollama
     restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
     # ports removed to enforce Nginx-only access (ollama.tu.lan)
@@ -131,6 +135,12 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      tika:
+        condition: service_started
+      minio:
         condition: service_started
     ports:
       # Bind to localhost for debugging only; primary access is via Nginx vhost (oweb.tu.lan)
@@ -209,12 +219,11 @@ services:
 
   
 
-  # Apache Tika for robust content extraction with OCR support (on-demand - Tier 2)
-  # Only needed when processing documents
+  # Apache Tika for robust content extraction with OCR support (Tier 1 — Open WebUI document pipeline)
   tika:
     image: apache/tika@sha256:90b7fa1dc018434075fce9e1d9b88b1e3d0ea6979d0cf86e116c79a8073ae973
     container_name: ai_tika
-    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh
+    restart: unless-stopped
     environment:
       - JAVA_TOOL_OPTIONS=-Xms512m -Xmx1536m  # More headroom for large OCR-heavy files
     command: ["--config", "/tika-config/tika-config.xml"]  # Custom config with extended timeout (15 minutes)
@@ -227,11 +236,11 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-  # MinIO Object Storage with GUI (on-demand - Tier 2)
+  # MinIO Object Storage with GUI (Tier 1 — Open WebUI uploads + document pipeline)
   minio:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: ai_minio
-    restart: "no"  # Manual start only via dashboard
+    restart: unless-stopped
     ports:
       # Bind to localhost for tooling (mc/rclone/debug); primary access is via Nginx vhosts
       - "127.0.0.1:9000:9000"  # API
@@ -248,12 +257,12 @@ services:
     networks:
       ai_network:
         ipv4_address: 172.20.0.21
-    # Healthcheck disabled for on-demand service (Tier 2)
-    # healthcheck:
-    #   test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 5
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
     dns:
       - 127.0.0.11
       - 172.20.0.16
@@ -262,7 +271,7 @@ services:
   # n8n Workflow Automation (on-demand - Tier 2)
   n8n:
     # Pin to digest for update safety; bump via: sudo ./tu-vm.sh update
-    image: n8nio/n8n@sha256:1872cce3548bf4dcfe5aceaf3d9293f4499635823fbdea0ee726bd222d2e44b8
+    image: n8nio/n8n@sha256:761374d4eb841b0a22771d6bd68f0e8d827b4979ae4e490045517b13fc1259dd
     container_name: ai_n8n
     restart: "no"  # Manual start only via dashboard
     command: start
@@ -692,8 +701,7 @@ services:
       - 127.0.0.11
       - 172.20.0.16
 
-  # Universal MinIO File Processor (on-demand - Tier 2)
-  # Only needed when MinIO and Tika are running for document processing
+  # Universal MinIO File Processor (Tier 1 — watches MinIO buckets, extracts via Tika)
   tika_minio_processor:
     build: ./tika-minio-processor
     container_name: tika_minio_processor
@@ -725,10 +733,12 @@ services:
       - /tmp:/tmp  # Share status file with helper API for dashboard notifications
     networks:
       - ai_network
-    restart: "no"  # on-demand (Tier 2) - start via dashboard/tu-vm.sh when needed
+    restart: unless-stopped
     depends_on:
-      - tika
-      # Note: MinIO is Tier 2 (on-demand), processor handles missing MinIO gracefully
+      tika:
+        condition: service_started
+      minio:
+        condition: service_started
     command: ["python", "universal_auto_processor.py"]
     # Healthcheck disabled for on-demand service (Tier 2)
     deploy:

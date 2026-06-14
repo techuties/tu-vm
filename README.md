@@ -92,7 +92,11 @@ nebulity.techuties.com/b2r8zn6/
 |---------|-----------|-----------------|---------|
 | [PostgreSQL](https://www.postgresql.org/) | `ai_postgres` | 5432 | Primary database for Open WebUI, n8n, and platform data |
 | [Redis](https://redis.io/) | `ai_redis` | 6379 | Cache layer for Open WebUI sessions and config |
+| [Qdrant](https://qdrant.tech/documentation/) | `ai_qdrant` | 6333 | Vector database for RAG embeddings |
 | [Open WebUI](https://docs.openwebui.com/) | `ai_openwebui` | 8080 | AI chat interface with RAG, model profiles, tool integration |
+| [Apache Tika](https://tika.apache.org/) | `ai_tika` | 9998 | Document processing with OCR support (Open WebUI content extraction) |
+| [MinIO](https://min.io/docs/minio/linux/index.html) | `ai_minio` | 9000, 9001 | S3-compatible object storage (uploads + document pipeline) |
+| Tika-MinIO Processor | `tika_minio_processor` | — | Automated document extraction pipeline |
 | [Nginx](https://nginx.org/) | `ai_nginx` | 80, 443 | Reverse proxy, TLS termination, rate limiting |
 | [Pi-hole](https://pi-hole.net/) | `ai_pihole` | 53, 80 | DNS ad-blocking and network security |
 | Helper API | `ai_helper_index` | 9001 | Landing page, dashboard status, service controls (Flask; proxied only via Nginx) |
@@ -101,16 +105,12 @@ nebulity.techuties.com/b2r8zn6/
 
 | Service | Container | Port (internal) | Purpose |
 |---------|-----------|-----------------|---------|
-| [n8n](https://docs.n8n.io/) | `ai_n8n` | 5678 | Workflow automation with PostgreSQL backend |
 | [Ollama](https://ollama.com/) | `ai_ollama` | 11434 | Local LLM inference engine |
-| [Qdrant](https://qdrant.tech/documentation/) | `ai_qdrant` | 6333 | Vector database for RAG embeddings |
-| [MinIO](https://min.io/docs/minio/linux/index.html) | `ai_minio` | 9000, 9001 | S3-compatible object storage |
-| [Apache Tika](https://tika.apache.org/) | `ai_tika` | 9998 | Document processing with OCR support |
+| [n8n](https://docs.n8n.io/) | `ai_n8n` | 5678 | Workflow automation with PostgreSQL backend |
 | [AFFiNE](https://affine.pro/) | `ai_affine` | 3010 | Collaborative knowledge workspace |
 | [MCP Gateway](#mcp-gateway) | `ai_mcp_gateway` | 9002 | Tool router for LLM-to-service communication |
 | [n8n-mcp](https://github.com/czlonkowski/n8n-mcp) | `ai_n8n_mcp` | 3000 | Enriched n8n node/template intelligence sidecar (internal only) |
 | [LangGraph Supervisor](#langgraph-supervisor) | `ai_langgraph_supervisor` | 9010 | Write operation verification and audit |
-| Tika-MinIO Processor | `tika_minio_processor` | — | Automated document extraction pipeline |
 | [Browserless Chromium](https://github.com/browserless/browserless) | `ai_browserless` | 3000 | Optional headless browser for Open WebUI web search when using Playwright |
 | MCP tool images (`mcp-tools/*`) | `mcp_playwright`, `mcp_filesystem`, `mcp_fetch`, `mcp_memory` | (varies) | Optional [Model Context Protocol](https://modelcontextprotocol.io/) stdio servers for local tooling; start from the dashboard when needed |
 

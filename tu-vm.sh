@@ -34,6 +34,10 @@ readonly UPDATE_STATUS_FILE="/tmp/tu-vm-update-status.json"
 readonly TIER1_SERVICES=(
     "postgres"
     "redis"
+    "qdrant"
+    "tika"
+    "minio"
+    "tika_minio_processor"
     "open-webui"
     "pihole"
     "nginx"
@@ -44,10 +48,6 @@ readonly TIER2_SERVICES=(
     "ollama"
     "n8n"
     "n8n_mcp"
-    "minio"
-    "qdrant"
-    "tika"
-    "tika_minio_processor"
     "affine"
     "mcp_gateway"
     "langgraph_supervisor"
@@ -939,6 +939,27 @@ get_container_name() {
     fi
 }
 
+# Docker Compose bridge network (project-prefixed, e.g. tu-vm_ai_network)
+get_compose_network_name() {
+    local container="${1:-ai_minio}"
+    local net
+    net="$(docker inspect "$container" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' 2>/dev/null | awk '{print $1; exit}')"
+    if [[ -n "$net" ]]; then
+        echo "$net"
+    else
+        echo "${COMPOSE_PROJECT_NAME:-tu-vm}_ai_network"
+    fi
+}
+
+# Run minio/mc against the host-published MinIO API (compose binds 127.0.0.1:9000).
+run_minio_mc() {
+    local minio_pass="$1"
+    shift
+    docker run --rm --network host \
+        -e "MC_HOST_local=http://admin:${minio_pass}@127.0.0.1:9000" \
+        minio/mc "$@"
+}
+
 # Check if a service container is healthy (or at least running when no healthcheck exists)
 check_service_health() {
     local service="$1"
@@ -1394,7 +1415,7 @@ start_services() {
         # Re-sync now that Pi-hole is running so local hosts entries are applied live.
         sync_pihole_dns_records
         
-        # Note: Tier 2 services (Qdrant, Tika, MinIO, etc.) can be started on-demand via dashboard
+        # Note: Tier 2 services (n8n, Ollama, AFFiNE, MCP, etc.) can be started on-demand via dashboard
         
         # Setup MinIO buckets for first-time installation
         setup_minio_buckets
@@ -1435,9 +1456,7 @@ setup_minio_buckets() {
     local attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-        if docker run --rm --network docker_ai_network minio/mc \
-            sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc ls local >/dev/null" \
-            >/dev/null 2>&1; then
+        if run_minio_mc "$minio_pass" ls local >/dev/null 2>&1; then
             break
         fi
         sleep 2
@@ -1462,15 +1481,11 @@ setup_minio_buckets() {
     # Create buckets
     info "Creating required MinIO buckets..."
     for bucket in "${buckets[@]}"; do
-        if docker run --rm --network docker_ai_network minio/mc \
-            sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc ls local/'$bucket' >/dev/null" \
-            >/dev/null 2>&1; then
+        if run_minio_mc "$minio_pass" ls "local/${bucket}" >/dev/null 2>&1; then
             info "Bucket $bucket already exists"
         else
             info "Creating bucket: $bucket"
-            docker run --rm --network docker_ai_network minio/mc \
-                sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc mb local/'$bucket' >/dev/null" \
-                >/dev/null 2>&1 || {
+            run_minio_mc "$minio_pass" mb --ignore-existing "local/${bucket}" >/dev/null 2>&1 || {
                 warn "Failed to create bucket $bucket"
             }
         fi
@@ -1478,17 +1493,17 @@ setup_minio_buckets() {
     
     # Create folder structure
     info "Creating folder structure..."
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/tika-pipe/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/n8n-workflows/inputs/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/n8n-workflows/outputs/.gitkeep >/dev/null 2>&1 || true"
-    docker run --rm --network docker_ai_network minio/mc sh -c "mc alias set local http://ai_minio:9000 admin '${minio_pass}' >/dev/null && mc cp /dev/null local/shared-documents/company/.gitkeep >/dev/null 2>&1 || true"
+    run_minio_mc "$minio_pass" cp /dev/null "local/tika-pipe/.gitkeep" >/dev/null 2>&1 || true
+    run_minio_mc "$minio_pass" cp /dev/null "local/n8n-workflows/inputs/.gitkeep" >/dev/null 2>&1 || true
+    run_minio_mc "$minio_pass" cp /dev/null "local/n8n-workflows/outputs/.gitkeep" >/dev/null 2>&1 || true
+    run_minio_mc "$minio_pass" cp /dev/null "local/shared-documents/company/.gitkeep" >/dev/null 2>&1 || true
     
     info "✅ MinIO buckets setup complete"
 }
 
 # Ensure rclone is installed and mount MinIO buckets to host for transparent S3 storage
 mount_minio_storage() {
-    # Only meaningful when MinIO is running (Tier 2 / on-demand)
+    # Only meaningful when MinIO is running (Tier 1)
     if ! docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
         info "MinIO is not running; skipping rclone mount setup."
         return 0
@@ -2673,7 +2688,7 @@ create_backup() {
         # MinIO buckets list (via mc container; MinIO server image often lacks mc)
         if docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
             info "Backing up MinIO buckets list..."
-            docker run --rm --network docker_ai_network minio/mc \
+            docker run --rm --network "$(get_compose_network_name)" minio/mc \
                 sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local" \
                 > "$backup_path/minio-buckets.txt" 2>/dev/null || warn "MinIO buckets list failed"
         fi
@@ -3206,11 +3221,11 @@ check_pdf_processing_status() {
     # Check tika-pipe bucket
     echo -e "${GREEN}📁 Tika-Pipe Bucket:${NC}"
     if docker ps --format "{{.Names}}" | grep -q "^ai_minio$"; then
-        if docker run --rm --network docker_ai_network minio/mc \
+        if docker run --rm --network "$(get_compose_network_name)" minio/mc \
             sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ >/dev/null" \
             >/dev/null 2>&1; then
             local file_count
-            file_count=$(docker run --rm --network docker_ai_network minio/mc \
+            file_count=$(docker run --rm --network "$(get_compose_network_name)" minio/mc \
                 sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ | wc -l" \
             ) || file_count="0"
             echo "  ✅ Bucket exists with $file_count files"
@@ -3271,14 +3286,14 @@ EOF
         return 1
     fi
     local key="test-$(date +%s).pdf"
-    if docker run --rm --network docker_ai_network -v "$test_pdf":/test.pdf:ro minio/mc \
+    if docker run --rm --network "$(get_compose_network_name)" -v "$test_pdf":/test.pdf:ro minio/mc \
         sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc mb --ignore-existing local/tika-pipe >/dev/null && mc cp /test.pdf local/tika-pipe/'$key' >/dev/null"; then
         info "✅ Test PDF uploaded successfully as $key"
         info "⏳ Waiting for Tika processing (30 seconds)..."
         sleep 30
         
         # Check for processed file
-        if docker run --rm --network docker_ai_network minio/mc \
+        if docker run --rm --network "$(get_compose_network_name)" minio/mc \
             sh -c "mc alias set local http://ai_minio:9000 admin '${MINIO_ROOT_PASSWORD:-minio123456}' >/dev/null && mc ls local/tika-pipe/ | grep -q '\.txt'"; then
             info "✅ PDF processing likely successful - .txt output detected"
         else
@@ -3344,7 +3359,7 @@ reset_pdf_pipeline() {
             minio_pass="${MINIO_ROOT_PASSWORD:-}"
         fi
         minio_pass="${minio_pass:-minio123456}"
-        docker run --rm --network docker_ai_network minio/mc \
+        docker run --rm --network "$(get_compose_network_name)" minio/mc \
             sh -c "mc alias set local http://ai_minio:9000 admin '$minio_pass' >/dev/null && mc rm --recursive --force local/tika-pipe/ >/dev/null 2>&1 || true" \
             >/dev/null 2>&1 || true
     else

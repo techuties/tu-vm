@@ -316,7 +316,7 @@
     <div class="section-header">
       <span class="section-label">Tier 1 &mdash; Always Running</span>
       <div class="reach-legend">
-        <span class="section-desc">Core infrastructure, low resource usage</span>
+        <span class="section-desc">Core platform, RAG, and document pipeline (always on)</span>
         <span class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</span>
         <span class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</span>
       </div>
@@ -370,6 +370,24 @@
         </div>
       </div>
 
+      <!-- Qdrant -->
+      <div class="svc-card svc-internal" data-svc="qdrant">
+        <div class="svc-card-head">
+          <div class="svc-name">Qdrant</div>
+          <span id="badge-qdrant" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_qdrant:6333</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Vector database for RAG embeddings. Stores document chunks for semantic search and retrieval.</div>
+        <div class="svc-footer">
+          <span id="status-qdrant" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-qdrant-start" class="btn" onclick="controlService('qdrant','start')">Start</button>
+            <button id="btn-qdrant-stop" class="btn" onclick="controlService('qdrant','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Nginx -->
       <div class="svc-card svc-web" data-svc="nginx">
         <div class="svc-card-head">
@@ -395,6 +413,42 @@
           <div class="btn-group">
             <button id="btn-pihole-start" class="btn" onclick="controlService('pihole','start')">Start</button>
             <button id="btn-pihole-stop" class="btn" onclick="controlService('pihole','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MinIO -->
+      <div class="svc-card svc-web" data-svc="minio">
+        <div class="svc-card-head">
+          <div class="svc-name"><a href="https://minio.tu.lan/">MinIO</a></div>
+          <span id="badge-minio" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">minio.tu.lan</div>
+        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
+        <div class="svc-desc">S3-compatible object storage. Hosts knowledge base buckets, document processing pipeline, and file uploads.</div>
+        <div class="svc-footer">
+          <span id="status-minio" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-minio-start" class="btn" onclick="controlService('minio','start')">Start</button>
+            <button id="btn-minio-stop" class="btn" onclick="controlService('minio','stop')">Stop</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tika -->
+      <div class="svc-card svc-internal" data-svc="tika">
+        <div class="svc-card-head">
+          <div class="svc-name">Apache Tika</div>
+          <span id="badge-tika" class="badge badge-off">checking</span>
+        </div>
+        <div class="svc-url">ai_tika:9998</div>
+        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
+        <div class="svc-desc">Document extraction server with OCR support. Handles 1000+ file formats including PDF, Office docs, and images.</div>
+        <div class="svc-footer">
+          <span id="status-tika" class="svc-status" style="color:var(--muted)">--</span>
+          <div class="btn-group">
+            <button id="btn-tika-start" class="btn" onclick="controlService('tika','start')">Start</button>
+            <button id="btn-tika-stop" class="btn" onclick="controlService('tika','stop')">Stop</button>
           </div>
         </div>
       </div>
@@ -476,60 +530,6 @@
           <div class="btn-group">
             <button id="btn-ollama-start" class="btn" onclick="controlService('ollama','start')">Start</button>
             <button id="btn-ollama-stop" class="btn" onclick="controlService('ollama','stop')">Stop</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Qdrant -->
-      <div class="svc-card svc-internal" data-svc="qdrant">
-        <div class="svc-card-head">
-          <div class="svc-name">Qdrant</div>
-          <span id="badge-qdrant" class="badge badge-off">checking</span>
-        </div>
-        <div class="svc-url">ai_qdrant:6333</div>
-        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
-        <div class="svc-desc">Vector database for RAG embeddings. Stores document chunks for semantic search and retrieval.</div>
-        <div class="svc-footer">
-          <span id="status-qdrant" class="svc-status" style="color:var(--muted)">--</span>
-          <div class="btn-group">
-            <button id="btn-qdrant-start" class="btn" onclick="controlService('qdrant','start')">Start</button>
-            <button id="btn-qdrant-stop" class="btn" onclick="controlService('qdrant','stop')">Stop</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MinIO -->
-      <div class="svc-card svc-web" data-svc="minio">
-        <div class="svc-card-head">
-          <div class="svc-name"><a href="https://minio.tu.lan/">MinIO</a></div>
-          <span id="badge-minio" class="badge badge-off">checking</span>
-        </div>
-        <div class="svc-url">minio.tu.lan</div>
-        <div class="reach-tag reach-web"><span class="reach-dot"></span>Web Access</div>
-        <div class="svc-desc">S3-compatible object storage. Hosts knowledge base buckets, document processing pipeline, and file uploads.</div>
-        <div class="svc-footer">
-          <span id="status-minio" class="svc-status" style="color:var(--muted)">--</span>
-          <div class="btn-group">
-            <button id="btn-minio-start" class="btn" onclick="controlService('minio','start')">Start</button>
-            <button id="btn-minio-stop" class="btn" onclick="controlService('minio','stop')">Stop</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tika -->
-      <div class="svc-card svc-internal" data-svc="tika">
-        <div class="svc-card-head">
-          <div class="svc-name">Apache Tika</div>
-          <span id="badge-tika" class="badge badge-off">checking</span>
-        </div>
-        <div class="svc-url">ai_tika:9998</div>
-        <div class="reach-tag reach-internal"><span class="reach-dot"></span>Internal Only</div>
-        <div class="svc-desc">Document extraction server with OCR support. Handles 1000+ file formats including PDF, Office docs, and images.</div>
-        <div class="svc-footer">
-          <span id="status-tika" class="svc-status" style="color:var(--muted)">--</span>
-          <div class="btn-group">
-            <button id="btn-tika-start" class="btn" onclick="controlService('tika','start')">Start</button>
-            <button id="btn-tika-stop" class="btn" onclick="controlService('tika','stop')">Stop</button>
           </div>
         </div>
       </div>
@@ -838,7 +838,18 @@ async function controlService(service, action) {
   try {
     const token = localStorage.getItem('control-token')||'';
     const r = await fetch('/control/'+service+'/'+action, {method:'POST', headers:{'X-Control-Token':token}});
-    if (!r.ok) { showNotification('Failed: '+(await r.text()),'error'); resetButtons(id); return; }
+    if (!r.ok) {
+      const body = await r.text();
+      if (r.status === 403) {
+        showNotification('Access denied: your IP is not on the allowlist. Save your control token, reload the page, then try again.','error');
+      } else if (r.status === 401) {
+        showNotification('Invalid control token. Paste the CONTROL_TOKEN from .env and click Save.','error');
+      } else {
+        showNotification('Failed: '+body,'error');
+      }
+      resetButtons(id);
+      return;
+    }
     const res = await r.json();
     if (res.ok) {
       showNotification(service+' '+action+' sent','success');
@@ -863,10 +874,11 @@ function resetButtons(id) {
   if(t){t.disabled=false;t.textContent='Stop';}
 }
 
-function saveToken() {
+async function saveToken() {
   const v = document.getElementById('control-token-input').value.trim();
   localStorage.setItem('control-token', v);
   showNotification('Token saved','success');
+  await allowlistAutoEnroll();
   refreshAllowlist();
 }
 
@@ -921,9 +933,17 @@ async function removeIP(ip) {
 }
 
 async function allowlistAutoEnroll() {
+  const token = localStorage.getItem('control-token')||'';
+  const headers = token ? {'X-Control-Token': token} : {};
   const deadline = Date.now()+15000; let delay=500;
   while (Date.now()<deadline) {
-    try { const r=await fetch('/whitelist/auto',{cache:'no-store'}); if(r.ok) return; } catch(e){}
+    try {
+      const r = await fetch('/whitelist/auto', {cache:'no-store', headers});
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (d.changed) return;
+      if ((d.ips||[]).length) return;
+    } catch(e){}
     await new Promise(r=>setTimeout(r,delay)); delay=Math.min(3000,delay*1.6);
   }
 }

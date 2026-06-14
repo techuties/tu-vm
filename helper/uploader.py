@@ -76,6 +76,17 @@ def _client_ip():
         return xr
     return request.remote_addr or ""
 
+def _normalize_allow_entry(raw):
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        if "/" in raw:
+            return str(ipaddress.ip_network(raw, strict=False))
+        return str(ipaddress.ip_address(raw))
+    except Exception:
+        return None
+
 def _read_allowlist():
     p = Path(ALLOWLIST_FILE)
     if not p.exists():
@@ -88,7 +99,9 @@ def _read_allowlist():
                 continue
             if line.startswith("allow "):
                 val = line[len("allow "):].strip().rstrip(";").strip()
-                ips.append(val)
+                normalized = _normalize_allow_entry(val)
+                if normalized:
+                    ips.append(normalized)
     except Exception:
         return []
     # de-dup preserving order
@@ -103,21 +116,18 @@ def _read_allowlist():
 def _write_allowlist(ips):
     """
     Write allowlist in a stable, human-friendly way.
-    - Validates IPs
+    - Validates IPs and CIDR networks
     - Preserves insertion order (after normalization)
     - Writes atomically
     """
     normalized = []
     seen = set()
     for raw in ips:
-        try:
-            ip_s = str(ipaddress.ip_address(raw))
-        except Exception:
+        entry = _normalize_allow_entry(raw)
+        if not entry or entry in seen:
             continue
-        if ip_s in seen:
-            continue
-        normalized.append(ip_s)
-        seen.add(ip_s)
+        normalized.append(entry)
+        seen.add(entry)
 
     p = Path(ALLOWLIST_FILE)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -269,10 +279,6 @@ def whitelist_auto():
             except Exception:
                 return False
 
-        non_docker = [x for x in current if not is_docker_ip(x)]
-        if non_docker:
-            return jsonify({"ok": True, "changed": False, "ips": current})
-
         ip = _client_ip()
         try:
             ip_obj = ipaddress.ip_address(ip)
@@ -284,7 +290,21 @@ def whitelist_auto():
         if is_docker_ip(ip):
             return jsonify({"ok": False, "error": f"refusing to bootstrap with docker-internal ip '{ip}'"}), 400
 
-        # Replace allowlist with the real client IP (and keep any existing non-docker entries)
+        # Valid control token can enroll the current client IP even when the allowlist already has entries
+        # (e.g. stale Tailscale IP). Nginx still blocks /control until reload completes.
+        if _authorized(request):
+            if ip in current:
+                return jsonify({"ok": True, "changed": False, "ips": current})
+            updated = current + [ip]
+            _write_allowlist(updated)
+            reloaded = _reload_nginx()
+            return jsonify({"ok": True, "changed": True, "added": ip, "reloaded": reloaded, "ips": _read_allowlist()})
+
+        non_docker = [x for x in current if not is_docker_ip(x)]
+        if non_docker:
+            return jsonify({"ok": True, "changed": False, "ips": current})
+
+        # First visitor bootstrap when allowlist is empty (no token required).
         _write_allowlist([ip] + non_docker)
         reloaded = _reload_nginx()
         return jsonify({"ok": True, "changed": True, "added": ip, "reloaded": reloaded, "ips": _read_allowlist()})
@@ -385,14 +405,14 @@ TIER1_CONTAINERS = {
     'ai_pihole': 'Pi-hole',
     'ai_nginx': 'Nginx',
     'ai_helper_index': 'Helper API',
+    'ai_minio': 'MinIO',
+    'ai_tika': 'Tika',
+    'tika_minio_processor': 'Tika-MinIO Processor',
+    'ai_qdrant': 'Qdrant',
 }
 TIER2_CONTAINERS = {
     'ai_ollama': 'Ollama',
     'ai_n8n': 'n8n',
-    'ai_minio': 'MinIO',
-    'ai_qdrant': 'Qdrant',
-    'ai_tika': 'Tika',
-    'tika_minio_processor': 'Tika-MinIO Processor',
 }
 
 def _live_container_health():
