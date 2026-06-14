@@ -13,16 +13,16 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Website Markdown Publishing System](./website-markdown-publishing-system.md)  
+1. [Website Markdown Publishing System](./website-markdown-publishing-system.md)
    Canonical markdown-first publishing model for website suggestion pages, status boards, decisions, and implemented ideas.
 
-2. [Community System Framework](./community-system-framework.md)  
+2. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-3. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles

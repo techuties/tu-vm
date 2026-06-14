@@ -26,7 +26,7 @@ Start with [`website-markdown-publishing-system.md`](./website-markdown-publishi
 
 ## Files in this folder
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Canonical markdown-first website publishing system for community suggestions, roadmap pages, decisions, and implemented ideas.
 
 - `website-historical-baseline.md`  
