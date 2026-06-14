@@ -6,16 +6,23 @@ Create a documentation website that makes community participation simple: discov
 
 ## Recommended stack
 
-To avoid custom reinvention, use a mature docs framework:
+To avoid custom reinvention, use a mature docs framework that can publish repository-owned markdown:
 
 - **Primary recommendation**: Docusaurus
   - Excellent markdown support, versioning, and community plugin ecosystem
   - Built-in search integration options
   - Strong navigation and contributor-friendly structure
 
+- **Alternative**: Astro Starlight
+  - Fast static output and low client-side overhead
+  - Strong content collection model for frontmatter-driven suggestion pages
+  - Good fit when the website should stay documentation-first
+
 - **Alternative**: MkDocs Material
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
+
+Use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the canonical content model before adding any dynamic community application.
 
 ## Information architecture
 
@@ -85,17 +92,18 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1 - Content model
+- Pick framework (Docusaurus, Astro Starlight, or MkDocs Material)
+- Adopt the shared suggestion frontmatter schema
+- Create the initial docs structure and migration map
 
-### Weeks 3-4
+### Stage 2 - Public suggestion pages
 - Migrate high-value existing docs
 - Publish suggestion template pages and review guide
 
-### Weeks 5-8
+### Stage 3 - Automation and quality gates
 - Add CI checks (lint, links, spelling optional)
 - Enable search and auto-generated suggestion indexes
 - Publish contribution dashboard for transparency

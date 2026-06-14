@@ -8,21 +8,29 @@ Add a community-oriented website layer without destabilizing the current VM dash
 ## Phase A - Keep current stack, add structure
 - Keep `nginx/html/index.html` as the operational dashboard.
 - Keep `helper/uploader.py` for operations/status control.
-- Add a new **community web app route** behind Nginx (example: `/community`).
+- Add a new **community docs route** behind Nginx or the chosen docs host (example: `/community`).
+- Publish suggestion, roadmap, decision, and contributor pages from markdown first.
 
 This avoids a risky rewrite and enables gradual adoption.
 
-## Phase B - Community web app framework
-- Use **Next.js (TypeScript)** for the community-facing site.
+## Phase B - Community docs framework
+- Use a mature markdown-first documentation framework for the community-facing site:
+  - Docusaurus for versioning, plugins, and broad contributor familiarity.
+  - Astro Starlight for fast static publishing and content collections.
+  - MkDocs Material for a lightweight Python-friendly docs stack.
+- Use the canonical content model in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
+## Phase C - Optional interactive community app
+- Introduce **Next.js (TypeScript)** or another dynamic web framework only when markdown + GitHub-native workflows are insufficient.
   - Reasons:
-    - mature routing + layouts for docs, roadmap, and suggestion views
-    - static generation and server rendering options
-    - easy markdown/MDX content support
+    - mature routing + layouts for authenticated suggestion views
+    - static generation and server rendering options when needed
+    - easy markdown/MDX integration for existing content
     - broad community support and plugin ecosystem
 - Keep visual system simple with **Tailwind CSS** + accessible components.
 - Add `pnpm` workspace support if frontend grows into multiple apps/packages.
 
-## Phase C - API strategy (avoid reinvention)
+## Phase D - API strategy (avoid reinvention)
 - Continue using Flask helper for VM operations.
 - Add a dedicated `community-api` service only for community data if needed
   (suggestions, votes, comments, statuses).
@@ -37,11 +45,15 @@ This avoids a risky rewrite and enables gradual adoption.
   - service control endpoints
 
 ### New (scoped)
-- `community-web` (Next.js):
+- `community-docs`:
+  - markdown-rendered suggestion pages
+  - generated status board
+  - decision and implemented suggestion logs
+  - contributor onboarding pages
+- `community-web` (optional dynamic app):
   - suggestion listing/search UI
   - voting UI
   - roadmap/status UI
-  - contributor onboarding pages
 - `community-api` (optional in first iteration):
   - suggestion CRUD
   - voting and moderation rules

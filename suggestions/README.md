@@ -13,7 +13,21 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Canonical website recommendation
+
+Start with [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) when deciding how website suggestion pages should be structured. It consolidates the historical website/community proposals into a markdown-first publishing model with:
+
+- suggested website page files,
+- frontmatter schema,
+- status lifecycle,
+- day-to-day maintainer tooling,
+- governance rules,
+- staged implementation guidance.
+
 ## Files in this folder
+
+- `website-markdown-publishing-system.md`  
+  Canonical markdown-first website publishing system for community suggestions, roadmap pages, decisions, and implemented ideas.
 
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.

@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+For the canonical publishing model, frontmatter schema, status lifecycle, and tooling plan, use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md). This page stays focused on the public page set and reader experience.
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.
@@ -96,6 +98,8 @@ impact: high
 created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD
 ```
+
+For full suggestion records, use the richer schema in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) so status boards and implemented pages can be generated consistently.
 
 ## Information architecture guidance
 
