@@ -15,25 +15,25 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
+- `website-historical-baseline.md`
   Historical suggestion patterns and how they were merged into a single framework.
 
-- `website-information-architecture.md`  
+- `website-information-architecture.md`
   Detailed website structure, content model, and docs framework recommendation.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Canonical markdown-first publishing model for website suggestion pages, metadata, framework selection, generated indexes, and automation.
 
-- `website-suggestion-dedupe-map.md`  
+- `website-suggestion-dedupe-map.md`
   Historical cluster map that helps contributors update canonical suggestions instead of creating near-duplicates.
 
-- `website-community-framework.md`  
+- `website-community-framework.md`
   Community operating model, governance, ownership, and review standards.
 
-- `website-contributor-tooling.md`  
+- `website-contributor-tooling.md`
   Concrete tooling proposals that improve day-to-day contributor productivity.
 
-- `website-roadmap-from-historical-suggestions.md`  
+- `website-roadmap-from-historical-suggestions.md`
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
 ## Design principles for all suggestions
