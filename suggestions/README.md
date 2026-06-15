@@ -21,6 +21,12 @@ Recurring themes identified across historical branches:
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
 
+- `website-markdown-publishing-system.md`  
+  Canonical markdown-first publishing model for website suggestion pages, metadata, framework selection, generated indexes, and automation.
+
+- `website-suggestion-dedupe-map.md`  
+  Historical cluster map that helps contributors update canonical suggestions instead of creating near-duplicates.
+
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 
@@ -39,4 +45,4 @@ Recurring themes identified across historical branches:
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
-For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).
+For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md). Before adding new website/community suggestion files, check [`website-suggestion-dedupe-map.md`](./website-suggestion-dedupe-map.md).

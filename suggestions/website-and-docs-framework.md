@@ -6,14 +6,18 @@ Create a documentation website that makes community participation simple: discov
 
 ## Recommended stack
 
-To avoid custom reinvention, use a mature docs framework:
+To avoid custom reinvention, use a mature docs framework and keep markdown records as the source of truth. The detailed publishing model, metadata contract, and duplicate-handling process live in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
 
 - **Primary recommendation**: Docusaurus
   - Excellent markdown support, versioning, and community plugin ecosystem
   - Built-in search integration options
   - Strong navigation and contributor-friendly structure
 
-- **Alternative**: MkDocs Material
+- **Alternative**: Astro with Starlight
+  - Strong fit if custom website pages become as important as documentation
+  - Keeps markdown content central while allowing richer interactive sections
+
+- **Lightweight fallback**: MkDocs Material
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
 
@@ -85,17 +89,23 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Decide and standardize
+- Treat Docusaurus as the default docs-site path unless the team explicitly chooses Astro/Starlight or MkDocs for documented reasons.
+- Keep `suggestions/` as the source of truth for proposal records.
+- Apply the metadata contract from [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) to website-published suggestions.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2: Publish the core community pages
+- Add suggestions index, how-to-submit, status-board, decisions, and implemented pages.
+- Link GitHub Issue intake and `CONTRIBUTING.md` prominently.
+- Include the duplicate-search workflow from [`website-suggestion-dedupe-map.md`](./website-suggestion-dedupe-map.md).
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3: Automate quality and visibility
+- Add markdown lint, link checks, and suggestion metadata validation.
+- Generate status indexes from markdown metadata.
+- Surface implemented suggestions and release links on the website.
+
+### Stage 4: Scale only where needed
+- Add richer search, related-suggestion helpers, or interactive dashboards only after the static markdown flow is working.
+- Avoid adding a custom suggestions API or database until GitHub-native workflows become a clear bottleneck.
