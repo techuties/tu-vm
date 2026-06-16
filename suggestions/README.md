@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- **Start here:** [`index.md`](./index.md)
+  Canonical community suggestion map, current status, and the recommended execution path.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
@@ -29,6 +32,16 @@ Recurring themes identified across historical branches:
 
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
+
+## How to use historical suggestions
+
+Before adding a new proposal, compare it with the canonical files above and the older historical notes in this folder. Treat a repeated idea as one of three outcomes:
+
+1. **Already implemented**: link to the shipped file, command, workflow, or dashboard surface instead of reopening the idea.
+2. **Partial overlap**: extend the closest existing suggestion with a narrower follow-up, acceptance criteria, and validation notes.
+3. **Net new**: add a proposal only after documenting what existing framework, tool, or workflow was evaluated first.
+
+This keeps the community system focused on reusable improvements instead of parallel suggestion threads.
 
 ## Design principles for all suggestions
 
