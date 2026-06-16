@@ -15,7 +15,7 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- **Start here:** [`index.md`](./index.md)  
+- **Start here:** [`index.md`](./index.md)
   Canonical community suggestion map, current status, and the recommended execution path.
 
 - `website-historical-baseline.md`  

@@ -24,7 +24,7 @@ Use this map as the canonical entry point. Several older files in this directory
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
-4. [Implementation Backlog](./implementation-backlog.md)  
+4. [Implementation Backlog](./implementation-backlog.md)
    Tracks what is already covered in the repository and what remains valuable.
 
 ## Constructive website suggestion set
