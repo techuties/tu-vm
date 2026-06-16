@@ -16,6 +16,19 @@ Use a lightweight lifecycle inspired by established open-source governance (Rust
 6. **Implementation**: linked issues/PRs with milestones
 7. **Retrospective**: outcome review and lessons learned
 
+## Reuse-first operating rule
+
+Before creating a new process or tool, check whether an existing community pattern already covers the need:
+
+- **GitHub Issues and labels** for intake, ownership, status, and duplicate closure.
+- **Pull request templates** for validation, security review, and release-note discipline.
+- **Markdown proposal pages** for durable context and website publishing.
+- **Release Drafter / changelog practices** for tying implemented suggestions to releases.
+- **Static-site framework plugins** for search, sidebars, versioning, redirects, and link checks.
+- **Small repository scripts** for duplicate reports and required-section validation.
+
+Only introduce a custom service when the markdown + GitHub + static-site path cannot provide the required workflow safely.
+
 ## Recommended structure for each suggestion
 
 Every suggestion should answer:
@@ -62,6 +75,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Validate required fields
   - Detect likely duplicates using keyword matching
   - Auto-tag by domain (docs, automation, infra, UX, security)
+  - Link to the closest historical suggestion before review starts
 
 ### 2) Review workflow
 - Trigger: suggestion status set to `review`
@@ -69,6 +83,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Assign maintainers and reviewers
   - Post review checklist
   - Set reminder if no activity after a defined window
+  - Require explicit rationale for accepted-with-changes, deferred, and rejected outcomes
 
 ### 3) Implementation tracking workflow
 - Trigger: proposal accepted
@@ -76,6 +91,14 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Create linked implementation tasks
   - Publish progress status on dashboard/docs
   - Close loop with retrospective template
+
+### 4) Community visibility workflow
+- Trigger: suggestion status or implementation link changes
+- Actions:
+  - Rebuild generated suggestion indexes
+  - Update roadmap status links
+  - Include shipped suggestions in release notes
+  - Keep dashboard/community stats public-safe and free of operational secrets
 
 ## Metrics
 
@@ -85,7 +108,7 @@ Track these to keep the process healthy:
 - Decision-to-implementation cycle time
 - Acceptance ratio
 - Duplicate suggestion rate
-- Active contributor count (30/90 days)
+- Active contributor count over agreed reporting windows
 - Reopened proposals (quality signal)
 
 ## Risk controls
@@ -95,9 +118,10 @@ Track these to keep the process healthy:
 - Security review required for network, auth, data, or secret changes
 - Archive stale proposals after review window with clear reason
 
-## First 30-day actions
+## First implementation actions
 
-1. Add a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
-2. Define owner rotation for weekly triage.
+1. Add or confirm a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
+2. Define a maintainer ownership model for suggestion triage.
 3. Automate duplicate checks and stale-review reminders.
-4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
+4. Publish a recurring community update summarizing accepted/rejected suggestions and rationale.
+5. Add generated website indexes once the markdown frontmatter contract is stable.
