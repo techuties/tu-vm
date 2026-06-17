@@ -43,6 +43,34 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Static community docs website decision
+
+### Scope
+
+Select and document the static website framework used to publish the canonical suggestion bundle:
+
+- VitePress for the lightweight docs-first path.
+- Docusaurus if versioned docs and a larger plugin ecosystem are required.
+- Astro with Starlight if the website grows into broader marketing/content pages.
+
+The first implementation should publish the existing Markdown set rather than rewriting content:
+
+- [`website-historical-baseline.md`](./website-historical-baseline.md)
+- [`website-information-architecture.md`](./website-information-architecture.md)
+- [`website-community-framework.md`](./website-community-framework.md)
+- [`website-contributor-tooling.md`](./website-contributor-tooling.md)
+- [`website-roadmap-from-historical-suggestions.md`](./website-roadmap-from-historical-suggestions.md)
+
+### Acceptance criteria
+
+- Framework choice is documented with the selection rule from [`website-information-architecture.md`](./website-information-architecture.md).
+- Local preview command is documented for contributors.
+- Suggestions index, history, governance, tooling, and roadmap pages are reachable from one website navigation section.
+- Existing Markdown remains readable on GitHub without requiring the site build.
+- Broken-link and heading checks cover the published pages.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -93,7 +121,8 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
 2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+3. **P1-2** — before migrating or rewriting website/community content.
+4. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -101,13 +130,13 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+1. **Static community docs website decision** — choose VitePress/Docusaurus/Astro with Starlight and publish the canonical suggestion bundle (**P1-2**).
+2. **Trivy (or Grype) image CVE scans** — iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
+3. **Incremental dashboard asset extraction** — break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
+4. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
+5. **Compose profile for CI integration** — minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
+6. **Playbook version notes** — short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+7. **Tighten Trivy gate** — switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
+8. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
+9. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
+10. **Feature-flag pattern for dashboard experiments** — env-driven toggles before large UI changes (**P2-3**).
