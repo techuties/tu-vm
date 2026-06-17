@@ -26,27 +26,45 @@ Recommendation: preserve this architecture and layer a docs/community website fr
 
 ## Recommended website framework options
 
-### Option A (primary): Docusaurus
+TU-VM should use a mature static documentation framework and keep content in Markdown. The important decision is not "which framework is fashionable"; it is which framework gives contributors navigation, search, and reviewable pages without turning the project into a custom web application.
 
-Best when the priority is docs quality, versioning, search, and community contribution flow:
+### Option A (primary): VitePress
 
-- Markdown-native authoring
-- Versioned docs and sidebars
-- Strong plugin ecosystem
-- Low barrier for contributor pull requests
+Best when the first goal is a lightweight docs/community website:
 
-### Option B (secondary): Astro with Starlight
+- Markdown-native authoring with simple front matter.
+- Fast static output that can be served by the existing Nginx model.
+- Low operational complexity and a small contributor learning curve.
+- Enough theming/navigation for install, operations, security, community, and suggestion pages.
 
-Best when broader marketing/content composition is expected:
+### Option B: Docusaurus
 
-- Fast and modern static site output
-- Strong markdown pipeline
-- Flexible custom page composition
+Best when the project needs heavier docs platform features:
+
+- Mature versioned docs.
+- Rich plugin ecosystem.
+- Strong sidebar, search, blog, and announcement patterns.
+- Familiar contribution model for larger open-source communities.
+
+### Option C: Astro with Starlight
+
+Best when the website must combine docs with broader marketing or custom content sections:
+
+- Fast static output.
+- Excellent content collections.
+- Flexible page composition beyond docs.
+- Good fit if a public-facing landing site grows beyond the operator dashboard.
 
 ### Selection rule
 
-- Choose Docusaurus if docs, contribution guides, and proposal pages are the center of gravity.
-- Choose Astro if a richer multi-purpose website is the top requirement.
+| Need | Recommended choice |
+| --- | --- |
+| Simple docs/community site served statically | VitePress |
+| Versioned docs, large plugin ecosystem, release docs at scale | Docusaurus |
+| Rich marketing/content site plus docs | Astro with Starlight |
+| Dashboard controls and live service state | Keep using `nginx/html/index.html` plus helper API |
+
+Do not rebuild sidebar navigation, search, table-of-contents behavior, or docs routing by hand unless a framework gap is proven.
 
 ## Proposed navigation model
 
@@ -91,6 +109,20 @@ Best when broader marketing/content composition is expected:
 
 Each suggestion document should be linked from a single index page so users can browse proposal history consistently.
 
+## Website-ready community page set
+
+The first website pass should publish a small, focused set of pages sourced from repository Markdown:
+
+| Page | Purpose | Source candidate |
+| --- | --- | --- |
+| `/community/` | Explain how the community works and where to participate. | `CONTRIBUTING.md` plus `website-community-framework.md` |
+| `/community/suggestions/` | Index active, accepted, implemented, deferred, and superseded suggestions. | `suggestions/README.md` and `implementation-backlog.md` |
+| `/community/suggestions/history/` | Show historical themes so contributors avoid duplicates. | `website-historical-baseline.md` |
+| `/community/tools/` | Explain local checks, release-note helper, and maintainer tools. | `website-contributor-tooling.md` |
+| `/roadmap/` | Present phased delivery from historical suggestions. | `website-roadmap-from-historical-suggestions.md` |
+
+Keep the initial page set small. Add more pages only when an existing page becomes too broad to review safely.
+
 ## Suggested page template for proposal-style content
 
 Use this repeatable structure to keep suggestion quality high:
@@ -115,11 +147,13 @@ Apply these standards for all website pages and interactive controls:
 
 ## Implementation approach
 
-1. Introduce docs framework in a dedicated website/docs folder.
-2. Import and normalize existing core docs with minimal rewriting.
-3. Add a dedicated suggestions section sourced from this folder.
-4. Add cross-links from existing landing page and docs root.
-5. Add documentation quality checks (broken links, heading structure).
+1. Choose the static docs framework using the selection rule above.
+2. Introduce the docs framework in a dedicated website/docs folder.
+3. Import and normalize existing core docs with minimal rewriting.
+4. Add a dedicated suggestions section sourced from this folder.
+5. Add cross-links from the existing landing page and docs root.
+6. Add documentation quality checks for broken links, heading structure, and required suggestion sections.
+7. Keep the runtime dashboard controls in the existing Nginx/helper API flow unless a separate proposal justifies moving them.
 
 ## Success criteria
 

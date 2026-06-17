@@ -51,6 +51,22 @@ Define an ownership map for faster review routing:
 
 Each subsystem should have one primary owner and one backup reviewer.
 
+## Suggestion lifecycle
+
+Use one public lifecycle for issues, suggestion Markdown, roadmap entries, and release notes:
+
+| State | Meaning | Required evidence |
+| --- | --- | --- |
+| `proposed` | Idea has enough detail for triage. | Problem, affected users, expected outcome. |
+| `triaged` | Maintainers confirmed category, duplicate status, and risk level. | Labels, area, and duplicate check. |
+| `accepted` | Maintainers agree the project should pursue it. | Decision note, owner or next step, validation expectation. |
+| `in-progress` | Implementation or documentation work is active. | Linked issue/PR and scope. |
+| `implemented` | Work shipped or docs were published. | Commit, release note, changelog, or merged PR link. |
+| `deferred` | Useful idea, but not a current priority. | Rationale and revisit trigger. |
+| `superseded` | Covered by another suggestion or existing implementation. | Link to replacement or shipped evidence. |
+
+The website should display these states consistently. Avoid separate status vocabularies for the dashboard, docs site, and GitHub labels.
+
 ## Decision lanes
 
 ### Fast lane (minor changes)
@@ -68,6 +84,53 @@ Each subsystem should have one primary owner and one backup reviewer.
 
 Major changes should include a short proposal following a common template.
 
+## Website community surfaces
+
+The community system should be visible on the website through a few durable pages:
+
+### Suggestions index
+
+Purpose:
+- list active suggestions by status,
+- link to historical baseline and implementation backlog,
+- explain how to submit a new idea without duplicating prior work.
+
+Minimum fields:
+- title,
+- status,
+- area,
+- risk level,
+- owner or next reviewer,
+- last meaningful update,
+- linked evidence.
+
+### Decision log
+
+Purpose:
+- preserve why accepted, rejected, deferred, or superseded decisions were made,
+- make old tradeoffs searchable for new contributors,
+- reduce repeated architecture debates.
+
+Reuse path:
+- start with Markdown entries linked from suggestion pages,
+- later generate a static index from front matter if volume grows.
+
+### Community health snapshot
+
+Purpose:
+- show maintainers and contributors whether the suggestion system is moving,
+- keep stale backlogs visible,
+- recognize non-code contribution.
+
+Suggested metrics:
+- open suggestions by status,
+- duplicate/superseded count,
+- implemented suggestions per release,
+- oldest untriaged suggestion,
+- contributor acknowledgments.
+
+Keep metrics local and repository/GitHub-derived. Do not add third-party analytics to the self-hosted dashboard by default.
+
 ## Proposal template (RFC-lite)
 
 Use this shape for significant changes:
@@ -82,6 +145,18 @@ Use this shape for significant changes:
 8. Documentation impact
 
 This stays short and practical while improving alignment.
+
+## Duplicate check standard
+
+Before accepting a new suggestion, reviewers should check:
+
+1. The canonical bundle in [`README.md`](./README.md).
+2. Historical themes in [`website-historical-baseline.md`](./website-historical-baseline.md).
+3. Current priorities in [`implementation-backlog.md`](./implementation-backlog.md).
+4. Open GitHub Issues using the `suggestion` label.
+5. Recently merged PRs and `CHANGELOG.md` entries.
+
+If a suggestion overlaps prior work, mark it `superseded` or merge it into the nearest active proposal instead of creating a parallel roadmap item.
 
 ## Contribution workflow standards
 
@@ -160,10 +235,11 @@ Never merge changes that silently weaken defaults. For networking and control-pa
 ## Practical first implementation steps
 
 1. Add this framework summary to main project docs navigation.
-2. Establish issue labels and a PR checklist.
+2. Normalize issue labels and suggestion statuses against the lifecycle table above.
 3. Publish subsystem ownership table.
-4. Add a proposal template for major changes.
+4. Add or update a proposal template for major changes.
 5. Tie release checklist updates to `CHANGELOG.md`.
+6. Publish the suggestions index and decision log in the selected static docs framework.
 
 ## Success signals
 
