@@ -11,7 +11,7 @@ Reduce daily operational friction for maintainers and contributors by standardiz
 Adopt repeatable local environments so contributors spend less time on setup issues:
 
 - Dev container support (or documented Docker-based local profile)
-- Task runner for common commands (`make` or `just`)
+- Task runner for common commands (`make`, `just`, or thin wrappers over existing scripts)
 - Standardized environment checks (`doctor` command)
 
 Suggested starter commands (still optional — repo uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
@@ -22,6 +22,19 @@ Suggested starter commands (still optional — repo uses `./tu-vm.sh` + [`script
 - `make docs` (validate documentation)
 
 Implemented baseline: `./tu-vm.sh doctor`, `./scripts/check-config.sh`, `./scripts/smoke-test.sh`, `./scripts/helper-contract-check.sh`, [`scripts/pre-push-check.sh`](../scripts/pre-push-check.sh), and GitHub Actions CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
+
+Recommended next step: publish one canonical "common commands" page on the website that maps maintainer tasks to the existing command, for example:
+
+| Task | Existing command or source |
+|------|----------------------------|
+| Diagnose local setup | `./tu-vm.sh doctor` |
+| Validate configuration | `./scripts/check-config.sh` |
+| Run smoke checks | `./scripts/smoke-test.sh` |
+| Check helper API contract | `./scripts/helper-contract-check.sh` |
+| Prepare release notes | `./tu-vm.sh release-notes` |
+| Run pre-push checks | `./scripts/pre-push-check.sh` |
+
+This avoids adding a new task runner before the website clearly documents what already exists.
 
 ### 2) Quality and safety automation
 
@@ -44,6 +57,8 @@ Lean on existing platform strengths and avoid custom one-off scripts where possi
 - Use AFFiNE for proposal notes, decision logs, and working-group summaries
 - Use helper API/dashboard announcements for visible project updates
 
+Keep these integrations optional and clearly labeled as Tier 2 or community-operations helpers. TU-VM should remain usable when optional collaboration services are stopped.
+
 ### 4) Observability for contributors
 
 Provide simple visibility into system health and CI quality:
@@ -63,6 +78,24 @@ Template-driven contribution reduces ambiguity:
 - Implementation checklist template
 - Retrospective template (what worked, what changed, follow-up actions)
 
+Template recommendations:
+
+- Store website-facing proposal templates as Markdown, not hidden form logic.
+- Mirror the GitHub Issue suggestion fields so contributors do not learn two different workflows.
+- Include "historical overlap checked" and "existing tool/framework reused" fields in every template.
+- Require validation evidence for implemented suggestions before they move to `implemented`.
+
+### 6) Suggestion index tooling
+
+Small, transparent tools can improve daily maintainer work without creating a custom platform:
+
+- `suggestions validate`: check required frontmatter and required sections.
+- `suggestions index`: emit Markdown/JSON grouped by status, theme, owner, and updated date.
+- `suggestions related`: show likely historical matches for a new proposal.
+- `suggestions digest`: summarize new, changed, accepted, and implemented suggestions since a git ref.
+
+These can be implemented as scripts later, but the contract should be documented first in the website framework so any tool remains replaceable.
+
 ## Suggested frameworks and tools
 
 - **Task orchestration**: Make or Just
@@ -76,7 +109,7 @@ These are mature ecosystems with strong community support, reducing maintenance 
 
 ## Adoption plan
 
-### Phase 1: Baseline (2 weeks)
+### Phase 1: Baseline
 
 Done: contribution templates, compose/script validation and smoke checks in CI, `doctor`/config/smoke tooling.
 
@@ -84,20 +117,25 @@ Still open:
 
 - Optional task runner (`make`/`just`) wrapping the same scripts
 - Pre-commit hooks and markdown/link validation in CI
+- Website "common commands" page that maps daily contributor tasks to existing scripts
 
-### Phase 2: Automation (2-4 weeks)
+### Phase 2: Automation
+
 - Add n8n triage/reminder workflows
 - Add contributor metrics summary job
 - Standardize labels and status mapping
+- Generate suggestion indexes from Markdown frontmatter
 
-### Phase 3: Optimization (ongoing)
+### Phase 3: Optimization
+
 - Remove redundant custom scripts replaced by framework-native patterns
 - Track lead-time improvements
-- Collect contributor feedback quarterly and iterate
+- Collect contributor feedback through issues/discussions and iterate
 
 ## Success criteria
 
-- 30% reduction in setup-related contributor issues
+- Fewer setup-related contributor issues
 - Faster first review turnaround for suggestions
 - Lower duplicate proposal rate
 - Improved merge confidence through automated checks
+- More implemented suggestions with clear changelog/release evidence

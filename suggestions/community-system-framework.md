@@ -16,17 +16,27 @@ Use a lightweight lifecycle inspired by established open-source governance (Rust
 6. **Implementation**: linked issues/PRs with milestones
 7. **Retrospective**: outcome review and lessons learned
 
+The lifecycle should run on tools the project already has: GitHub Issues for intake, pull requests for implementation, `suggestions/` for historical planning, `CONTRIBUTING.md` for labels and review expectations, Release Drafter plus `CHANGELOG.md` for shipped outcomes, and the website/docs layer for public navigation.
+
 ## Recommended structure for each suggestion
 
 Every suggestion should answer:
 
 - Problem statement: what pain exists today?
-- Existing solutions scan: what can we reuse?
+- Existing solutions scan: what can we reuse from mature frameworks, GitHub features, existing TU-VM scripts, or prior suggestions?
 - Proposed solution: what exactly changes?
 - Trade-offs: what do we gain/lose?
 - Rollout and rollback: how to deploy safely?
 - Ownership: who drives and who reviews?
 - Success metrics: how do we measure value?
+
+Suggested "reuse scan" checklist:
+
+- Does [`tu-vm.sh`](../tu-vm.sh) already expose the operational action?
+- Does [`scripts/`](../scripts/) already provide validation or release support?
+- Does [`docs/playbooks/`](../docs/playbooks/README.md) already explain the workflow?
+- Is this already covered by a GitHub template, label, workflow, or release process?
+- Is there a historical suggestion that should be extended instead of duplicated?
 
 ## Governance roles
 
@@ -62,6 +72,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Validate required fields
   - Detect likely duplicates using keyword matching
   - Auto-tag by domain (docs, automation, infra, UX, security)
+  - Link the closest historical suggestion files, even when the result is "no close match"
 
 ### 2) Review workflow
 - Trigger: suggestion status set to `review`
@@ -69,6 +80,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Assign maintainers and reviewers
   - Post review checklist
   - Set reminder if no activity after a defined window
+  - Confirm operational, security, and docs impacts before acceptance
 
 ### 3) Implementation tracking workflow
 - Trigger: proposal accepted
@@ -76,6 +88,15 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Create linked implementation tasks
   - Publish progress status on dashboard/docs
   - Close loop with retrospective template
+  - Require changelog/release evidence before moving to `implemented`
+
+### 4) Website publishing workflow
+- Trigger: suggestion status changes or frontmatter updates
+- Actions:
+  - Regenerate status indexes
+  - Update "recently changed" and "needs reviewer" lists
+  - Validate internal links to issues, PRs, historical suggestions, and changelog entries
+  - Emit a small JSON summary that the landing dashboard can optionally consume
 
 ## Metrics
 
@@ -95,9 +116,10 @@ Track these to keep the process healthy:
 - Security review required for network, auth, data, or secret changes
 - Archive stale proposals after review window with clear reason
 
-## First 30-day actions
+## First implementation actions
 
 1. Add a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
 2. Define owner rotation for weekly triage.
 3. Automate duplicate checks and stale-review reminders.
 4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
+5. Publish the Markdown-first website page set described in [`website-community-pages.md`](./website-community-pages.md).

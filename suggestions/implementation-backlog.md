@@ -43,6 +43,31 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Markdown-first community suggestions website
+
+### Scope
+
+Publish website-facing Markdown pages for the community suggestion system while keeping GitHub Issues and repository files as the source of truth:
+
+- `docs/community/suggestions/index.md`
+- `docs/community/suggestions/how-to-submit.md`
+- `docs/community/suggestions/status-board.md`
+- `docs/community/suggestions/decisions.md`
+- `docs/community/suggestions/implemented.md`
+- `docs/community/suggestions/template.md`
+
+The pages should link to the historical planning archive in `suggestions/`, the GitHub suggestion issue template, [`CONTRIBUTING.md`](../CONTRIBUTING.md), and release/changelog evidence. They should not introduce a separate suggestion database.
+
+### Acceptance criteria
+
+- Contributors can find how to submit a suggestion and how it is evaluated from the website navigation.
+- Every published suggestion page has required frontmatter and an explicit historical-overlap section.
+- Status board rows link to GitHub issue, decision entry, implementation PR, changelog, or a stated reason when those do not exist yet.
+- The docs build, Markdown checks, and internal link checks can run without starting the full Docker Compose stack.
+- Maintainers can regenerate or update status/index content without editing the same status in multiple places.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -91,9 +116,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **Next high-value recommendations** — Markdown-first website publishing, supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+2. **P1-2** — publish community suggestion pages and validation contract before adding heavier website automation.
+3. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+4. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -101,13 +127,13 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
+1. **Markdown-first community suggestions website** — Publish the page set and frontmatter contract described in [`website-community-pages.md`](./website-community-pages.md) (**P1-2**).
+2. **Suggestion metadata validator** — Small script or docs-site schema check for required status, owner, source issue, related historical suggestion, and updated date.
+3. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
+4. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
+5. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
+6. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
+7. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+8. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
+9. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
