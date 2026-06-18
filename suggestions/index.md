@@ -17,10 +17,16 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
 2. [Website and Documentation Framework](./website-and-docs-framework.md)  
-   Recommends a docs website stack and contribution model for clear public communication.
+   Recommends a reuse-first static docs stack, Markdown publishing model, metadata schema, automation checks, and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+3. [Website Community Pages](./website-community-pages.md)
+   Defines the public Markdown page set for suggestion intake, status board, decisions, implemented work, and reusable proposal templates.
+
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
+
+5. [Implementation Backlog](./implementation-backlog.md)
+   Separates already-shipped repository capabilities from the next high-value community and website recommendations.
 
 ## Working principles
 
@@ -31,7 +37,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggested execution sequence
 
-### Phase 1 (Foundation)
+### Phase 1: Foundation
 
 Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](../CONTRIBUTING.md), CI smoke/check-config, starter [`docs/playbooks/`](../docs/playbooks/README.md), landing links.
 
@@ -39,14 +45,16 @@ Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Website-facing Markdown pages for suggestion intake, status board, decisions, implemented work, and proposal template
 
-### Phase 2 (Acceleration)
+### Phase 2: Acceleration
 
 - Automation for triage and stale-issue workflows (labels, bots)
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- Generated suggestion indexes from frontmatter
 
-### Phase 3 (Scale)
+### Phase 3: Scale
 
 - Open community working groups
 - Create plugin/integration curation process
