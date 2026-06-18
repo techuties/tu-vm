@@ -33,6 +33,7 @@ Use the checklist below once your first push is on GitHub so you can confirm tem
 ## Suggestions and roadmap
 
 - **Ideas and enhancements**: open a GitHub Issue using the **Idea / suggestion** template, or start from [Issues](https://github.com/techuties/tu-vm/issues).
+- **Large community proposals**: when an idea affects website structure, governance, security posture, or operator behavior, also capture the durable Markdown record under [`suggestions/`](suggestions/) using the canonical publishing guidance in [`suggestions/website-markdown-publishing-system.md`](suggestions/website-markdown-publishing-system.md).
 - **Bugs**: use the **Bug report** template (include reproduction steps and revision).
 - **Security vulnerabilities**: follow [SECURITY.md](SECURITY.md). Prefer **Security → Report a vulnerability** when GitHub enables private reporting for this repo — do not post exploit chains in public issues.
 

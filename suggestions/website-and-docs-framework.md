@@ -17,6 +17,8 @@ To avoid custom reinvention, use a mature docs framework:
   - Fast setup, strong markdown ergonomics, strong readability defaults
   - Good for lightweight docs sites with lower maintenance overhead
 
+For the canonical website Markdown publishing model, page set, frontmatter schema, and quality gates, see [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Information architecture
 
 Proposed top-level site sections:
@@ -85,17 +87,19 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Rollout stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1: Framework and content model
+- Confirm Docusaurus unless a concrete requirement favors Astro/Starlight or MkDocs Material.
+- Create the initial docs structure and migration map.
+- Standardize suggestion frontmatter and required proposal sections.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2: Canonical community pages
+- Migrate high-value existing docs.
+- Publish suggestion index, submission guide, status board, and decision-log pages.
+- Link website pages back to the durable records in `suggestions/`.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3: Automation and visibility
+- Add CI checks for Markdown style, links, and required suggestion metadata.
+- Enable search and generated suggestion indexes.
+- Surface selected community status on the existing dashboard without replacing GitHub-native intake.
