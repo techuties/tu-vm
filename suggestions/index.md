@@ -26,10 +26,10 @@ Use **GitHub Issues + Markdown proposal pages as the source of truth**, generate
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
-4. [Website Tools and Automation](./website-tools-and-automation.md)  
+4. [Website Tools and Automation](./website-tools-and-automation.md)
    Describes validator, duplicate detection, dashboard, and release-note automation ideas.
 
-5. [Implementation Backlog](./implementation-backlog.md)  
+5. [Implementation Backlog](./implementation-backlog.md)
    Separates completed infrastructure from the next high-value work items.
 
 ## Anti-reinvention baseline
