@@ -4,6 +4,18 @@
 
 Build a repeatable community process that turns suggestions into high-quality outcomes without bottlenecks, ambiguity, or duplicate effort.
 
+## Recommendation
+
+Use existing, mature collaboration surfaces before building anything custom:
+
+- **GitHub Issues** for intake and triage.
+- **GitHub Discussions** for early design conversation when enabled.
+- **Markdown proposal pages** in `suggestions/` for durable, website-ready design records.
+- **GitHub labels and PR links** for lifecycle tracking.
+- **Release notes and `CHANGELOG.md`** for shipped community outcomes.
+
+This gives the project a community-based system while keeping the source of truth in Git and GitHub history.
+
 ## Core model
 
 Use a lightweight lifecycle inspired by established open-source governance (Rust RFCs, Kubernetes enhancement proposals, and docs-driven engineering):
@@ -16,6 +28,20 @@ Use a lightweight lifecycle inspired by established open-source governance (Rust
 6. **Implementation**: linked issues/PRs with milestones
 7. **Retrospective**: outcome review and lessons learned
 
+## Status taxonomy
+
+Use the same terms in issue labels, Markdown frontmatter, generated website indexes, and release notes:
+
+- `idea`
+- `draft`
+- `review`
+- `accepted`
+- `implemented`
+- `deferred`
+- `rejected`
+
+Avoid introducing separate status names for the website, dashboard, or automation.
+
 ## Recommended structure for each suggestion
 
 Every suggestion should answer:
@@ -27,6 +53,7 @@ Every suggestion should answer:
 - Rollout and rollback: how to deploy safely?
 - Ownership: who drives and who reviews?
 - Success metrics: how do we measure value?
+- Related work: which existing issues, suggestion files, changelog entries, or implemented features overlap?
 
 ## Governance roles
 
@@ -62,6 +89,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Validate required fields
   - Detect likely duplicates using keyword matching
   - Auto-tag by domain (docs, automation, infra, UX, security)
+  - Link related historical suggestions instead of opening parallel proposals
 
 ### 2) Review workflow
 - Trigger: suggestion status set to `review`
@@ -69,6 +97,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Assign maintainers and reviewers
   - Post review checklist
   - Set reminder if no activity after a defined window
+  - Record decision notes for accepted, deferred, or rejected suggestions
 
 ### 3) Implementation tracking workflow
 - Trigger: proposal accepted
@@ -76,6 +105,15 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Create linked implementation tasks
   - Publish progress status on dashboard/docs
   - Close loop with retrospective template
+  - Add release-note or changelog reference once shipped
+
+### 4) Website publishing workflow
+- Trigger: canonical suggestion page changes
+- Actions:
+  - Validate frontmatter and required sections
+  - Regenerate status and area indexes
+  - Run Markdown link checks
+  - Publish static website output without altering runtime control services
 
 ## Metrics
 
@@ -87,6 +125,8 @@ Track these to keep the process healthy:
 - Duplicate suggestion rate
 - Active contributor count (30/90 days)
 - Reopened proposals (quality signal)
+- Accepted suggestions with linked implementation PRs
+- Implemented suggestions with release-note or changelog references
 
 ## Risk controls
 
@@ -94,10 +134,12 @@ Track these to keep the process healthy:
 - No production-impacting change without test/validation path
 - Security review required for network, auth, data, or secret changes
 - Archive stale proposals after review window with clear reason
+- No custom tracker until generated Markdown indexes and GitHub labels are demonstrably insufficient
 
-## First 30-day actions
+## Initial actions
 
-1. Add a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
-2. Define owner rotation for weekly triage.
+1. Add proposal frontmatter and status taxonomy to canonical suggestion pages.
+2. Define owner rotation for triage and subsystem review.
 3. Automate duplicate checks and stale-review reminders.
-4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
+4. Generate website indexes from Markdown metadata.
+5. Publish a recurring community update summarizing accepted/rejected suggestions and rationale.
