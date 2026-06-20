@@ -74,14 +74,41 @@ Use this shape for significant changes:
 
 1. Problem statement
 2. Current behavior and constraints
-3. Proposed change
-4. Security impact
-5. Resource impact (CPU, memory, disk)
-6. Migration and rollback strategy
-7. Test and verification plan
-8. Documentation impact
+3. Historical overlap checked in `/suggestions/`
+4. Existing frameworks or tools that can be reused
+5. Proposed change
+6. Security impact
+7. Resource impact (CPU, memory, disk)
+8. Migration and rollback strategy
+9. Test and verification plan
+10. Documentation impact
 
 This stays short and practical while improving alignment.
+
+## Suggestion record contract
+
+Every accepted or actively reviewed suggestion should have:
+
+- Stable ID (`SUG-YYYY-NNN` or linked GitHub issue number)
+- Status from the shared taxonomy
+- Owner/champion
+- Affected area (`docs`, `dashboard`, `automation`, `security`, `operations`, `community`)
+- Links to related historical suggestions
+- Acceptance criteria
+- Decision log
+- Implementation and changelog references once shipped
+
+This lets a website, generated status board, or maintainer dashboard read the same source of truth instead of copying status into multiple places.
+
+## Reuse-first review questions
+
+Before accepting a suggestion, reviewers should ask:
+
+1. Does an existing suggestion already cover this?
+2. Can this be solved with GitHub Issues, markdown, CI, `tu-vm.sh`, existing helper APIs, or the nginx dashboard?
+3. Is there a mature framework that fits better than custom code?
+4. Does the proposal preserve secure-by-default and LAN-first behavior?
+5. Who maintains the result after it ships?
 
 ## Contribution workflow standards
 
@@ -105,6 +132,7 @@ Minimum PR checklist:
 - Reproducible validation steps
 - Changelog impact noted
 - Rollback note for medium/high-risk changes
+- Historical overlap or related suggestion links noted when relevant
 
 ### Review rigor
 
@@ -163,7 +191,8 @@ Never merge changes that silently weaken defaults. For networking and control-pa
 2. Establish issue labels and a PR checklist.
 3. Publish subsystem ownership table.
 4. Add a proposal template for major changes.
-5. Tie release checklist updates to `CHANGELOG.md`.
+5. Publish the website markdown page set from [`website-community-pages.md`](./website-community-pages.md).
+6. Tie release checklist updates to `CHANGELOG.md`.
 
 ## Success signals
 
@@ -171,3 +200,4 @@ Never merge changes that silently weaken defaults. For networking and control-pa
 - Faster triage for regressions
 - Higher first-pass PR quality
 - More predictable release outcomes
+- More shipped changes that trace back to community suggestions
