@@ -140,10 +140,10 @@ The digest should always link to source suggestions and decisions so contributor
 - **Risk:** maintainer trust in scoring  
   **Mitigation:** make formula visible and editable in config.
 
-- **Risk:** tool sprawl  
+- **Risk:** tool sprawl
   **Mitigation:** prefer scripts that reuse GitHub, markdown, existing CI, and `tu-vm.sh` patterns before adding long-running services.
 
-- **Risk:** community submissions accidentally affect runtime services  
+- **Risk:** community submissions accidentally affect runtime services
   **Mitigation:** keep suggestion intake separate from `/control/*`, require moderation, and forbid direct writes into trusted runtime paths.
 
 ## Definition of Done for Tooling Rollout

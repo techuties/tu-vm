@@ -20,19 +20,19 @@ Recurring themes identified across historical branches:
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
-- `website-and-docs-framework.md`  
+- `website-and-docs-framework.md`
   Reuse-first website stack recommendation, documentation information architecture, and quality gates.
 
-- `website-community-pages.md`  
+- `website-community-pages.md`
   Detailed markdown page set for publishing community suggestions on the website, including templates and status-board guidance.
 
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 
-- `website-day-to-day-tooling.md`  
+- `website-day-to-day-tooling.md`
   Practical automation and maintainer tools that ease recurring triage, release, and contributor support work.
 
-- `implementation-backlog.md`  
+- `implementation-backlog.md`
   Trimmed backlog with implemented items removed and prioritized next recommendations.
 
 ## How to use this folder
