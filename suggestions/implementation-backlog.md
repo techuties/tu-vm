@@ -43,6 +43,48 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Canonical website suggestions section
+
+### Scope
+
+Publish the markdown-first community suggestions section described in [`website-community-pages.md`](./website-community-pages.md). Start with static pages and repository-reviewed content:
+
+- community suggestions landing page
+- how-to-submit guide
+- status-board page
+- decision log structure
+- implemented-suggestions page shape
+- archive policy for merged, rejected, or superseded suggestions
+
+### Acceptance criteria
+
+- Website/docs navigation links to the community suggestions entry point.
+- Contributors can find submission rules, status definitions, and decision rationale without asking maintainers.
+- Each active suggestion has a stable ID or linked issue, status, owner, and related historical suggestions when applicable.
+- The first version has no anonymous write path into runtime services or trusted repository content.
+
+---
+
+## P1-3: Suggestion metadata and duplicate-check tooling
+
+### Scope
+
+Add lightweight tooling that scans `/suggestions/` markdown and helps maintainers avoid repeated work:
+
+- required frontmatter or section validation
+- related-suggestion hints from title, headings, tags, and status
+- generated status index in markdown or JSON
+- reminder list for shipped suggestions missing changelog/release links
+
+### Acceptance criteria
+
+- A single command validates suggestion structure without starting Docker.
+- The command reports likely duplicate or related suggestions for review.
+- Generated output can feed a website status board or maintainer dashboard.
+- False positives remain advisory until maintainers explicitly choose stricter enforcement.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -91,9 +133,11 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-2** — publish the canonical website suggestions section with static markdown.
+2. **P1-3** — add metadata validation and duplicate-check hints.
+3. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+4. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+5. **P2-1**, **P2-2**, **P2-3**
 
 ---
 

@@ -60,17 +60,20 @@ Most roadmap suggestions referenced existing project notes rather than introduci
 - Existing operational center of gravity: `tu-vm.sh`
 - Existing runtime surfaces: helper API + nginx landing/dashboard
 - Existing docs assets: `README.md`, `QUICK_REFERENCE.md`, `CHANGELOG.md`
+- Existing GitHub-native review surfaces: Issues, PRs, release notes, and CI workflows
 
 ### Add
 - A structured website information architecture
 - Community governance and review framework
 - Contributor tooling standards
 - A phased roadmap tied to historical proposals already surfaced in changelog and prior branches
+- A markdown-first community suggestions page set that can later feed generated indexes or website pages
 
 ### Avoid
 - Replacing functioning systems wholesale
 - Introducing governance bureaucracy that blocks practical contribution
 - New defaults that weaken secure-by-default/LAN-first behavior
+- Creating another suggestion file when an existing canonical file can be extended
 
 ## Baseline quality rules for all website suggestions
 
@@ -78,12 +81,14 @@ Most roadmap suggestions referenced existing project notes rather than introduci
 2. Every proposal must identify security and resource impact.
 3. Every proposal must reference existing components to be reused.
 4. Every proposal must define measurable success signals.
+5. Every proposal must list related historical suggestions or state that none were found.
 
 ## Cross-link
 
 This baseline is operationalized in:
 
-- `website-information-architecture.md`
+- `website-and-docs-framework.md`
+- `website-community-pages.md`
 - `website-community-framework.md`
-- `website-contributor-tooling.md`
-- `website-roadmap-from-historical-suggestions.md`
+- `website-day-to-day-tooling.md`
+- `implementation-backlog.md`
