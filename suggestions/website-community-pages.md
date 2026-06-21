@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+Use these pages with the frontmatter, dedupe, and validation rules in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.
@@ -36,6 +38,7 @@ Suggested sections:
 - Required template fields
 - Example strong suggestion
 - Example extension (instead of duplicate)
+- Historical suggestion lookup checklist
 
 ### 3) `community/suggestions/status-board.md`
 
@@ -48,6 +51,7 @@ Suggested sections:
 - Table by status (new, triaged, accepted, in-progress, shipped)
 - Last-updated timestamp
 - Links to decision records
+- Related/superseded suggestion links to reduce duplicate discussions
 
 ### 4) `community/suggestions/decisions.md`
 
@@ -103,6 +107,7 @@ updated_at: YYYY-MM-DD
 - Ensure every status-board row links to a decision entry or rationale.
 - Keep "implemented" entries short and link to technical details elsewhere.
 - Add a visible note: "Check historical suggestions before submitting."
+- Keep canonical suggestions linked from [`index.md`](./index.md) so the repository folder and published website do not drift.
 
 ## Accessibility and readability guidance
 
@@ -116,3 +121,4 @@ updated_at: YYYY-MM-DD
 1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
 2. Add `decisions.md` once first triage cycle completes.
 3. Add `implemented.md` when first suggestion ships under this framework.
+4. Add automated frontmatter/index checks before accepting large batches of new suggestion pages.

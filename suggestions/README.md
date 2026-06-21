@@ -24,6 +24,9 @@ Recurring themes identified across historical branches:
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 
+- `website-markdown-publishing-system.md`  
+  Markdown-first website suggestion model, frontmatter schema, dedupe flow, and validation gates.
+
 - `website-contributor-tooling.md`  
   Concrete tooling proposals that improve day-to-day contributor productivity.
 
@@ -33,9 +36,10 @@ Recurring themes identified across historical branches:
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
-2. Add modular improvements over deep rewrites.
-3. Keep secure defaults and LAN-first behavior as non-negotiable.
-4. Prioritize contribution quality, reproducibility, and maintainability.
+2. Check historical suggestions before drafting new ones; extend or supersede existing pages when possible.
+3. Add modular improvements over deep rewrites.
+4. Keep secure defaults and LAN-first behavior as non-negotiable.
+5. Prioritize contribution quality, reproducibility, and maintainability.
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 

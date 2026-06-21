@@ -7,13 +7,15 @@ Reduce maintainer overhead by automating repetitive tasks around suggestions, tr
 
 ## 1) Suggestion templates and schema checks
 - Enforce a structured suggestion template.
-- Add CI validation for required sections (problem, impact, success criteria, effort).
+- Add CI validation for required sections (problem, historical context, reuse-first approach, impact, success criteria).
+- Validate the frontmatter schema described in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
 - Reject malformed submissions early.
 
 ## 2) Auto-triage assistant
 - Rule-based tagging on submission:
   - docs, UI, infra, security, performance, automation
 - Duplicate detection using title/keyword similarity.
+- Related-suggestion hints that ask contributors to extend or supersede existing pages before creating a new one.
 - Route high-risk suggestions (security/runtime controls) to maintainers first.
 
 ## 3) Prioritization helper
@@ -42,6 +44,8 @@ Reduce maintainer overhead by automating repetitive tasks around suggestions, tr
   - local docs preview
   - markdown lint checks
   - suggestion schema validation
+  - suggestion index generation
+  - related-suggestion lookup
   - local API/dev server startup
 - Include one-command bootstrap for new contributors.
 
@@ -55,10 +59,11 @@ Reduce maintainer overhead by automating repetitive tasks around suggestions, tr
 
 ## Suggested Implementation Sequence
 1. Template + schema validation
-2. Auto-tagging and duplicate checks
-3. Priority score generator
-4. Changelog sync reminders
-5. Notification digests
+2. Static suggestion index generation from markdown frontmatter
+3. Auto-tagging and duplicate checks
+4. Priority score generator
+5. Changelog sync reminders
+6. Notification digests
 
 ## Risks and Mitigations
 - **Risk:** automation noise  

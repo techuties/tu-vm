@@ -4,6 +4,8 @@
 
 Create a documentation website that makes community participation simple: discover proposals, understand standards, and contribute quickly.
 
+The website should treat repository markdown as the durable source of truth. See [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) for the suggested frontmatter schema, duplicate checks, and status index model.
+
 ## Recommended stack
 
 To avoid custom reinvention, use a mature docs framework:
@@ -48,8 +50,10 @@ Each suggestion page should include:
 
 - Title + one-line summary
 - Status badge (`draft`, `review`, `accepted`, etc.)
+- Stable suggestion ID and `related` entries in frontmatter
 - Problem and context
 - Existing alternatives reviewed
+- Historical suggestions checked before creating a new page
 - Proposed approach
 - Impact and risks
 - Implementation checklist
@@ -68,6 +72,7 @@ Each suggestion page should include:
 ### Status surfacing
 - Auto-generate suggestion indexes by status from frontmatter
 - Add "recently updated suggestions" page for contributor visibility
+- Link released suggestions to changelog or release-note entries
 
 ## Accessibility and readability baseline
 
@@ -85,17 +90,19 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Implementation stages
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+### Stage 1 - Markdown source of truth
+- Pick framework (Docusaurus, MkDocs Material, or Astro Starlight).
+- Create initial docs structure and migration map.
+- Publish suggestion template pages and review guide.
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+### Stage 2 - Historical migration and indexes
+- Normalize high-value historical suggestions into the required page structure.
+- Add frontmatter status fields and related suggestion links.
+- Generate status and theme indexes from markdown.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+### Stage 3 - Quality automation
+- Add CI checks for required fields, markdown links, and approved status values.
+- Enable search and auto-generated suggestion indexes.
+- Publish contribution dashboard or status-board page for transparency.

@@ -91,6 +91,8 @@ Best when broader marketing/content composition is expected:
 
 Each suggestion document should be linked from a single index page so users can browse proposal history consistently.
 
+For the recommended suggestion metadata, page template, and duplicate-check workflow, use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the canonical publishing contract.
+
 ## Suggested page template for proposal-style content
 
 Use this repeatable structure to keep suggestion quality high:
