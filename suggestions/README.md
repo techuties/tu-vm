@@ -24,7 +24,7 @@ Recurring themes identified across historical branches:
 - `website-community-framework.md`  
   Community operating model, governance, ownership, and review standards.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Markdown-first website suggestion model, frontmatter schema, dedupe flow, and validation gates.
 
 - `website-contributor-tooling.md`  
