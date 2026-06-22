@@ -55,6 +55,9 @@ Each suggestion page should include:
 - Implementation checklist
 - Decision log entries (if any)
 
+For the canonical metadata, page set, dedupe workflow, and generated-index
+contract, use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Website automation suggestions
 
 ### Link and structure quality
@@ -85,17 +88,19 @@ Recommended lightweight roles:
 - **Domain maintainers**: approve technical correctness
 - **Community contributors**: submit and improve suggestions
 
-## 60-day rollout plan
+## Rollout stages
 
-### Weeks 1-2
+### Stage 1 - Framework choice and content contract
 - Pick framework (Docusaurus or MkDocs)
 - Create initial docs structure and migration map
+- Adopt the suggestion frontmatter and status taxonomy
 
-### Weeks 3-4
+### Stage 2 - High-value content migration
 - Migrate high-value existing docs
 - Publish suggestion template pages and review guide
+- Preserve links back to existing `README.md`, `QUICK_REFERENCE.md`, and `CHANGELOG.md`
 
-### Weeks 5-8
+### Stage 3 - Automation and discoverability
 - Add CI checks (lint, links, spelling optional)
 - Enable search and auto-generated suggestion indexes
 - Publish contribution dashboard for transparency
