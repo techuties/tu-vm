@@ -18,7 +18,7 @@ Recurring themes identified across historical branches:
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
-- `website-markdown-publishing-system.md`  
+- `website-markdown-publishing-system.md`
   Canonical markdown-first website publishing contract, including page set, frontmatter schema, status taxonomy, dedupe workflow, and tooling suggestions.
 
 - `website-information-architecture.md`  
