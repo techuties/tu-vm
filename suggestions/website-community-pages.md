@@ -9,6 +9,10 @@ These are suggested markdown pages for a community-facing suggestions system on 
 - Help contributors avoid duplicates before submitting.
 - Keep maintainers from manually repeating the same guidance.
 
+Use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md)
+as the canonical contract for page metadata, status values, deduplication, and
+generated indexes.
+
 ## Recommended page set
 
 ### 1) `community/suggestions/index.md`
@@ -116,3 +120,4 @@ updated_at: YYYY-MM-DD
 1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
 2. Add `decisions.md` once first triage cycle completes.
 3. Add `implemented.md` when first suggestion ships under this framework.
+4. Generate the status board from markdown metadata before adding a custom API.

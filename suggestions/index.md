@@ -13,13 +13,16 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Website Markdown Publishing System](./website-markdown-publishing-system.md)  
+   Canonical markdown-first website system for pages, metadata, lifecycle states, dedupe, and generated indexes.
+
+2. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)  
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
@@ -28,6 +31,7 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 - **Low-friction contribution**: templates, examples, and automation for common tasks
 - **Operational reliability**: every accepted idea includes rollout and rollback guidance
 - **Security and privacy by default**: preserve TU-VM's private-AI posture while expanding ecosystem value
+- **Reuse before expansion**: search and extend existing suggestion files before creating new parallel pages
 
 ## Suggested execution sequence
 
@@ -37,7 +41,7 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Dedicated docs site structure and navigation using the [markdown publishing contract](./website-markdown-publishing-system.md)
 - Explicit maintainer label/ownership conventions documented beside Issues
 
 ### Phase 2 (Acceleration)

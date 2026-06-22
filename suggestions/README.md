@@ -18,6 +18,9 @@ Recurring themes identified across historical branches:
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
+- `website-markdown-publishing-system.md`  
+  Canonical markdown-first website publishing contract, including page set, frontmatter schema, status taxonomy, dedupe workflow, and tooling suggestions.
+
 - `website-information-architecture.md`  
   Detailed website structure, content model, and docs framework recommendation.
 
@@ -36,6 +39,7 @@ Recurring themes identified across historical branches:
 2. Add modular improvements over deep rewrites.
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
+5. Update canonical suggestion files before creating new overlapping pages.
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
