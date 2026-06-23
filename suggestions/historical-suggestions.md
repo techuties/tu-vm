@@ -11,6 +11,7 @@ This page tracks ideas already mentioned in project documentation and changelog 
 
 - `CHANGELOG.md` (notably future enhancement sections)
 - `README.md` (monitoring, dashboard, optimization, and operations sections)
+- Historical `community-suggestions-system-*` branches, including the recovered website markdown publishing proposal.
 
 ## Consolidated Backlog
 
@@ -24,6 +25,7 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Markdown-first website publishing policy | Historical suggestion branch + current website framework docs | Drafted | Use `website-markdown-publishing-system.md` as the canonical frontmatter and quality-gate policy. |
 
 ## Prioritization Framework
 

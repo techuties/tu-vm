@@ -19,6 +19,7 @@ These directions are satisfied without a custom suggestions stack:
 - **Starter playbooks**: [`docs/playbooks/README.md`](../docs/playbooks/README.md) with stable anchor IDs for dashboard deep-links.
 - **Landing dashboard**: Community strip **and** operator hub (per-playbook shortcuts + “What is new” → Releases / CHANGELOG) in [`nginx/html/index.html`](../nginx/html/index.html).
 - **`/status/full` contract**: canonical shape in [`fixtures/status-full-contract.json`](../fixtures/status-full-contract.json), checked by [`scripts/validate_status_full_contract.py`](../scripts/validate_status_full_contract.py).
+- **Markdown publishing policy**: [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) defines frontmatter, content types, and quality-gate expectations for website-ready suggestion pages.
 
 ---
 
@@ -40,6 +41,21 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 - At least three human-readable highlights visible on the dashboard when data exists.
 - Graceful fallback to today’s static links when API data is unavailable.
+
+---
+
+## P1-2: Suggestion frontmatter pilot and index generation
+
+### Scope
+
+Use the markdown publishing policy to pilot structured frontmatter on new proposal-grade suggestion pages, then generate a small machine-readable index by `status`, `area`, and `priority`.
+
+### Acceptance criteria
+
+- New proposal-grade suggestion pages include the required frontmatter fields from [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+- A lightweight script or docs check rejects duplicate suggestion IDs/titles and missing required fields.
+- The generated index can be consumed by a future static website without parsing prose.
+- Existing historical suggestion files are not bulk-edited until the pilot proves useful.
 
 ---
 
