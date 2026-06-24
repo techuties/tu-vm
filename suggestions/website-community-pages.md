@@ -2,6 +2,8 @@
 
 These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
 
+Use [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md) as the canonical publishing contract for page metadata, suggestion status values, index generation, and automation hooks.
+
 ## Goals for website pages
 
 - Make it obvious how to submit high-quality suggestions.
@@ -21,8 +23,10 @@ Purpose:
 Suggested sections:
 
 - Why suggestions matter
+- Historical suggestions to review before submitting
 - How suggestions are evaluated
 - Quick links (submit, status board, decisions, implemented ideas)
+- How statuses map to GitHub labels or saved views
 
 ### 2) `community/suggestions/how-to-submit.md`
 
@@ -34,6 +38,8 @@ Suggested sections:
 
 - Before you submit (dedupe checks)
 - Required template fields
+- Security/privacy and rollback expectations
+- Validation evidence expected before implementation
 - Example strong suggestion
 - Example extension (instead of duplicate)
 
@@ -48,6 +54,7 @@ Suggested sections:
 - Table by status (new, triaged, accepted, in-progress, shipped)
 - Last-updated timestamp
 - Links to decision records
+- Links to related historical suggestions so merged/superseded ideas are visible
 
 ### 4) `community/suggestions/decisions.md`
 
@@ -61,6 +68,7 @@ Suggested sections:
 - Accepted with tradeoffs
 - Deferred with re-open conditions
 - Rejected with alternatives
+- Superseded or merged with an older suggestion
 
 ### 5) `community/suggestions/implemented.md`
 
@@ -74,6 +82,7 @@ Suggested sections:
 - What changed in product/operations
 - Validation evidence
 - Link to release/changelog entry
+- Follow-up ideas that remain open
 
 ## Suggested metadata format (front matter)
 
@@ -97,6 +106,8 @@ created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD
 ```
 
+For full proposal metadata, status taxonomy, and automation-ready fields, use the schema in [`website-markdown-publishing-system.md`](./website-markdown-publishing-system.md).
+
 ## Information architecture guidance
 
 - Keep suggestion pages in a single docs subtree for discoverability.
@@ -114,5 +125,6 @@ updated_at: YYYY-MM-DD
 ## Rollout recommendation
 
 1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+2. Add `decisions.md` when maintainers start recording accepted/deferred/rejected outcomes.
+3. Add `implemented.md` when shipped suggestions have release or changelog evidence.
+4. Generate status-board content from frontmatter once the validator/indexer exists.
