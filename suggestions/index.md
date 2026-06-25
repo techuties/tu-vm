@@ -19,8 +19,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 2. [Website and Documentation Framework](./website-and-docs-framework.md)  
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
-   Covers operational tooling, automation, quality gates, and contributor productivity.
+3. [Website Markdown Publishing System](./website-markdown-publishing-system.md) - Defines the markdown page tree, frontmatter schema, generated indexes, and docs checks for community suggestions.
+
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md) - Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
 
