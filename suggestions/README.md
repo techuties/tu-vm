@@ -1,42 +1,52 @@
 # Suggestions Hub
 
-This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
+This folder is the historical memory and proposal workspace for constructive TU-VM website, tooling, and community-system suggestions.
 
-## Historical baseline used
+The current direction is to build a community-based system by reusing proven frameworks and the repository's existing operational surfaces instead of inventing a custom process from scratch.
 
-These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.
+## How to use this folder
 
-Recurring themes identified across historical branches:
+1. Start with this file and [`index.md`](./index.md).
+2. Check [`historical-suggestions.md`](./historical-suggestions.md) and [`historical-patterns-from-project.md`](./historical-patterns-from-project.md) before proposing a new idea.
+3. Extend an existing suggestion file when the idea overlaps with prior work.
+4. Create a new suggestion file only when the idea has a distinct problem, owner path, and acceptance criteria.
+5. Link accepted or implemented suggestions back to issues, PRs, and [`CHANGELOG.md`](../CHANGELOG.md).
 
-1. Website information architecture for docs + operations + community
-2. Community governance and contribution workflow
-3. Practical contributor tooling for day-to-day operations
-4. A phased roadmap built from already proposed feature directions
+This keeps the community from rediscovering the same ideas and gives maintainers a clear trail from proposal to delivery.
 
-## Files in this folder
+## Canonical suggestion set
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
+Use these files as the primary website and community-system proposal set:
 
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
+| File | Purpose |
+|---|---|
+| [`website-and-docs-framework.md`](./website-and-docs-framework.md) | Recommended website/documentation framework, content architecture, and publishing model. |
+| [`community-system-framework.md`](./community-system-framework.md) | Suggestion lifecycle, governance model, roles, review lanes, and decision rules. |
+| [`website-tools-and-automation.md`](./website-tools-and-automation.md) | Day-to-day tooling, quality checks, duplicate detection, dashboard metrics, and maintainer automation. |
+| [`website-information-architecture.md`](./website-information-architecture.md) | Navigation model, docs taxonomy, accessibility baseline, and website UX expectations. |
+| [`website-community-framework.md`](./website-community-framework.md) | Website-facing governance and contributor trust model. |
+| [`website-contributor-tooling.md`](./website-contributor-tooling.md) | Contributor diagnostics, docs quality gates, and release hygiene tools. |
+| [`website-roadmap-from-historical-suggestions.md`](./website-roadmap-from-historical-suggestions.md) | Sequenced roadmap derived from recurring historical suggestions. |
+| [`implementation-backlog.md`](./implementation-backlog.md) | Trimmed implementation backlog with completed work separated from next recommendations. |
 
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
+Other files in this folder are historical drafts or topic-specific expansions. Keep them for context, but update the canonical files above when refining the main plan.
 
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
+## Historical baseline reused
 
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+Recurring themes from prior suggestion work and existing project documentation:
+
+1. A website structure that separates install, operations, security, community, and suggestions.
+2. A lightweight RFC-style suggestion lifecycle with visible status and decision rationale.
+3. Practical day-to-day tools that make diagnostics, validation, release notes, and documentation checks easier.
+4. A dashboard/community bridge that exposes suggestion status without coupling it to core service controls.
+5. Resource-aware rollout patterns that preserve TU-VM's LAN-first and secure-by-default posture.
 
 ## Design principles for all suggestions
 
-1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
-2. Add modular improvements over deep rewrites.
-3. Keep secure defaults and LAN-first behavior as non-negotiable.
-4. Prioritize contribution quality, reproducibility, and maintainability.
+1. Reuse existing project surfaces first: [`README.md`](../README.md), [`CHANGELOG.md`](../CHANGELOG.md), [`tu-vm.sh`](../tu-vm.sh), [`helper/uploader.py`](../helper/uploader.py), and [`nginx/html/index.html`](../nginx/html/index.html).
+2. Prefer mature frameworks such as Docusaurus, MkDocs Material, Astro Starlight, GitHub Issues/Discussions, and lightweight CI checks over custom systems.
+3. Add modular improvements over deep rewrites.
+4. Preserve secure defaults, LAN-first behavior, and clear rollback paths.
+5. Treat community suggestions as traceable work items with owners, acceptance criteria, and verification evidence.
 
-To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
-
-For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).
+To submit an idea via GitHub, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root.

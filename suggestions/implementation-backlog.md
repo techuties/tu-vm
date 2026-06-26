@@ -1,6 +1,8 @@
 # Implementation Backlog for Community-Based Website Suggestions
 
-This backlog translates suggestions into implementation-ready work items with clear acceptance criteria.
+This backlog translates historical and current suggestions into implementation-ready work items with clear acceptance criteria.
+
+The backlog is intentionally trimmed: completed GitHub-native and repository-native work remains documented for context, while new recommendations focus on the next useful community-system and website increments.
 
 ## Completed / superseded (repository today)
 
@@ -30,7 +32,102 @@ These directions are satisfied without a custom suggestions stack:
 
 ---
 
-## P1-1: Dynamic “What is new” content (optional polish)
+## P1-1: Suggestion metadata and structure validator
+
+### Scope
+
+Add a lightweight validation script for Markdown files in `suggestions/`.
+
+The script should check:
+
+- allowed status values,
+- required frontmatter fields for active suggestions,
+- required body sections,
+- local link validity,
+- related-history references for new active proposals.
+
+### Acceptance criteria
+
+- Validator can run locally without starting Docker services.
+- Output is readable by humans and has an optional JSON mode.
+- CI can run the strict, deterministic checks.
+- Subjective findings are warnings, not failures.
+
+---
+
+## P1-2: Duplicate and historical-overlap report
+
+### Scope
+
+Add a deterministic report that compares new or changed suggestion files against existing `suggestions/` content.
+
+Start with:
+
+- title and heading extraction,
+- keyword normalization,
+- overlap scoring,
+- top related files output.
+
+### Acceptance criteria
+
+- Report lists likely related suggestions with file paths.
+- Contributors can use the output before creating new Markdown files.
+- False positives are acceptable as advisory hints.
+- No external service is required.
+
+---
+
+## P1-3: Generated suggestion index
+
+### Scope
+
+Generate a machine-readable index from suggestion metadata.
+
+Suggested fields:
+
+- title,
+- status,
+- area,
+- owner,
+- last reviewed date,
+- source file,
+- related files.
+
+### Acceptance criteria
+
+- Index generation is deterministic.
+- Website/docs framework can consume the output.
+- Generated data can group suggestions by status and area.
+- Invalid metadata is caught by the validator before index generation.
+
+---
+
+## P1-4: Website framework skeleton
+
+### Scope
+
+Adopt one Markdown-first website framework using the guidance in [`website-and-docs-framework.md`](./website-and-docs-framework.md).
+
+Initial sections:
+
+- Home,
+- Install,
+- Operate,
+- Security,
+- Community,
+- Suggestions,
+- Release Notes.
+
+### Acceptance criteria
+
+- Existing root docs and playbooks are linked or imported without losing canonical source references.
+- Suggestions index is visible from the website.
+- Build command is documented.
+- Broken local links fail the docs quality check.
+
+---
+
+## P1-5: Dynamic "What is new" content (optional polish)
 
 ### Scope
 
@@ -43,7 +140,28 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
-## P2-1: Frontend modularization
+## P2-1: Read-only community dashboard summary
+
+### Scope
+
+Add a small landing dashboard section that reads generated suggestion status data and links to website pages.
+
+Suggested widgets:
+
+- active suggestions by status,
+- recently accepted suggestions,
+- implemented suggestions in latest release,
+- suggestions missing owner/review date.
+
+### Acceptance criteria
+
+- Widget is read-only and visually separate from service controls.
+- Dashboard gracefully hides or degrades if suggestion data is unavailable.
+- No third-party calls are made from the LAN dashboard.
+
+---
+
+## P2-2: Frontend modularization
 
 ### Scope
 
@@ -61,7 +179,7 @@ Refactor monolithic `nginx/html/index.html` into maintainable assets:
 
 ---
 
-## P2-2: Automated browser smoke tests
+## P2-3: Automated browser smoke tests
 
 ### Scope
 
@@ -75,7 +193,7 @@ Add Playwright checks for core flows.
 
 ---
 
-## P2-3: Feature-flagged rollout strategy
+## P2-4: Feature-flagged rollout strategy
 
 ### Scope
 
@@ -91,9 +209,12 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-1**: suggestion metadata and structure validator.
+2. **P1-2**: duplicate and historical-overlap report.
+3. **P1-3**: generated suggestion index.
+4. **P1-4**: website framework skeleton.
+5. **P1-5**: dynamic "What is new" content, if operators want inline release highlights.
+6. **P2-1** through **P2-4** as scale and polish items.
 
 ---
 
@@ -101,13 +222,13 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+1. **Suggestion validator** - Validate metadata, required sections, local links, and allowed statuses (**P1-1**).
+2. **Duplicate/historical-overlap report** - Warn when a new suggestion resembles existing files (**P1-2**).
+3. **Generated suggestion index** - Produce JSON and website-friendly grouped indexes (**P1-3**).
+4. **Markdown style lint** - Add markdownlint or equivalent on `docs/`, root policy files, and canonical suggestion pages.
+5. **Website framework skeleton** - Adopt Docusaurus, MkDocs Material, or Astro Starlight for the community docs site (**P1-4**).
+6. **Read-only dashboard community summary** - Surface suggestion counts and links after generated data is stable (**P2-1**).
+7. **Trivy (or Grype) image CVE scans** - Iterate pinned Compose images with actionable severity thresholds.
+8. **Incremental dashboard asset extraction** - Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce linting on extracted files (**P2-2**).
+9. **Playwright smoke tests** - Tier-1 flows against `tu.lan` or a headless nginx fixture (**P2-3**).
+10. **Feature-flag pattern for dashboard experiments** - Env-driven toggles before large UI changes (**P2-4**).
