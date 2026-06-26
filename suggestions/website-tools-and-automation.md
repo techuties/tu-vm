@@ -2,234 +2,308 @@
 
 ## Problem statement
 
-As community participation grows, manual operations become the bottleneck:
+As community participation grows, maintainers can lose time to repetitive work:
 
-- Reviewing similar suggestions repeatedly
-- Keeping docs consistent
-- Communicating status updates across contributors
-- Tracking what moved from idea to implementation
+- Reviewing similar suggestions repeatedly.
+- Keeping Markdown pages and links consistent.
+- Explaining the same process expectations to new contributors.
+- Communicating proposal status across issues, PRs, docs, and releases.
+- Tracking which ideas moved from discussion to implementation.
 
-Without lightweight tooling, maintainers spend more time triaging than building.
+Without lightweight tooling, community participation creates friction instead of leverage.
 
 ## Proposed solution
 
-Implement a practical "maintainer acceleration layer" around the website and suggestion process, using tools already present in TU-VM.
+Implement a practical maintainer acceleration layer around the website and suggestion process.
 
-This is not about introducing a heavy platform. It is about:
+The layer should use tools the project already understands:
 
-1. Structured templates
-2. Automated checks
-3. Status dashboards
-4. Reuse prompts and helper scripts
+- Markdown files in `suggestions/`.
+- GitHub Issues, Discussions, PRs, labels, and release notes.
+- Small scripts in `scripts/`.
+- Static JSON generated at build or CI time.
+- Optional read-only dashboard widgets after the data model is stable.
+
+Avoid building a custom suggestion platform until the simpler path fails on a concrete requirement.
 
 ## Guiding principle
 
-Favor "small automations with immediate value" over large one-time platform rewrites.
-
----
+Favor small automations with immediate value over large one-time platform rewrites.
 
 ## Tooling suggestions
 
-## 1) Suggestion quality automation
+### 1) Suggestion quality validator
 
-### Goal
+#### Goal
 
-Ensure every suggestion is actionable and comparable.
+Ensure every active suggestion is actionable, comparable, and easy to review.
 
-### Recommended checks
+#### Recommended checks
 
-- Required sections present:
-  - Problem
+- Required frontmatter fields:
+  - `title`
+  - `status`
+  - `area`
+  - `owner`
+  - `related`
+- Allowed status values only.
+- Required sections:
+  - Problem statement
+  - Historical overlap
+  - Existing solutions scan
   - Proposed solution
-  - Reuse of existing TU-VM components
-  - Risks
+  - Risks and mitigations
+  - Rollout and rollback
+  - Acceptance criteria
   - Success metrics
-- Duplicate topic detection (keyword similarity against existing suggestions)
-- Missing owner or missing scope tags
+- Internal links resolve.
+- No new active suggestion is missing a related-history reference.
 
-### Implementation direction
+#### Implementation direction
 
-- Add a helper script that scans `suggestions/` and validates structure.
-- Use a markdown lint rule set with project-specific custom checks.
-- Optional: expose a summary endpoint in `helper/uploader.py` that reports:
-  - total suggestions
-  - draft vs accepted counts
-  - missing metadata counts
+- Add a Python script that scans `suggestions/` and emits human-readable text plus optional JSON.
+- Start as a warning-only report.
+- Make only precise checks blocking in CI, such as invalid status values or broken local links.
+- Reuse the style of existing validation scripts rather than introducing a large docs toolchain first.
 
----
+#### Suggested command shape
 
-## 2) Duplicate and overlap detection
+```bash
+python3 scripts/validate-suggestions.py --path suggestions
+python3 scripts/validate-suggestions.py --path suggestions --json
+```
 
-### Goal
+### 2) Duplicate and overlap detection
+
+#### Goal
 
 Avoid reinventing features that were already discussed.
 
-### Approach
+#### Approach
 
-- Build a simple similarity report:
-  - compare titles and key section text
-  - list top 3 most related existing files when a new suggestion is added
-- Add a "related suggestions" section to each suggestion file.
+Start with deterministic local matching:
 
-### TU-VM fit
+1. Extract titles, headings, tags, and required summary sections.
+2. Normalize words and remove common stop words.
+3. Score overlap by shared keywords and phrase matches.
+4. Print the top related suggestions when a file is new or changed.
 
-- Can be implemented with Python script + local file processing.
-- Optionally store embeddings in Qdrant for semantic lookup if needed later.
+Example output:
 
----
+```text
+Potentially related suggestions:
+- suggestions/website-community-framework.md (governance, roles, review)
+- suggestions/community-system-framework.md (status, lifecycle, metadata)
+- suggestions/implementation-backlog.md (open roadmap item)
+```
 
-## 3) Decision transparency dashboard
+#### TU-VM fit
 
-### Goal
+- Can run entirely with Python standard library at first.
+- Can produce JSON for a future website index.
+- Can later use Qdrant/embeddings if historical content becomes too large for keyword matching.
+
+### 3) Generated suggestion index
+
+#### Goal
+
+Make proposal status visible without manually editing index pages after every change.
+
+#### Output
+
+Generate:
+
+- `suggestions-index.json` for website/dashboard consumption.
+- Markdown or HTML index grouped by:
+  - status
+  - area
+  - owner
+  - last reviewed date
+  - related historical files
+
+#### Suggested fields
+
+```json
+{
+  "title": "Website and Documentation Framework",
+  "status": "review",
+  "area": "website",
+  "owner": "unassigned",
+  "source": "suggestions/website-and-docs-framework.md",
+  "related": ["historical-patterns-from-project.md"]
+}
+```
+
+Keep the generated output out of hand-edited source docs unless the project explicitly wants committed build artifacts.
+
+### 4) Decision transparency dashboard
+
+#### Goal
 
 Make community decisions visible without maintainers writing manual status posts.
 
-### Dashboard modules
+#### Recommended dashboard modules
 
-- Pipeline view: `new -> triaged -> in-discussion -> accepted/rejected -> implemented`
-- Top requested themes (security, UX, automation, docs, integrations)
-- Time-in-stage metrics (where suggestions get stuck)
+- Pipeline counts by status.
+- Recently accepted suggestions.
+- Implemented suggestions in the latest release.
+- Suggestions missing owner or review date.
+- Top requested themes: security, UX, automation, docs, integrations.
 
-### Technical options
+#### Technical options
 
-- Start with static JSON generated by script + rendered in existing landing page.
-- Upgrade to helper API endpoint for dynamic stats.
-- Keep this independent from core service control widgets.
+1. Static website page generated from Markdown metadata.
+2. Static JSON rendered into the existing landing page.
+3. Helper API endpoint for dynamic stats if maintainers want live data.
 
----
+Keep dashboard widgets read-only until authorization and moderation boundaries are explicitly designed.
 
-## 4) Contributor onboarding tools
+### 5) Contributor onboarding tools
 
-### Goal
+#### Goal
 
 Lower first-contribution friction.
 
-### Practical additions
+#### Practical additions
 
-- "First suggestion" template with examples
-- "Good suggestion checklist"
-- A small FAQ module:
-  - "How to avoid duplicates?"
-  - "How decisions are made?"
-  - "What gets prioritized?"
+- First suggestion template with examples.
+- Good suggestion checklist.
+- "How to avoid duplicates" guide.
+- "How decisions are made" guide.
+- "What gets prioritized" guide.
+- Path map from topic to code owner area:
+  - dashboard UI -> `nginx/html/index.html`, `helper/uploader.py`
+  - service orchestration -> `docker-compose.yml`, `tu-vm.sh`
+  - docs and website -> `README.md`, `docs/`, `suggestions/`
+  - document processing -> `tika-minio-processor/`
 
-### TU-VM fit
+### 6) AI-assisted maintainer workflows
 
-- Add as a website page under community section.
-- Reuse existing Nginx static content pattern.
+#### Goal
 
----
+Use existing private-AI capabilities to reduce repetitive review work while keeping humans in control.
 
-## 5) AI-assisted maintainer workflows
-
-### Goal
-
-Use existing LLM infrastructure to reduce repetitive review work while keeping humans in control.
-
-### Suggested AI helpers
+#### Suggested helpers
 
 - Suggestion summarizer:
-  - produces short summary + impact class + required components
+  - short summary
+  - impacted components
+  - likely area labels
+  - missing required sections
 - Risk highlighter:
-  - flags security/data-migration/network exposure implications
+  - network exposure
+  - auth/control path impact
+  - data retention or backup impact
+  - new dependency risk
 - Merge candidate detector:
-  - suggests combining similar proposals into one roadmap item
+  - related historical suggestions
+  - overlapping acceptance criteria
+  - proposed consolidation target
 
-### Governance note
+#### Governance note
 
-AI output is advisory; final decisions remain maintainer-led and auditable.
+AI output is advisory. Human maintainers record final labels, status, and decision rationale.
 
----
-
-## 6) Operational templates
+### 7) Operational response templates
 
 Standardize recurring community communication:
 
-- "Accepted" response template
-- "Needs revision" response template
-- "Rejected with rationale" response template
-- "Merged with existing suggestion" template
+- Accepted with scope.
+- Needs revision.
+- Rejected with rationale.
+- Deferred with trigger for reconsideration.
+- Merged with existing suggestion.
+- Implemented and released.
 
-This reduces inconsistency and emotional overhead in moderation.
+Templates reduce inconsistency while still allowing maintainers to add human context.
 
----
+### 8) Release-note integration
 
-## 7) Release-note integration
-
-### Goal
+#### Goal
 
 Connect delivered work back to community suggestions automatically.
 
-### Suggested practice
+#### Suggested practice
 
-- Each accepted suggestion receives a unique ID.
-- PRs/commits reference suggestion IDs when relevant.
-- Changelog entries include "Community suggestions delivered" section.
+- Each accepted suggestion receives a stable ID or file slug.
+- PRs reference the suggestion file or issue.
+- Changelog entries include delivered community suggestions when relevant.
+- Release notes link back to accepted/implemented suggestion pages.
 
-### Benefit
+#### Benefit
 
-Community can trace:
+Community members can trace:
 
-idea -> decision -> implementation -> release
+```text
+idea -> discussion -> decision -> implementation -> release
+```
 
----
+## Suggested lightweight automation stack
 
-## Suggested automation stack (lightweight first)
-
-1. Markdown lint + custom section checks
-2. Python suggestion index generator (JSON output)
-3. Helper API endpoint for suggestion stats
-4. Landing page community dashboard widget
-5. Optional semantic search (Qdrant-backed) for scale
-
----
+1. Markdown link checks.
+2. Suggestion structure validator.
+3. Duplicate/overlap report.
+4. Generated suggestion index JSON.
+5. Website page generated from the index.
+6. Read-only dashboard widget.
+7. Optional semantic search after keyword matching is insufficient.
 
 ## Risks and mitigations
 
-## Risk: Automation noise
+### Risk: automation noise
 
 Too many warnings can discourage contributors.
 
 Mitigation:
 
-- Keep checks focused on high-value structure issues
-- Mark low-confidence findings as "suggestions", not "failures"
+- Keep checks focused on high-value structure issues.
+- Make subjective findings advisory.
+- Document every blocking rule in plain language.
 
-## Risk: Over-engineering early
+### Risk: over-engineering early
 
-Advanced tooling before contributor volume justifies it.
-
-Mitigation:
-
-- Gate advanced features behind measurable trigger points
-- Start with scripts and static outputs first
-
-## Risk: Opaque moderation
-
-If tools auto-score without explanation, trust drops.
+Advanced tooling before contributor volume justifies it can become maintenance debt.
 
 Mitigation:
 
-- Every automation rule should be documented in plain language
-- Final human rationale must be recorded for accepted/rejected decisions
+- Start with scripts and static outputs.
+- Add dynamic services only after a stable data model exists.
+- Prefer GitHub-native workflows for discussion and decisions.
 
----
+### Risk: opaque moderation
+
+Trust drops if tools auto-score proposals without explanation.
+
+Mitigation:
+
+- Show why a duplicate or risk was flagged.
+- Require human decision rationale for accepted, rejected, and superseded statuses.
+- Keep historical files searchable.
+
+### Risk: dashboard/control boundary confusion
+
+Community widgets on the operator dashboard could be mistaken for service controls.
+
+Mitigation:
+
+- Make suggestion widgets read-only.
+- Visually separate community status from service control panels.
+- Keep moderation actions in GitHub or the docs workflow unless a permission model is designed.
 
 ## Success metrics
 
-- Reduction in duplicate suggestion submissions
-- Faster median triage time
-- Higher % suggestions meeting template quality on first submission
-- Contributor satisfaction with clarity of decisions
-- Traceability ratio from suggestion to changelog delivery
+- Fewer duplicate suggestion submissions.
+- Higher share of suggestions with complete required sections on first review.
+- More implemented suggestions linked to release notes.
+- Lower review churn from missing validation or rollback notes.
+- Faster routing of proposals to the right domain reviewers.
 
----
+## Recommended first implementation sequence
 
-## Recommended first implementation sprint
-
-1. Add suggestion template and checklist
-2. Add validation script and basic duplicate hinting
-3. Publish governance + status labels on website
-4. Add dashboard block showing suggestion pipeline counts
-5. Review results after one cycle and iterate
+1. Add or normalize suggestion metadata and required sections in canonical files.
+2. Add a validator for status values, required sections, and internal links.
+3. Add duplicate hinting against existing `suggestions/` files.
+4. Generate a static suggestion index.
+5. Publish the index through the selected website framework.
+6. Add a read-only landing dashboard summary if the generated data proves useful.
 
