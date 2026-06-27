@@ -13,17 +13,17 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+2. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
 3. [Website Community Pages](./website-community-pages.md)
    Defines the concrete markdown pages, frontmatter schema, status taxonomy,
    and dedupe workflow for a suggestions section on the website.
 
-4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 5. [Website Day-to-Day Tooling](./website-day-to-day-tooling.md)
