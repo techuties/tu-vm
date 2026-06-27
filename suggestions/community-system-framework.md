@@ -16,6 +16,10 @@ Use a lightweight lifecycle inspired by established open-source governance (Rust
 6. **Implementation**: linked issues/PRs with milestones
 7. **Retrospective**: outcome review and lessons learned
 
+The lifecycle should be visible on the website through markdown frontmatter,
+generated indexes, and links back to GitHub Issues/PRs. GitHub remains the
+system of record for discussion; the website is the readable community layer.
+
 ## Recommended structure for each suggestion
 
 Every suggestion should answer:
@@ -27,6 +31,8 @@ Every suggestion should answer:
 - Rollout and rollback: how to deploy safely?
 - Ownership: who drives and who reviews?
 - Success metrics: how do we measure value?
+- Historical overlap: what existing suggestion, issue, or framework is reused?
+- Website impact: what docs, navigation, or status page changes are needed?
 
 ## Governance roles
 
@@ -51,8 +57,25 @@ Use a simple scorecard to reduce subjective decisions:
 - Operational risk (1-5, lower is better)
 - Time-to-value (1-5)
 - Reuse of existing tools/frameworks (1-5)
+- Community maintainability (1-5)
 
 Accepted proposals should have high impact and reuse score with manageable risk.
+
+## Status taxonomy
+
+Use one vocabulary across GitHub labels, markdown frontmatter, and the website:
+
+| Status | Meaning | Exit condition |
+|--------|---------|----------------|
+| `draft` | Author is shaping the idea | Required fields complete |
+| `triage` | Maintainers check scope, duplicates, and safety | Owner/theme assigned |
+| `review` | Community and domain owners evaluate trade-offs | Decision recorded |
+| `accepted` | Proposal approved | Implementation issue/PR linked |
+| `in-progress` | Work is actively underway | Validation evidence available |
+| `shipped` | Released, documented, or operationalized | Release/changelog linked |
+| `deferred` | Valid but blocked or lower priority | Reopen condition documented |
+| `rejected` | Not planned | Rationale and alternative documented |
+| `superseded` | Folded into a better canonical suggestion | Canonical target linked |
 
 ## Community workflows to implement
 
@@ -62,6 +85,8 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Validate required fields
   - Detect likely duplicates using keyword matching
   - Auto-tag by domain (docs, automation, infra, UX, security)
+  - Add or update website frontmatter when the proposal becomes durable
+  - Link the proposal to any historical suggestion it extends
 
 ### 2) Review workflow
 - Trigger: suggestion status set to `review`
@@ -69,6 +94,7 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Assign maintainers and reviewers
   - Post review checklist
   - Set reminder if no activity after a defined window
+  - Record accepted trade-offs directly in a decision log entry
 
 ### 3) Implementation tracking workflow
 - Trigger: proposal accepted
@@ -76,6 +102,8 @@ Accepted proposals should have high impact and reuse score with manageable risk.
   - Create linked implementation tasks
   - Publish progress status on dashboard/docs
   - Close loop with retrospective template
+  - Update `implemented` or `archive` website pages when the proposal ships,
+    is deferred, rejected, or superseded
 
 ## Metrics
 
@@ -94,10 +122,30 @@ Track these to keep the process healthy:
 - No production-impacting change without test/validation path
 - Security review required for network, auth, data, or secret changes
 - Archive stale proposals after review window with clear reason
+- No new website suggestion page when an existing canonical page can be updated
+- No external community tool unless it has an owner, fallback path, and clear
+  value beyond GitHub-native workflow
 
-## First 30-day actions
+## Community website outputs
 
-1. Add a proposal template and status taxonomy (`idea`, `draft`, `review`, `accepted`, `deferred`, `rejected`, `implemented`).
+The framework should produce these user-facing artifacts:
+
+- suggestion landing page that explains lifecycle and expectations
+- how-to-submit guide with duplicate checks and examples
+- status board grouped by lifecycle state
+- decision log with accepted, deferred, rejected, and superseded entries
+- implemented page that links shipped ideas to release evidence
+- archive page that keeps historical context discoverable without crowding the
+  active backlog
+
+## First implementation actions
+
+1. Add a proposal template and status taxonomy (`draft`, `triage`, `review`,
+   `accepted`, `in-progress`, `shipped`, `deferred`, `rejected`,
+   `superseded`).
 2. Define owner rotation for weekly triage.
 3. Automate duplicate checks and stale-review reminders.
 4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
+5. Align website markdown frontmatter with the issue template and PR template.
+6. Publish a dedupe pass that marks older overlapping suggestions as
+   `superseded` by canonical pages.
