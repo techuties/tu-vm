@@ -76,11 +76,14 @@ GitHub and portable across Docusaurus, MkDocs, or Starlight.
 ```yaml
 title: Short human title
 description: One-sentence page purpose
-status: draft
+page_status: draft
 owner: maintainers
 last_updated: YYYY-MM-DD
 source: suggestions
 ```
+
+Use `page_status: draft | published | archived` for website publication state.
+Reserve `status` for the lifecycle of an individual suggestion.
 
 ### Required frontmatter for individual suggestions
 
@@ -98,7 +101,8 @@ updated_at: YYYY-MM-DD
 ```
 
 Status values should be constrained to `draft`, `triage`, `review`,
-`accepted`, `in-progress`, `shipped`, `deferred`, or `rejected`.
+`accepted`, `in-progress`, `shipped`, `deferred`, `rejected`, or
+`superseded`.
 
 ## Suggestion page design
 
@@ -116,13 +120,16 @@ Each suggestion page should include:
 ## Website automation suggestions
 
 ### Link and structure quality
-- Run markdown lint and link checks in CI on every PR
+- Expand the existing hub/index/backlog link check to all canonical suggestion
+  pages, then run markdown lint and link checks in CI on every PR
 - Prevent merges when required suggestion fields are missing
 - Check same-repository relative links so moved pages do not silently break
 - Require unique suggestion IDs and stable anchors for decision records
 
 ### Search and discoverability
-- Enable full-text search (Algolia or local search plugin)
+- Enable framework-native local full-text search first; adopt a hosted service
+  such as Algolia DocSearch only after privacy, availability, and maintenance
+  trade-offs are approved
 - Add tags for domains (`docs`, `automation`, `infra`, `security`, `ux`)
 - Generate tag landing pages from frontmatter rather than maintaining them by
   hand

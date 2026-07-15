@@ -146,6 +146,9 @@ The framework should produce these user-facing artifacts:
 2. Define owner rotation for weekly triage.
 3. Automate duplicate checks and stale-review reminders.
 4. Publish monthly community update summarizing accepted/rejected suggestions and rationale.
-5. Align website markdown frontmatter with the issue template and PR template.
+5. Define a future field mapping across the current Issue template (summary,
+   acceptance/constraints, duplicate check), durable website frontmatter, and
+   PR verification. Keep detailed lifecycle, owner, risk, and rollout fields in
+   website markdown unless the Issue template is deliberately expanded.
 6. Publish a dedupe pass that marks older overlapping suggestions as
    `superseded` by canonical pages.
