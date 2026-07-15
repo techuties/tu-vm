@@ -35,7 +35,7 @@ Suggested frontmatter:
 ```yaml
 title: Community Suggestions
 description: Start here to propose, review, and track TU-VM community ideas.
-status: published
+page_status: published
 owner: maintainers
 last_updated: YYYY-MM-DD
 source: suggestions
@@ -72,7 +72,8 @@ Purpose:
 
 Suggested sections:
 
-- Table by status (new, triaged, accepted, in-progress, shipped)
+- Table by canonical status (`draft`, `triage`, `review`, `accepted`,
+  `in-progress`, `shipped`, `deferred`, `rejected`, `superseded`)
 - Last-updated timestamp
 - Links to decision records
 - Filters by domain (`docs`, `operations`, `security`, `automation`, `ux`)
@@ -173,7 +174,7 @@ Use a consistent metadata block in each website markdown page:
 ```yaml
 title: Community Suggestions - Status Board
 description: Public status and progress of community suggestions.
-status: published
+page_status: published
 last_updated: YYYY-MM-DD
 owner: maintainer-or-team
 source: suggestions
@@ -183,7 +184,7 @@ For individual suggestion entries (if represented as markdown pages):
 
 ```yaml
 id: SUG-YYYY-NNN
-status: triaged
+status: triage
 theme: operations
 impact: high
 risk: low
@@ -192,6 +193,10 @@ related_issue:
 created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD
 ```
+
+`page_status` controls whether a general website page is a draft or published.
+The `status` field below is reserved for the lifecycle of an individual
+suggestion.
 
 Allowed `status` values:
 
@@ -220,9 +225,11 @@ Allowed `status` values:
 
 ## Duplicate-prevention workflow
 
-1. Search the current `/suggestions/` folder by keyword and theme.
-2. Search open and closed GitHub Issues with the `suggestion` label.
-3. Compare against [`website-historical-baseline.md`](./website-historical-baseline.md).
+1. Search the canonical reading path in [`README.md`](./README.md) by keyword
+   and theme.
+2. Compare against [`website-historical-baseline.md`](./website-historical-baseline.md),
+   then search older `/suggestions/` files when historical detail is needed.
+3. Search open and closed GitHub Issues with the `suggestion` label.
 4. If an idea overlaps, update the canonical page and mark the old entry as
    `superseded`.
 5. If an idea is genuinely new, create a new issue first; add website markdown

@@ -29,7 +29,9 @@ Recommended implementation:
   - docs, UI, infra, security, performance, automation
 - Duplicate detection using title/keyword similarity.
 - Route high-risk suggestions (security/runtime controls) to maintainers first.
-- Compare new issues against `/suggestions/` headings and frontmatter titles.
+- Compare new issues against the canonical files linked from
+  [`README.md`](./README.md), then scan older `/suggestions/` headings only
+  when deeper historical context is needed.
 - Suggest `superseded` or "extend existing suggestion" when overlap is high.
 - Keep automated dedupe advisory until maintainers trust the false-positive
   rate.
@@ -43,7 +45,7 @@ Suggested signals:
 
 ## 3) Prioritization helper
 - Recurring job calculates priority scores from:
-  - vote count
+  - community signal (GitHub thumbs-up reactions or an explicit Project field)
   - age
   - severity/impact
   - estimated implementation size
@@ -63,7 +65,7 @@ Suggested formula inputs:
 | Evidence quality | Clear reproduction, examples, or acceptance tests |
 
 ## 4) Changelog synchronizer
-- When suggestion status changes to `Completed`, prompt maintainers to:
+- When suggestion status changes to `shipped`, prompt maintainers to:
   - attach implementation reference (commit/tag)
   - add changelog entry
   - link back from suggestion page
@@ -75,7 +77,7 @@ Suggested formula inputs:
 - Broadcast changes to community channels when:
   - suggestions accepted
   - status moved to in-progress
-  - completed and released
+  - shipped and released
 - Keep notification digest mode to prevent spam.
 - Prefer digest summaries over one notification per metadata edit.
 - Include rationale links for deferred and rejected ideas so contributors see
@@ -150,7 +152,7 @@ Helpful dashboard widgets that reuse existing metadata:
 ## Definition of Done for Tooling Rollout
 - New suggestions are consistently structured.
 - Triage time decreases measurably.
-- Completed items reliably appear in changelog/release communication.
+- Shipped items reliably appear in changelog/release communication.
 - Contributors can onboard and contribute with minimal manual guidance.
 - Website suggestion pages can be generated or reviewed without custom manual
   bookkeeping.

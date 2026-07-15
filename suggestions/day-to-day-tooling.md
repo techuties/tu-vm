@@ -29,15 +29,20 @@ Implemented baseline: `./tu-vm.sh doctor`, `./scripts/check-config.sh`, `./scrip
 
 Use automated quality gates instead of manual policing:
 
-- Pre-commit hooks for basic hygiene
-  - trailing whitespace, EOF fix, YAML/JSON sanity checks
-  - markdown lint and broken link detection
-- CI pipeline stages:
+- Extend the existing pre-commit configuration beyond its current whitespace,
+  EOF, YAML, and shell-syntax checks:
+  - markdown lint and broken relative-link detection
+  - suggestion frontmatter and duplicate-ID validation
+- Target CI pipeline stages:
   1. Lint and formatting checks
   2. Unit/integration tests
   3. Security checks (dependency and secret scanning)
   4. Docs validation
   5. Suggestion schema and duplicate-ID validation
+
+The current docs-links workflow checks the hub, index, and implementation
+backlog. Expanding that scope to every canonical suggestion page is proposed
+work.
 
 For markdown suggestions, the minimum gate should catch:
 
@@ -118,7 +123,7 @@ Done: contribution templates, compose/script validation and smoke checks in CI, 
 Still open:
 
 - Optional task runner (`make`/`just`) wrapping the same scripts
-- Pre-commit hooks and markdown/link validation in CI
+- Markdown/link hooks plus broader canonical-page coverage in CI
 - Suggestion frontmatter validation and duplicate-ID checks
 - Docs preview command for the selected website framework
 
