@@ -13,14 +13,29 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Website Historical Baseline](./website-historical-baseline.md)
+   Records recurring prior suggestions and the existing components to reuse.
+
+2. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Website Community Pages](./website-community-pages.md)
+   Defines the concrete markdown pages, frontmatter schema, status taxonomy,
+   and dedupe workflow for a suggestions section on the website.
+
+5. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
+
+6. [Website Day-to-Day Tooling](./website-day-to-day-tooling.md)
+   Converts the framework into website-specific tooling such as schema checks,
+   generated indexes, release linkage, and contributor dashboards.
+
+7. [Implementation Backlog](./implementation-backlog.md) and
+   [Historical Feature Roadmap](./website-roadmap-from-historical-suggestions.md)
+   Separate prioritized next work from longer-term product directions.
 
 ## Working principles
 
@@ -31,25 +46,33 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggested execution sequence
 
-### Phase 1 (Foundation)
+### Stage 1: Foundation
 
-Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](../CONTRIBUTING.md), CI smoke/check-config, starter [`docs/playbooks/`](../docs/playbooks/README.md), landing links.
+Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](../CONTRIBUTING.md), CI smoke/check-config, starter [`docs/playbooks/`](../docs/playbooks/README.md), landing links, and dashboard playbook shortcuts with stable anchors.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Dedicated docs site structure and navigation, with static-site adoption only
+  after the markdown content model is stable
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Suggestion page frontmatter and generated status indexes
 
-### Phase 2 (Acceleration)
+### Stage 2: Acceleration
 
-- Automation for triage and stale-issue workflows (labels, bots)
-- Playbook surfacing from the dashboard with clear anchors
+- Extend the existing stale workflow with suggestion-specific label mapping,
+  reminders, and maintainer routing
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- Expand the existing link-check workflow to all canonical suggestion pages,
+  then add markdown lint and suggestion schema validation in CI
+- Searchable website pages for historical, accepted, deferred, and shipped
+  suggestions
 
-### Phase 3 (Scale)
+### Stage 3: Scale
 
 - Open community working groups
 - Create plugin/integration curation process
 - Publish quarterly roadmap and retrospective summaries
+- Optional public roadmap dashboards generated from issue labels and suggestion
+  frontmatter
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.
