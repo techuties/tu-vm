@@ -15,20 +15,17 @@ This process should be simple enough for day-to-day use but robust enough to mai
 
 ## 1) Suggestion lifecycle (single source of truth)
 
-Use a standard lifecycle for each suggestion:
+Use the machine-readable statuses defined in
+[`website-community-pages.md`](./website-community-pages.md):
 
-1. **Submitted**
-   - Idea captured in a standard template (problem, proposed change, expected impact).
-2. **Triaged**
-   - Maintainer validates scope, duplicates, and fit with TU-VM roadmap.
-3. **Discussing**
-   - Open period for community comments, alternatives, and constraints.
-4. **Decision**
-   - Marked as `accepted`, `rejected`, or `needs-rework`.
-5. **Implemented**
-   - If accepted, linked to implementation artifact (PR/commit/release note).
-6. **Measured**
-   - Outcome reviewed against success metrics.
+1. **Intake** — `submitted`, then `triaged`.
+2. **Evaluation** — `discussing`, `needs-rework`, or `deferred`.
+3. **Delivery** — `accepted`, `in-progress`, then `implemented`.
+4. **Closed history** — `rejected`, `superseded`, or `withdrawn`.
+
+Measurement is an action recorded on an `implemented` suggestion, not a
+separate status. “Accepted with constraints” is an `accepted` decision whose
+constraints are written in the decision section.
 
 ### Why this helps
 
@@ -90,12 +87,14 @@ Reject or return for rework if suggestion:
 
 ## 4) Decision model
 
-Use explicit decision outcomes:
+Use explicit decision outcomes that map directly to lifecycle values:
 
-- **Accepted**: scoped and approved for implementation.
-- **Accepted with constraints**: approved with architecture/security/performance conditions.
-- **Needs rework**: promising but incomplete or mis-scoped.
-- **Rejected**: out of scope, duplicate, too risky, or low impact.
+- **`accepted`**: scoped and approved for implementation. Record any
+  architecture, security, or performance constraints in the rationale.
+- **`needs-rework`**: promising but incomplete or mis-scoped.
+- **`deferred`**: valid but blocked by a named re-open condition.
+- **`rejected`**: out of scope, duplicate, too risky, or low impact.
+- **`superseded`**: replaced by a linked proposal.
 
 Every decision should include:
 
@@ -149,22 +148,29 @@ These indicate process friction or unclear documentation.
 
 ## 7) Integration with TU-VM operations
 
-Leverage existing assets:
+Leverage existing assets without expanding the control plane:
 
-- **Nginx landing page** as entry point for community guidance.
-- **Helper API** to expose suggestion summaries/states if desired.
-- **Daily scripts/changelog flow** to publish “accepted and shipped” updates.
+- Use the **Nginx landing page** as the entry point for community guidance.
+- Publish suggestion summaries and states as generated static files under
+  `/docs/`.
+- Use existing Issue, PR, Release Drafter, and changelog links to publish
+  accepted and shipped updates.
+- Keep the helper API limited to its operational status/control purpose; the
+  website must not require helper credentials or a suggestion endpoint.
 
-Keep governance lightweight: start with file-based records and evolve to automation only when volume justifies it.
+Keep governance lightweight: start with Markdown records and deterministic
+static views, then add automation only when measured volume justifies it.
 
 ---
 
 ## 8) Suggested first implementation steps
 
-1. Publish lifecycle and template in the website “Contribute” section.
-2. Add a visible “Suggestion status board” page.
-3. Run a 30-day trial of the lifecycle with weekly maintainer review.
-4. Adjust criteria and SLAs based on real submission volume.
+1. Publish the canonical lifecycle and template in the website **Contribute**
+   section.
+2. Add a visible generated suggestion status page.
+3. Trial the lifecycle on a small batch of real proposals with a named
+   maintainer review cadence.
+4. Adjust criteria and response targets from observed submission volume.
 
 This creates a practical feedback loop without overengineering.
 

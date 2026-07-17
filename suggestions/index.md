@@ -2,6 +2,10 @@
 
 This folder contains practical, implementation-ready suggestions for improving the TechUties VM platform with a **community-first approach**.
 
+This page summarizes execution stages. Use
+[`README.md`](./README.md) as the primary folder entry point and canonical
+reading order.
+
 The recommendations focus on:
 - Reusing mature frameworks instead of rebuilding core capabilities
 - Improving daily contributor workflows and operator experience
@@ -48,13 +52,13 @@ Still open:
 - Representative MkDocs Material spike and framework decision record
 - Static `/docs/` site structure and navigation
 - Canonical suggestion frontmatter schema and generated views
-- Explicit maintainer label/ownership conventions documented beside Issues
+- Replace the CODEOWNERS placeholder and seed the documented label set
 
 ### Phase 2 (Acceleration)
 
 - Schema, Markdown, link, static-build, and accessibility checks
 - Human-reviewed duplicate suggestions and stale-record reminders
-- Playbook surfacing from the dashboard with clear anchors
+- Link the static docs site from the existing dashboard playbook shortcuts
 - Lightweight adoption metrics (release cadence, time-to-close by label)
 
 ### Phase 3 (Scale)

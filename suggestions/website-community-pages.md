@@ -63,15 +63,11 @@ form.
 
 ### `community/suggestions/status.md`
 
-Generate this page from frontmatter and group records into:
-
-- needs triage;
-- under discussion;
-- accepted;
-- in progress;
-- needs rework;
-- deferred; and
-- recently implemented.
+Generate this page from frontmatter and group records by the exact lifecycle
+values: `submitted`, `triaged`, `discussing`, `accepted`, `in-progress`,
+`needs-rework`, and `deferred`. A separate “recently implemented” section may
+filter `implemented` records by implementation date; it is a view, not another
+status.
 
 Each entry should show only ID, title, theme, status, owner, last review date,
 and a link. Keep long descriptions on the detail page so the board remains
@@ -79,8 +75,9 @@ usable on mobile.
 
 ### `community/suggestions/decisions.md`
 
-Generate accepted, rejected, deferred, and superseded decisions. Each row must
-link to a record containing:
+Generate the complete decision history for `accepted`, `needs-rework`,
+`deferred`, `rejected`, and `superseded` records. Each row must link to a record
+containing:
 
 - decision date and outcome;
 - concise rationale;
@@ -104,9 +101,10 @@ This is a community impact view, not a replacement changelog.
 
 ### `community/suggestions/archive.md`
 
-Generate rejected, superseded, and withdrawn items. Archive entries stay
-searchable because their rationale prevents the same proposal from being
-recreated later.
+Generate rejected, superseded, and withdrawn items. This is a terminal-state
+browse view; the same record can also appear in the complete decisions view,
+but both pages are generated from one source. Archive entries stay searchable
+because their rationale prevents the same proposal from being recreated later.
 
 ### `community/suggestions/<id>-<slug>.md`
 
@@ -153,9 +151,10 @@ implementation: []
 | `supersedes` | IDs replaced by this record; may be empty |
 | `implementation` | PR, commit, or release links; required when implemented |
 
-Do not add vote totals, priority scores, or comment counts to source files.
-Those are changing GitHub data and should be displayed only when fetched during
-a build with a safe fallback.
+Do not snapshot vote totals, priority scores, or comment counts in source files.
+Community reactions can remain on the source GitHub Issue and inform a
+documented human decision. Changing GitHub data should be displayed only when
+fetched during a build with a safe fallback.
 
 ## Lifecycle
 
@@ -200,6 +199,44 @@ Every curated detail page should use this structure:
 
 Historical imports may use `not-applicable` for missing fields, but new records
 must not.
+
+### Worked example
+
+```markdown
+---
+id: SUG-2026-014
+title: Show Open WebUI startup progress
+summary: Tell operators when Open WebUI is still warming up after first boot.
+status: triaged
+theme: ui
+owner: "@tu-vm-maintainers"
+source_issue: 214
+created: 2026-07-17
+last_reviewed: 2026-07-17
+related: []
+supersedes: []
+implementation: []
+---
+
+# Show Open WebUI startup progress
+
+## Summary
+Reuse the existing status polling to distinguish warming up from unavailable.
+
+## Problem and current evidence
+First boot can take 60–120 seconds, while the dashboard exposes only a generic
+unavailable state.
+
+## Existing capabilities and related suggestions
+The helper already reports Open WebUI health; no new endpoint is required.
+
+## Proposed outcome
+Show a text status, progress guidance, and troubleshooting link.
+```
+
+The remaining required headings still apply. If a new Issue proposes only
+different wording for the same warm-up state, update this record or its source
+Issue instead of creating a second suggestion.
 
 ## Deduplication workflow
 
@@ -254,7 +291,9 @@ input.
 - Invalid status, duplicate ID, missing decision rationale, and implemented
   records without delivery links fail validation.
 - Rejected and superseded ideas remain searchable.
-- All pages work with JavaScript disabled except enhanced local search/filtering.
+- Page content and direct links remain readable with JavaScript disabled;
+  local search, filters, and responsive navigation may progressively enhance
+  the experience.
 - A clean build makes no network request at runtime.
 - The published page identifies its source revision and supports an
   **Edit this page** link.

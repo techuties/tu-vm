@@ -2,6 +2,10 @@
 
 This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
 
+This README is the primary folder entry point. The shorter
+[`index.md`](./index.md) is an execution overview and should link back here
+rather than define a separate source of truth.
+
 ## Historical baseline used
 
 These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.
