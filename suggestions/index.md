@@ -51,7 +51,7 @@ Still open:
 
 - Representative MkDocs Material spike and framework decision record
 - Static `/docs/` site structure and navigation
-- Canonical suggestion frontmatter schema and generated views
+- Adopt the specified suggestion frontmatter schema and generate its views
 - Replace the CODEOWNERS placeholder and seed the documented label set
 
 ### Phase 2 (Acceleration)

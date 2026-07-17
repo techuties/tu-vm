@@ -43,6 +43,11 @@ jobs:
             suggestions/README.md
             suggestions/index.md
             suggestions/implementation-backlog.md
+            suggestions/website-historical-suggestions.md
+            suggestions/website-and-docs-framework.md
+            suggestions/website-community-pages.md
+            suggestions/website-community-governance.md
+            suggestions/website-day-to-day-tooling.md
 
       - name: Job summary — files checked
         if: always()
@@ -63,6 +68,11 @@ jobs:
             echo "| \`suggestions/README.md\` | Suggestions hub index |"
             echo "| \`suggestions/index.md\` | Suggestion map |"
             echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
+            echo "| \`suggestions/website-historical-suggestions.md\` | Historical duplicate baseline |"
+            echo "| \`suggestions/website-and-docs-framework.md\` | Website architecture contract |"
+            echo "| \`suggestions/website-community-pages.md\` | Markdown publishing contract |"
+            echo "| \`suggestions/website-community-governance.md\` | Community governance contract |"
+            echo "| \`suggestions/website-day-to-day-tooling.md\` | Website tooling contract |"
             echo ""
             echo "_Excluded URLs are listed in \`lychee.toml\` (same-repo \`/compare/\` templates and \`user-attachments\` assets). All other links in these files are checked, including same-repo URLs._"
           } >> "$GITHUB_STEP_SUMMARY"

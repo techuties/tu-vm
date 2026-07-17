@@ -232,11 +232,38 @@ The helper already reports Open WebUI health; no new endpoint is required.
 
 ## Proposed outcome
 Show a text status, progress guidance, and troubleshooting link.
+
+## Alternatives considered
+Changing the helper payload is unnecessary because the current health state is
+enough to distinguish warm-up in the dashboard.
+
+## Security, privacy, and operational impact
+The UI reads the existing same-origin status response and exposes no new route,
+credential, or telemetry.
+
+## Implementation slices
+First add explicit status copy, then add the playbook link and a browser smoke
+test.
+
+## Rollout and rollback
+Ship as a presentation-only dashboard change. Roll back the static asset if the
+state mapping is misleading.
+
+## Success measures
+The browser test distinguishes warming up from unavailable, and first-boot
+support reports caused by the ambiguous state decrease.
+
+## Decision
+Pending community discussion and maintainer review.
+
+## Delivery evidence
+Pending an implementation PR, browser test, and release reference.
 ```
 
-The remaining required headings still apply. If a new Issue proposes only
-different wording for the same warm-up state, update this record or its source
-Issue instead of creating a second suggestion.
+If a new Issue proposes only different wording for the same warm-up state, link
+it to `SUG-2026-014` as a possible duplicate and continue discussion on the
+source Issue. Do not create a second Markdown record unless the problem or
+acceptance criteria materially differ.
 
 ## Deduplication workflow
 
