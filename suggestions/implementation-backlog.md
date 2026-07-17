@@ -30,6 +30,50 @@ These directions are satisfied without a custom suggestions stack:
 
 ---
 
+## P1-0: Markdown-first community website
+
+### Scope
+
+Run a representative MkDocs Material spike, then publish a static `/docs/`
+surface that renders existing documentation and curated suggestions. GitHub
+Issues remain the intake/discussion system; the website must not introduce a
+custom submission API or database.
+
+Implement this as reviewable slices:
+
+1. Test real playbooks and representative suggestion states in a disposable
+   framework spike.
+2. Record the framework decision and static Nginx subpath behavior.
+3. Adopt the metadata and lifecycle contract from
+   [`website-community-pages.md`](./website-community-pages.md).
+4. Publish submit, status, decisions, implemented, and archive views.
+5. Add deterministic generation and checks described in
+   [`website-day-to-day-tooling.md`](./website-day-to-day-tooling.md).
+6. Link `/docs/` from the existing landing dashboard and root README.
+
+### Acceptance criteria
+
+- Source content remains Markdown and generated output is not a second source
+  of truth.
+- The site builds from a clean checkout with one documented command.
+- Nginx serves `/docs/` without a new runtime service or exposed port.
+- Local search works without internet access or hosted analytics.
+- CI rejects invalid suggestion metadata, duplicate IDs, broken internal links,
+  stale generated views, and static-build failures.
+- Keyboard navigation, mobile layout, status text, and focus visibility pass a
+  browser smoke test.
+- Existing landing, status, and control routes remain behaviorally unchanged.
+- Rollback only restores the previous static artifact and dashboard link.
+
+### Why this is not greenfield work
+
+It reuses the existing Nginx static surface, GitHub Issue Form,
+`CONTRIBUTING.md`, Lychee workflow, playbooks, and suggestion history. The only
+custom logic should be deterministic TU-VM metadata validation and index
+generation.
+
+---
+
 ## P1-1: Dynamic “What is new” content (optional polish)
 
 ### Scope
@@ -91,9 +135,11 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-0** — prove and publish the Markdown-first website foundation.
+2. **Next high-value recommendations** — supply-chain depth, repository hygiene,
+   live contract coverage, and startup UX.
+3. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+4. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -102,12 +148,12 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
 1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+2. **Label bootstrap as code** — Sync the label set already documented in [`CONTRIBUTING.md`](../CONTRIBUTING.md) so Issue Forms never reference missing labels.
+3. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
+4. **Playbook version notes** — Record the TU-VM major version and Compose behavior that changes each operator recipe.
+5. **Pull request template cleanup** — Remove the duplicated Security and Verification sections from [`.github/pull_request_template.md`](../.github/pull_request_template.md).
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
 7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+9. **Open WebUI warm-up state** — Reuse existing status polling to explain the expected first-boot delay and link to troubleshooting without adding a helper route.
+10. **n8n / AFFiNE maintainer workflows** — Optional LAN-only triage reminders behind Tier-2 services; do not ingest private Issues, security reports, or contributor personal data.

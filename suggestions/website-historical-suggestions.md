@@ -19,7 +19,10 @@ documentation so future planning can build on prior work.
   - Full Storage
   - Energy Save
 - Website implication:
-  - Community can vote and discuss profile presets and defaults.
+  - Community can discuss profile presets and use reactions on the source
+    GitHub Issue as one input to a documented maintainer decision.
+  - Do not copy changing vote totals into Markdown or create a separate voting
+    database.
 
 ## 2) Battery Status Integration
 - Status: proposed
