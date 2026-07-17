@@ -30,6 +30,50 @@ These directions are satisfied without a custom suggestions stack:
 
 ---
 
+## P1-0: Markdown-first community website
+
+### Scope
+
+Run a representative MkDocs Material spike, then publish a static `/docs/`
+surface that renders existing documentation and curated suggestions. GitHub
+Issues remain the intake/discussion system; the website must not introduce a
+custom submission API or database.
+
+Implement this as reviewable slices:
+
+1. Test real playbooks and representative suggestion states in a disposable
+   framework spike.
+2. Record the framework decision and static Nginx subpath behavior.
+3. Adopt the metadata and lifecycle contract from
+   [`website-community-pages.md`](./website-community-pages.md).
+4. Publish submit, status, decisions, implemented, and archive views.
+5. Add deterministic generation and checks described in
+   [`website-day-to-day-tooling.md`](./website-day-to-day-tooling.md).
+6. Link `/docs/` from the existing landing dashboard and root README.
+
+### Acceptance criteria
+
+- Source content remains Markdown and generated output is not a second source
+  of truth.
+- The site builds from a clean checkout with one documented command.
+- Nginx serves `/docs/` without a new runtime service or exposed port.
+- Local search works without internet access or hosted analytics.
+- CI rejects invalid suggestion metadata, duplicate IDs, broken internal links,
+  stale generated views, and static-build failures.
+- Keyboard navigation, mobile layout, status text, and focus visibility pass a
+  browser smoke test.
+- Existing landing, status, and control routes remain behaviorally unchanged.
+- Rollback only restores the previous static artifact and dashboard link.
+
+### Why this is not greenfield work
+
+It reuses the existing Nginx static surface, GitHub Issue Form,
+`CONTRIBUTING.md`, Lychee workflow, playbooks, and suggestion history. The only
+custom logic should be deterministic TU-VM metadata validation and index
+generation.
+
+---
+
 ## P1-1: Dynamic “What is new” content (optional polish)
 
 ### Scope
@@ -91,9 +135,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-0** — prove and publish the Markdown-first website foundation.
+2. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
+3. **P1-1** — only if operators want inline release bullets without clicking GitHub.
+4. **P2-1**, **P2-2**, **P2-3**
 
 ---
 
@@ -105,7 +150,7 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
 3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+5. **Community website foundation** — Implement **P1-0** using the canonical website page, metadata, and tooling contracts.
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
 7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.

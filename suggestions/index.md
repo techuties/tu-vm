@@ -11,16 +11,24 @@ The recommendations focus on:
 
 To avoid reinventing the wheel, we should standardize on proven open-source patterns, then customize only where the project has unique needs.
 
-## Suggestion map
+## Canonical suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
-   Defines how suggestions are proposed, reviewed, accepted, and implemented.
+1. [Historical suggestions](./website-historical-suggestions.md) — checks
+   project and proposal history before a new idea is created.
+2. [Website and documentation framework](./website-and-docs-framework.md) —
+   recommends a static, Markdown-first docs site that reuses Nginx and GitHub.
+3. [Website community pages](./website-community-pages.md) — defines the page
+   set, frontmatter contract, lifecycle, deduplication, and publishing rules.
+4. [Community governance](./website-community-governance.md) — defines
+   submission quality, human decisions, ownership, and transparent rationale.
+5. [Day-to-day tooling](./website-day-to-day-tooling.md) — specifies established
+   tools and deterministic automation for validation, generation, and triage.
+6. [Implementation backlog](./implementation-backlog.md) — separates shipped
+   capabilities from the next implementation slices.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
-   Recommends a docs website stack and contribution model for clear public communication.
-
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
-   Covers operational tooling, automation, quality gates, and contributor productivity.
+The folder also preserves older variants for historical context. New work
+should update the canonical path above when its problem and outcome overlap,
+rather than creating another similarly named file.
 
 ## Working principles
 
@@ -37,12 +45,15 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 
 Still open:
 
-- Dedicated docs site structure and navigation (optional static site later)
+- Representative MkDocs Material spike and framework decision record
+- Static `/docs/` site structure and navigation
+- Canonical suggestion frontmatter schema and generated views
 - Explicit maintainer label/ownership conventions documented beside Issues
 
 ### Phase 2 (Acceleration)
 
-- Automation for triage and stale-issue workflows (labels, bots)
+- Schema, Markdown, link, static-build, and accessibility checks
+- Human-reviewed duplicate suggestions and stale-record reminders
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
 

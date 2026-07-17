@@ -13,22 +13,29 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
-## Files in this folder
+## Canonical reading path
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
+The folder contains historical variants from earlier suggestion rounds. Start
+with this short path rather than treating similarly named files as competing
+plans:
 
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
+1. [`website-historical-suggestions.md`](./website-historical-suggestions.md) —
+   existing project ideas and the duplicate-prevention baseline.
+2. [`website-and-docs-framework.md`](./website-and-docs-framework.md) — static
+   website architecture, framework decision, delivery stages, and guardrails.
+3. [`website-community-pages.md`](./website-community-pages.md) — detailed
+   website page set, Markdown metadata contract, lifecycle, and publishing
+   acceptance criteria.
+4. [`website-community-governance.md`](./website-community-governance.md) —
+   roles, quality bar, decisions, and communication standards.
+5. [`website-day-to-day-tooling.md`](./website-day-to-day-tooling.md) —
+   reuse-first validation, generation, triage, CI, and maintainer commands.
+6. [`implementation-backlog.md`](./implementation-backlog.md) — current
+   repository baseline and prioritized implementation slices.
 
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+Other files are retained as historical research until maintainers complete an
+archive/consolidation pass. A new proposal should extend a canonical file when
+the problem and desired outcome already match.
 
 ## Design principles for all suggestions
 
@@ -37,6 +44,9 @@ Recurring themes identified across historical branches:
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
 
-To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
+To submit an idea via GitHub, see
+[`CONTRIBUTING.md`](../CONTRIBUTING.md) at the repository root. GitHub Issues
+remain the intake and discussion system; the proposed website is a static,
+curated view rather than a second suggestions database.
 
 For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).

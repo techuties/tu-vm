@@ -1,118 +1,267 @@
-# Website Community Pages (Markdown Suggestions)
+# Website Community Pages and Markdown Publishing Model
 
-These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
+## Status
 
-## Goals for website pages
+**Proposed.** This page defines the canonical website page set and the contract
+for publishing community suggestions from Markdown.
 
-- Make it obvious how to submit high-quality suggestions.
-- Show transparent status and decision rationale.
-- Help contributors avoid duplicates before submitting.
-- Keep maintainers from manually repeating the same guidance.
+## Problem
 
-## Recommended page set
+TU-VM already has a GitHub suggestion Issue Form, contribution guidance, a
+large historical `suggestions/` corpus, and a static Nginx dashboard. Creating a
+new submission database or embedding a custom forum would duplicate those
+systems and create another security boundary.
 
-### 1) `community/suggestions/index.md`
+The missing layer is a clear website view that turns existing records into:
 
-Purpose:
+- instructions for contributors;
+- a deduplicated status board;
+- durable decision rationale; and
+- evidence that accepted ideas were actually delivered.
 
-- Landing page for all community suggestions content.
-- Explains lifecycle and links to active suggestion board.
+## Source-of-truth model
 
-Suggested sections:
+| Information | Canonical source | Website behavior |
+|---|---|---|
+| New idea and discussion | GitHub Issue using `suggestion.yml` | Link to Issue; do not copy comments |
+| Stable proposal | One curated file in `suggestions/` | Render as a suggestion page |
+| Lifecycle and owner | Suggestion frontmatter | Generate status views |
+| Decision rationale | Suggestion decision section | Include in decisions index |
+| Implementation | Pull request, commit, and release | Link from the suggestion |
+| Operational instructions | Existing docs/playbooks | Link; do not duplicate |
 
-- Why suggestions matter
-- How suggestions are evaluated
-- Quick links (submit, status board, decisions, implemented ideas)
+Website indexes are generated views. Contributors update one suggestion record,
+not a status board, decision log, and showcase independently.
 
-### 2) `community/suggestions/how-to-submit.md`
+## Recommended website page set
 
-Purpose:
+### `community/suggestions/index.md`
 
-- Contributor guide for writing high-signal suggestions.
+The landing page should include:
 
-Suggested sections:
+- a plain-language explanation of how community suggestions influence TU-VM;
+- one primary **Submit an idea** link to the existing GitHub Issue Form;
+- links to active, decided, implemented, and archived views;
+- the lifecycle and expected information at each state;
+- a warning to search Issues and historical suggestions before submission; and
+- the date and revision used to build the page.
 
-- Before you submit (dedupe checks)
-- Required template fields
-- Example strong suggestion
-- Example extension (instead of duplicate)
+### `community/suggestions/how-to-submit.md`
 
-### 3) `community/suggestions/status-board.md`
+This contributor guide should provide:
 
-Purpose:
+1. Search instructions for open/closed Issues and this folder.
+2. A checklist for identifying an extension to an existing proposal.
+3. Required problem, current behavior, constraints, reuse, risk, and success
+   fields.
+4. One strong example and one duplicate-to-extension example.
+5. Security reporting boundaries, with a link to `SECURITY.md`.
+6. What happens after submission and how decisions are communicated.
 
-- Public, human-readable view of suggestion pipeline.
+It should link directly to the Issue Form rather than implementing a website
+form.
 
-Suggested sections:
+### `community/suggestions/status.md`
 
-- Table by status (new, triaged, accepted, in-progress, shipped)
-- Last-updated timestamp
-- Links to decision records
+Generate this page from frontmatter and group records into:
 
-### 4) `community/suggestions/decisions.md`
+- needs triage;
+- under discussion;
+- accepted;
+- in progress;
+- needs rework;
+- deferred; and
+- recently implemented.
 
-Purpose:
+Each entry should show only ID, title, theme, status, owner, last review date,
+and a link. Keep long descriptions on the detail page so the board remains
+usable on mobile.
 
-- Decision log with rationale for accepted/rejected/deferred items.
+### `community/suggestions/decisions.md`
 
-Suggested sections:
+Generate accepted, rejected, deferred, and superseded decisions. Each row must
+link to a record containing:
 
-- Decision entry format
-- Accepted with tradeoffs
-- Deferred with re-open conditions
-- Rejected with alternatives
+- decision date and outcome;
+- concise rationale;
+- material constraints or trade-offs;
+- alternatives considered; and
+- re-open conditions where applicable.
 
-### 5) `community/suggestions/implemented.md`
+An empty rationale is a publishing error, not a valid decision.
 
-Purpose:
+### `community/suggestions/implemented.md`
 
-- Changelog-adjacent showcase of suggestions that shipped.
+Generate a compact record of delivered ideas. Every entry must include:
 
-Suggested sections:
+- implementation PR or commit;
+- release or changelog reference;
+- validation evidence;
+- rollout and rollback notes where behavior changed; and
+- measured result or a scheduled measurement action.
 
-- Implemented suggestion summary
-- What changed in product/operations
-- Validation evidence
-- Link to release/changelog entry
+This is a community impact view, not a replacement changelog.
 
-## Suggested metadata format (front matter)
+### `community/suggestions/archive.md`
 
-Use a consistent metadata block in each website markdown page:
+Generate rejected, superseded, and withdrawn items. Archive entries stay
+searchable because their rationale prevents the same proposal from being
+recreated later.
+
+### `community/suggestions/<id>-<slug>.md`
+
+Render one detail page per curated proposal. The page should expose source
+metadata, proposal content, relationships, decision history, and delivery
+evidence without importing Issue comments.
+
+## Suggestion metadata contract
+
+Use YAML frontmatter on curated records:
 
 ```yaml
-title: Community Suggestions - Status Board
-description: Public status and progress of community suggestions.
-last_updated: YYYY-MM-DD
-owner: maintainer-or-team
+---
+id: SUG-2026-001
+title: Short, specific title
+summary: One sentence describing the user or operator outcome.
+status: discussing
+theme: documentation
+owner: "@github-handle-or-team"
+source_issue: 123
+created: 2026-07-17
+last_reviewed: 2026-07-17
+related:
+  - SUG-2026-000
+supersedes: []
+implementation: []
+---
 ```
 
-For individual suggestion entries (if represented as markdown pages):
+### Required fields
 
-```yaml
-id: SUG-YYYY-NNN
-status: triaged
-theme: operations
-impact: high
-created_at: YYYY-MM-DD
-updated_at: YYYY-MM-DD
+| Field | Rule |
+|---|---|
+| `id` | Stable `SUG-YYYY-NNN`; never reused |
+| `title` | Unique, descriptive, and free of status text |
+| `summary` | One sentence; describes outcome rather than implementation |
+| `status` | One value from the lifecycle below |
+| `theme` | `documentation`, `operations`, `security`, `automation`, `ui`, `integration`, or `governance` |
+| `owner` | Accountable GitHub user/team, or `unassigned` before triage |
+| `source_issue` | Public Issue number; omit only for imported historical records |
+| `created` | ISO date |
+| `last_reviewed` | ISO date updated by a meaningful review |
+| `related` | IDs checked during deduplication; may be empty |
+| `supersedes` | IDs replaced by this record; may be empty |
+| `implementation` | PR, commit, or release links; required when implemented |
+
+Do not add vote totals, priority scores, or comment counts to source files.
+Those are changing GitHub data and should be displayed only when fetched during
+a build with a safe fallback.
+
+## Lifecycle
+
+Use one vocabulary across Issues, Markdown, labels, and website filters:
+
+| Status | Meaning | Required next action |
+|---|---|---|
+| `submitted` | Intake received; not reviewed | Assign triage owner |
+| `triaged` | Scope and duplicate search complete | Open or schedule discussion |
+| `discussing` | Alternatives and constraints are being evaluated | Record decision |
+| `accepted` | Approved and scoped | Link implementation work |
+| `in-progress` | An implementation PR or branch exists | Validate and release |
+| `needs-rework` | Valuable idea lacks required evidence or scope | Contributor revises |
+| `deferred` | Valid but blocked by a named condition | Record re-open condition |
+| `implemented` | Released with evidence | Measure result |
+| `rejected` | Decision made not to proceed | Preserve rationale |
+| `superseded` | Replaced by a linked proposal | Follow replacement |
+| `withdrawn` | Author or maintainer closed before decision | Preserve short reason |
+
+Statuses describe lifecycle, not priority. Priority belongs in planning tools
+and can change without rewriting history.
+
+## Required suggestion body
+
+Every curated detail page should use this structure:
+
+```markdown
+# <Title>
+
+## Summary
+## Problem and current evidence
+## Existing capabilities and related suggestions
+## Proposed outcome
+## Alternatives considered
+## Security, privacy, and operational impact
+## Implementation slices
+## Rollout and rollback
+## Success measures
+## Decision
+## Delivery evidence
 ```
 
-## Information architecture guidance
+Historical imports may use `not-applicable` for missing fields, but new records
+must not.
 
-- Keep suggestion pages in a single docs subtree for discoverability.
-- Ensure every status-board row links to a decision entry or rationale.
-- Keep "implemented" entries short and link to technical details elsewhere.
-- Add a visible note: "Check historical suggestions before submitting."
+## Deduplication workflow
 
-## Accessibility and readability guidance
+Before promoting an Issue into a curated Markdown record:
 
-- Use short sections and bullet-heavy structure for quick scanning.
-- Keep tables concise and avoid excessive column count.
-- Ensure link text is descriptive (avoid generic "click here").
-- Use explicit dates and statuses to avoid ambiguity.
+1. Search Issue titles and bodies for the problem and proposed outcome.
+2. Search `suggestions/` by component, theme, and synonyms.
+3. Check [`website-historical-suggestions.md`](./website-historical-suggestions.md)
+   and `CHANGELOG.md`.
+4. Link all related IDs in `related`.
+5. Extend an existing record when the new idea has the same problem and desired
+   outcome.
+6. Create a new record only when scope or acceptance criteria materially differ.
+7. If replacing prior guidance, set `supersedes` and mark the old record
+   `superseded`.
 
-## Rollout recommendation
+Automated similarity checks may suggest matches but must not close or merge a
+community contribution without human review.
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+## Validation and generation
+
+Use established tools before writing custom infrastructure:
+
+- a JSON Schema-compatible YAML validator for metadata;
+- Markdownlint for style and heading consistency;
+- the existing Lychee setup for links;
+- MkDocs Material for rendering and local search;
+- GitHub Issue Forms and labels for intake and workflow; and
+- a small deterministic index generator only for repository-specific status
+  views.
+
+The generator should sort by stable keys, emit no timestamps unless explicitly
+requested, fail on duplicate IDs, and produce identical output from identical
+input.
+
+## Accessibility and privacy requirements
+
+- Status must be represented by text, not color alone.
+- Tables require useful headers and must collapse cleanly on narrow screens.
+- All filters and search controls must be keyboard operable.
+- Dates use unambiguous ISO format.
+- Focus order follows visual order and visible focus is retained.
+- Do not publish email addresses, private Issue content, raw analytics, tokens,
+  hostnames, or local service data.
+- Do not load third-party analytics or hosted search by default.
+
+## Acceptance criteria
+
+- Contributors can find the submission path and duplicate-search instructions
+  within two navigation actions.
+- One metadata edit updates all generated views without manual synchronization.
+- Invalid status, duplicate ID, missing decision rationale, and implemented
+  records without delivery links fail validation.
+- Rejected and superseded ideas remain searchable.
+- All pages work with JavaScript disabled except enhanced local search/filtering.
+- A clean build makes no network request at runtime.
+- The published page identifies its source revision and supports an
+  **Edit this page** link.
+
+## Related suggestions
+
+- [Website and documentation framework](./website-and-docs-framework.md)
+- [Website community governance](./website-community-governance.md)
+- [Website day-to-day tooling](./website-day-to-day-tooling.md)
+- [Historical suggestions baseline](./website-historical-suggestions.md)
