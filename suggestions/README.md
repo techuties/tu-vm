@@ -2,7 +2,21 @@
 
 This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
 
-## Historical baseline used
+## Start here
+
+The folder contains historical documents from many earlier suggestion branches. Use this maintained path before opening or adding another proposal:
+
+1. [`index.md`](./index.md) — current scope and execution sequence.
+2. [`website-and-docs-framework.md`](./website-and-docs-framework.md) — reuse-first website architecture and framework adoption gates.
+3. [`website-community-pages.md`](./website-community-pages.md) — Markdown page model, metadata, lifecycle, and publishing workflow.
+4. [`community-system-framework.md`](./community-system-framework.md) — proposal review and decision model.
+5. [`day-to-day-tooling.md`](./day-to-day-tooling.md) — contributor and maintainer tooling.
+6. [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md) — safe community extension contract.
+7. [`implementation-backlog.md`](./implementation-backlog.md) — implemented baseline and prioritized next work.
+
+The other files are useful historical evidence. They are not separate sources of truth. If a new idea overlaps an existing canonical page, update that page and link the relevant GitHub issue instead of adding another Markdown file.
+
+## Historical baseline
 
 These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.
 
@@ -13,22 +27,15 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
-## Files in this folder
+## Reuse and de-duplication rule
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
+Before changing this folder:
 
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
-
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+1. Search canonical pages and GitHub issues for the problem, not only the proposed solution name.
+2. Mark the current repository behavior with file-level evidence.
+3. Extend the closest canonical page; do not create a parallel framework comparison or roadmap.
+4. Record whether the idea is `proposed`, `accepted`, `in-progress`, `implemented`, `deferred`, or `superseded`.
+5. Link implementation to an issue/PR and release note rather than maintaining a second private status database.
 
 ## Design principles for all suggestions
 
@@ -39,4 +46,4 @@ Recurring themes identified across historical branches:
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
-For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).
+For the trimmed backlog, implemented baseline, and prioritized next recommendations, see [`implementation-backlog.md`](./implementation-backlog.md).

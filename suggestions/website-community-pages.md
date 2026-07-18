@@ -1,118 +1,213 @@
 # Website Community Pages (Markdown Suggestions)
 
-These are suggested markdown pages for a community-facing suggestions system on the project website/docs surface.
+This page defines the reusable Markdown publishing model for a community-facing suggestions section. It complements GitHub Issues; it does not introduce another submission, voting, comment, or authentication system.
 
-## Goals for website pages
+## Source-of-truth model
 
-- Make it obvious how to submit high-quality suggestions.
-- Show transparent status and decision rationale.
-- Help contributors avoid duplicates before submitting.
-- Keep maintainers from manually repeating the same guidance.
+| Information | Canonical source | Website treatment |
+|---|---|---|
+| Proposal and discussion | GitHub Issue created from the existing suggestion form | Link to the issue; summarize only accepted scope and status. |
+| Implementation | Linked pull request(s) | Show implementation links and verification evidence. |
+| Release outcome | GitHub Release / `CHANGELOG.md` | Show the shipped version and operator-visible outcome. |
+| Security report | `SECURITY.md` and private advisory | Link only to private reporting guidance; never mirror report details. |
+| Historical architecture idea | Existing file in `suggestions/` | Link or consolidate into a canonical page before creating another file. |
+
+Website pages are curated, reviewable views. GitHub labels and linked artifacts remain the live workflow.
 
 ## Recommended page set
 
 ### 1) `community/suggestions/index.md`
 
-Purpose:
-
-- Landing page for all community suggestions content.
-- Explains lifecycle and links to active suggestion board.
-
-Suggested sections:
-
-- Why suggestions matter
-- How suggestions are evaluated
-- Quick links (submit, status board, decisions, implemented ideas)
+- Explain the lifecycle and reuse rule.
+- Link to the existing GitHub suggestion form.
+- Show generated counts by status and theme.
+- List recently updated, accepted, and good-first-contribution items.
+- Include a clear security-reporting warning beside the submit link.
 
 ### 2) `community/suggestions/how-to-submit.md`
 
-Purpose:
-
-- Contributor guide for writing high-signal suggestions.
-
-Suggested sections:
-
-- Before you submit (dedupe checks)
-- Required template fields
-- Example strong suggestion
-- Example extension (instead of duplicate)
+- Search open/closed issues and canonical suggestion pages first.
+- State the user problem and current behavior.
+- Identify existing components or frameworks that can be reused.
+- Define constraints, security impact, rollout/rollback, and acceptance criteria.
+- Show one strong example and one duplicate that should be added to an existing issue.
 
 ### 3) `community/suggestions/status-board.md`
 
-Purpose:
-
-- Public, human-readable view of suggestion pipeline.
-
-Suggested sections:
-
-- Table by status (new, triaged, accepted, in-progress, shipped)
-- Last-updated timestamp
-- Links to decision records
+- Generate a read-only table from curated metadata.
+- Filter by lifecycle state, theme, and contribution readiness.
+- Show last verified date and canonical issue for every row.
+- Never infer `accepted` or `shipped` from free text; require explicit reviewed metadata.
 
 ### 4) `community/suggestions/decisions.md`
 
-Purpose:
-
-- Decision log with rationale for accepted/rejected/deferred items.
-
-Suggested sections:
-
-- Decision entry format
-- Accepted with tradeoffs
-- Deferred with re-open conditions
-- Rejected with alternatives
+- Record decision, rationale, alternatives, constraints, and decision date.
+- For deferred work, state the measurable reopen condition.
+- For superseded work, link the replacement.
+- Keep sensitive security reasoning in private channels and publish only safe conclusions.
 
 ### 5) `community/suggestions/implemented.md`
 
-Purpose:
+- Summarize the operator-visible outcome rather than repeating release notes.
+- Link the originating issue, implementation PR, validation evidence, and release.
+- Include follow-up metrics or rollback notes when relevant.
 
-- Changelog-adjacent showcase of suggestions that shipped.
+### 6) `community/integrations/index.md`
 
-Suggested sections:
+- List reviewed extensions and MCP integrations using the contract in [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md).
+- Show owner, compatibility range, capabilities, network access, security review, and support status.
+- Mark community-maintained integrations distinctly from core-supported services.
 
-- Implemented suggestion summary
-- What changed in product/operations
-- Validation evidence
-- Link to release/changelog entry
+## Metadata contract
 
-## Suggested metadata format (front matter)
-
-Use a consistent metadata block in each website markdown page:
+Use page metadata for all website pages:
 
 ```yaml
+---
 title: Community Suggestions - Status Board
 description: Public status and progress of community suggestions.
-last_updated: YYYY-MM-DD
+page_status: maintained
+last_verified: 2026-07-18
 owner: maintainer-or-team
+source: suggestions
+---
 ```
 
-For individual suggestion entries (if represented as markdown pages):
+Use lifecycle metadata only for a curated suggestion page:
 
 ```yaml
+---
 id: SUG-YYYY-NNN
-status: triaged
+title: Short outcome-oriented title
+summary: One sentence describing the user value
+status: proposed
 theme: operations
 impact: high
-created_at: YYYY-MM-DD
-updated_at: YYYY-MM-DD
+issue_url: https://github.com/techuties/tu-vm/issues/NNN
+decision_url: null
+implementation_urls: []
+shipped_in: null
+owner: unassigned
+last_verified: 2026-07-18
+related:
+  - SUG-YYYY-NNN
+---
 ```
 
-## Information architecture guidance
+Required lifecycle values:
 
-- Keep suggestion pages in a single docs subtree for discoverability.
-- Ensure every status-board row links to a decision entry or rationale.
-- Keep "implemented" entries short and link to technical details elsewhere.
-- Add a visible note: "Check historical suggestions before submitting."
+- `proposed` — submitted, not approved.
+- `triaged` — scope and duplicate check complete.
+- `discussing` — alternatives or constraints are under review.
+- `accepted` — approved with explicit acceptance criteria.
+- `in-progress` — implementation is linked and active.
+- `implemented` — merged and validated, not necessarily released.
+- `shipped` — included in a named release.
+- `deferred` — paused with a stated reopen condition.
+- `rejected` — closed with rationale.
+- `superseded` — replaced by a linked canonical proposal.
 
-## Accessibility and readability guidance
+`page_status` describes document maintenance (`maintained`, `historical`, or `superseded`) and must not be confused with proposal `status`.
 
-- Use short sections and bullet-heavy structure for quick scanning.
-- Keep tables concise and avoid excessive column count.
-- Ensure link text is descriptive (avoid generic "click here").
-- Use explicit dates and statuses to avoid ambiguity.
+## Curated suggestion body template
 
-## Rollout recommendation
+```markdown
+# Outcome-oriented title
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+## Problem
+Describe the observable user or maintainer pain.
+
+## Current state
+Link repository evidence and existing behavior.
+
+## Reuse assessment
+List existing TU-VM components and mature external frameworks considered.
+
+## Proposed outcome
+Define behavior and boundaries without prescribing unnecessary implementation.
+
+## Security and operational impact
+Cover network exposure, data, secrets, resources, compatibility, and maintenance.
+
+## Delivery and rollback
+Split work into independently reviewable changes and state how each can be disabled.
+
+## Acceptance criteria
+List testable outcomes.
+
+## Decision and evidence
+Link issue discussion, decision, PRs, validation, and release.
+```
+
+## Publishing workflow
+
+1. A contributor submits the existing GitHub issue form after searching for duplicates.
+2. Triage links related issues and the nearest canonical suggestion page.
+3. Maintainers apply lifecycle labels in GitHub.
+4. Once scope is accepted, a PR updates or adds one curated website page with the issue URL.
+5. CI validates metadata, lifecycle values, local links, and duplicate IDs.
+6. A generator builds navigation/status pages from metadata; generated files must be reproducible.
+7. Implementation PRs link the issue and update evidence fields.
+8. Release automation marks the shipped version or opens a small docs follow-up.
+
+Draft discussion should not create a new Markdown page for every issue. Curate pages for accepted work, durable decisions, high-value historical context, or themes that consolidate several duplicate issues.
+
+## De-duplication workflow
+
+Before accepting a website page:
+
+1. Normalize the problem into key terms and affected components.
+2. Search filenames, titles, headings, `related` IDs, and open/closed GitHub issues.
+3. Add a new angle to the canonical page when the desired outcome is the same.
+4. Use `superseded` when an old approach is replaced, preserving its rationale.
+5. Allow a separate proposal only when its acceptance criteria and deployment boundary can be evaluated independently.
+
+An optional similarity report may suggest related pages, but it must never auto-close an issue or make a governance decision.
+
+## Validation tooling
+
+A single repository command should support local and CI use:
+
+```bash
+./scripts/suggestions-lint.sh
+```
+
+The proposed validator should:
+
+- parse frontmatter safely,
+- reject duplicate IDs and invalid status values,
+- verify required fields by page type,
+- verify relative links and referenced local paths,
+- require an issue for `accepted` and later states,
+- require implementation evidence for `implemented`,
+- require a release identifier for `shipped`,
+- detect stale `last_verified` values as a warning,
+- produce likely duplicate hints without blocking on low-confidence matches,
+- offer machine-readable output for a future static-site generator.
+
+Start the metadata checks in warning mode on historical files. Enforce them only for canonical pages and changed files until the archive is normalized.
+
+## Accessibility and privacy
+
+- Pair status color with visible text.
+- Ensure generated filters and navigation work by keyboard.
+- Provide a text summary for charts; avoid making contributor ranking a gamified leaderboard.
+- Publish aggregate workflow metrics only. Do not expose contributor email addresses, local operator data, or private security activity.
+- Keep tables usable on small screens and preserve headings when rendered as cards.
+
+## Implementation stages
+
+1. Declare the canonical pages and lifecycle; link the existing issue form.
+2. Add metadata validation for canonical/changed pages.
+3. Generate the status board and navigation.
+4. Publish through the selected static framework only after the adoption gate is met.
+5. Add aggregate metrics or integration catalog views after their sources are reliable.
+
+## Acceptance criteria
+
+- Contributors have one obvious submission path and one canonical status source.
+- Every accepted or later website entry links to a GitHub issue.
+- Every shipped entry links to implementation and release evidence.
+- Duplicate IDs, invalid states, and broken local links fail before publication.
+- The generated website contains no write API, privileged helper endpoint, or private operator data.
+- Historical documents remain discoverable without appearing as active competing proposals.

@@ -43,6 +43,70 @@ Static links to [latest release](https://github.com/techuties/tu-vm/releases/lat
 
 ---
 
+## P1-2: Canonical Markdown publishing and de-duplication
+
+### Scope
+
+Turn the existing suggestion archive into a maintainable website source without creating a separate suggestions application:
+
+- Declare the canonical reading path in [`README.md`](./README.md).
+- Apply the metadata/lifecycle contract in [`website-community-pages.md`](./website-community-pages.md).
+- Add a validator for IDs, lifecycle states, required evidence, and local links.
+- Generate navigation and a read-only status board from canonical metadata.
+- Treat GitHub Issues as the proposal/discussion source of truth.
+
+### Acceptance criteria
+
+- Changed canonical pages pass the same validation locally and in CI.
+- Historical duplicates remain discoverable but cannot appear as separate active proposals.
+- Accepted and later entries link to an issue; implemented/shipped entries link to delivery evidence.
+- The website requires no new database, auth system, or write API.
+
+---
+
+## P1-3: Community extension pilot
+
+### Scope
+
+Implement the smallest useful slice of [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md):
+
+- versioned `extension.yaml` schema,
+- one template and one reference extension,
+- validation for compatibility, capabilities, privileged settings, routes, ports, networks, and secrets declarations,
+- `./tu-vm.sh extension list` plus a dry-run validation command,
+- read-only website compatibility catalog generated from extension metadata.
+
+Enable/disable automation should follow only after the validator and pilot package prove the contract.
+
+### Acceptance criteria
+
+- A contributor can scaffold and validate an extension without editing core service definitions.
+- Invalid compatibility ranges, route/port conflicts, privileged mode, and undeclared external networks produce actionable failures.
+- The catalog distinguishes core-supported and community-maintained integrations.
+- Pilot removal leaves the Tier 1 stack unchanged.
+
+---
+
+## P1-4: Live helper contract in CI
+
+### Scope
+
+Complement the static `/status/full` fixture with a minimal live helper test:
+
+- run the smallest Compose or direct Flask test environment,
+- execute [`scripts/helper-contract-check.sh`](../scripts/helper-contract-check.sh),
+- validate status, announcements, and updates response shapes,
+- assert control routes reject unauthenticated requests,
+- preserve the fixture validator as the fast static check.
+
+### Acceptance criteria
+
+- Pull requests touching helper status/control behavior exercise a running endpoint.
+- Response drift between code and fixture fails with a field-level message.
+- The job does not require the complete Tier 1 stack or privileged host operations.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -91,9 +155,11 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ## Suggested implementation order
 
-1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+1. **P1-2** — stop suggestion duplication before publishing more website pages.
+2. **P1-4** and image security scanning — strengthen contributor feedback and operator trust.
+3. **P1-3** — pilot the community extension path on validated foundations.
+4. **P2-1** then **P2-2** — modularize the dashboard before browser coverage grows.
+5. **P1-1** and **P2-3** — optional polish and controlled experiments.
 
 ---
 
@@ -101,13 +167,13 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+1. **Canonical suggestion publishing** — metadata validation, generated index, and GitHub evidence links (**P1-2**).
+2. **Trivy (or Grype) image CVE scans** — iterate Compose images with actionable severity thresholds, separate from today’s config-only scan.
+3. **Live helper contract test** — minimal runtime check for status and control boundaries (**P1-4**).
+4. **Community extension pilot** — schema, validator, template, reference package, and compatibility catalog (**P1-3**).
+5. **Incremental dashboard asset extraction** — break CSS/JS out of [`nginx/html/index.html`](../nginx/html/index.html); add ESLint/stylelint (**P2-1**).
+6. **Playwright smoke tests** — Tier 1 flows against a headless Nginx fixture (**P2-2**).
+7. **Playbook version notes** — short TU-VM major-version/command-behavior matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md).
+8. **Tighten Trivy gate and export an SBOM** — fail on triaged HIGH/CRITICAL findings; attach CycloneDX/SPDX output to releases.
+9. **Markdown style lint** — use a narrow rule set for `docs/`, canonical suggestions, and root policy files.
+10. **Feature-flag pattern for dashboard experiments** — env-driven toggles before large UI changes (**P2-3**).
