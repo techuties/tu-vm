@@ -1,101 +1,140 @@
 # Website and Documentation Framework
 
-## Goal
+## Decision
 
-Create a documentation website that makes community participation simple: discover proposals, understand standards, and contribute quickly.
+Keep the operational dashboard and the community documentation as separate surfaces:
 
-## Recommended stack
+- `nginx/html/index.html` remains the resilient, low-dependency control plane.
+- Markdown in the repository remains the source for guides and curated proposal summaries.
+- GitHub Issues remains the suggestion intake and discussion system.
+- A static documentation framework is introduced only when navigation, search, or versioning can no longer be maintained well in the repository.
 
-To avoid custom reinvention, use a mature docs framework:
+This separation avoids coupling service controls to a public content stack and avoids building a second issue tracker, voting database, or moderation API.
 
-- **Primary recommendation**: Docusaurus
-  - Excellent markdown support, versioning, and community plugin ecosystem
-  - Built-in search integration options
-  - Strong navigation and contributor-friendly structure
+## Existing foundation to reuse
 
-- **Alternative**: MkDocs Material
-  - Fast setup, strong markdown ergonomics, strong readability defaults
-  - Good for lightweight docs sites with lower maintenance overhead
+| Need | Existing source | Reuse rule |
+|---|---|---|
+| Suggestions | [Idea / suggestion issue form](../.github/ISSUE_TEMPLATE/suggestion.yml) | Link to Issues; do not create another submission API. |
+| Contribution process | [`CONTRIBUTING.md`](../CONTRIBUTING.md) | Render or link it; do not fork its instructions. |
+| Security reporting | [`SECURITY.md`](../SECURITY.md) | Keep private-reporting language canonical. |
+| Operations content | [`docs/playbooks/README.md`](../docs/playbooks/README.md) | Split into pages only when a static site is adopted. |
+| Release history | [`CHANGELOG.md`](../CHANGELOG.md) and GitHub Releases | Generate summaries or links; do not maintain parallel release notes. |
+| Runtime health | helper `/status/*` and the Nginx dashboard | Never expose control endpoints through a public docs build. |
+| Content quality | docs link workflow and pre-commit hooks | Extend the existing checks before adding another toolchain. |
+
+## Framework adoption gate
+
+Do not add a JavaScript or Python docs toolchain only to render the current small page set. Adopt a framework when at least two of these conditions are true:
+
+1. Operators need versioned documentation for supported TU-VM releases.
+2. Navigation spans enough pages that the repository index is hard to use.
+3. Local full-text search becomes a repeated user request.
+4. Reusable callouts, compatibility tables, or generated indexes reduce measurable maintenance work.
+5. A maintainer is assigned to dependency updates and broken-build ownership.
+
+Until then, Markdown plus GitHub rendering is the lowest-risk website publishing system.
+
+## Framework selection
+
+Choose one static framework after a small proof of concept; do not maintain multiple implementations.
+
+| Option | Choose when | Strengths | Cost / guardrail |
+|---|---|---|---|
+| **Astro Starlight** (preferred default) | Static docs need fast builds, local search, and occasional custom components | Accessible defaults, Markdown/MDX, static output, lightweight runtime | Adds Node dependencies; pin the package manager and commit the lockfile. |
+| **Docusaurus** | Versioned docs and a large plugin/community ecosystem are primary requirements | Mature versioning, navigation, localization, search integrations | Heavier client bundle and configuration; avoid if versioning is unused. |
+| **MkDocs Material** | Maintainers prefer Python and almost all content stays Markdown-only | Simple authoring, strong navigation/search, broad docs adoption | Python environment becomes part of contributor setup. |
+| **Next.js or another SSR app** | Authenticated, transactional community features are proven requirements | Dynamic application ecosystem | Not justified for static docs or issue summaries; requires a new runtime and security boundary. |
+
+The proof of concept should render the same representative pages in the leading two candidates: one playbook, one suggestion status page, and one release/compatibility page. Compare build reproducibility, keyboard navigation, search, offline behavior, container image size, and maintenance surface.
+
+## Target architecture
+
+```text
+GitHub Issues ── discussion and lifecycle ──┐
+                                            ├─ curated Markdown ── static docs build
+Repository docs ── operational truth ───────┘                         │
+                                                                       └─ Nginx read-only route
+
+helper API ── runtime status/control ── existing operational dashboard only
+```
+
+The static build must not require PostgreSQL, a new community API, or browser calls to GitHub. If recent issue/release data is shown, generate a cached JSON snapshot in CI with a safe empty-state fallback. Use a read-only token with the minimum repository scope, export only reviewed fields (issue number, title, public labels/status, and public URLs), exclude author email/body/comment text by default, and discard the snapshot when generation fails rather than serving stale private data.
 
 ## Information architecture
 
-Proposed top-level site sections:
+1. **Get started** — install, architecture overview, first health check.
+2. **Operate** — playbooks, backup/restore, upgrades, troubleshooting.
+3. **Integrate** — supported MCP tools, extension contract, compatibility.
+4. **Contribute** — contribution guide, local checks, ownership, security.
+5. **Suggestions** — submit link, lifecycle, curated status, decisions, shipped outcomes.
+6. **Releases** — changelog, version compatibility, migration notes.
 
-1. **Getting Started**
-   - Quick setup
-   - System overview
-   - Core workflows
+Each page should name its canonical source and include an “Edit this page” link when publicly hosted.
 
-2. **Suggestions**
-   - New suggestions
-   - Accepted suggestions
-   - Implemented suggestions
-   - Archived/deferred suggestions
+## Publishing and automation
 
-3. **Operations**
-   - Runbooks
-   - Troubleshooting
-   - Security practices
+Implement automation incrementally:
 
-4. **Community**
-   - Contribution guide
-   - Review process
-   - Governance model
+1. Keep link checking scoped to the canonical suggestion pages.
+2. Add a narrow markdownlint configuration for heading order, fenced code languages, and duplicate headings.
+3. Validate suggestion metadata and internal links with one repository script.
+4. Generate navigation and status indexes from metadata; fail if generated output is stale.
+5. Add build and accessibility checks only when the static site exists.
+6. Add browser smoke tests for navigation, search, mobile layout, and broken client-side routes.
 
-## Suggestion page design
+Automation should produce actionable file-and-line errors and run through the same command locally and in CI.
 
-Each suggestion page should include:
+## Security, privacy, and accessibility gates
 
-- Title + one-line summary
-- Status badge (`draft`, `review`, `accepted`, etc.)
-- Problem and context
-- Existing alternatives reviewed
-- Proposed approach
-- Impact and risks
-- Implementation checklist
-- Decision log entries (if any)
+- Publish only read-only project content; keep `/control/*`, tokens, allowlists, local hostnames, and operator logs out of the public build.
+- Keep external analytics disabled by default. If adopted, document retention and honor opt-out; prefer no-cookie, aggregate analytics.
+- Bundle or self-host assets where practical so a LAN deployment remains useful without third-party availability.
+- Require semantic landmarks, ordered headings, visible focus, keyboard navigation, descriptive link text, and WCAG 2.2 AA contrast.
+- Respect reduced-motion preferences and test layouts at narrow mobile widths.
+- Give diagrams text alternatives; give any charts accessible summaries and non-color-only status labels.
 
-## Website automation suggestions
+## Implementation stages
 
-### Link and structure quality
-- Run markdown lint and link checks in CI on every PR
-- Prevent merges when required suggestion fields are missing
+### Stage 1 — curate without a framework
 
-### Search and discoverability
-- Enable full-text search (Algolia or local search plugin)
-- Add tags for domains (`docs`, `automation`, `infra`, `security`, `ux`)
+- Use the canonical path in [`README.md`](./README.md).
+- Apply the page and metadata model in [`website-community-pages.md`](./website-community-pages.md).
+- Remove or mark contradictory historical proposals as superseded.
+- Expand existing link checks and add metadata validation.
 
-### Status surfacing
-- Auto-generate suggestion indexes by status from frontmatter
-- Add "recently updated suggestions" page for contributor visibility
+### Stage 2 — static-site proof of concept
 
-## Accessibility and readability baseline
+- Evaluate Astro Starlight and the best team-fit alternative against the same content.
+- Record the decision, rejected option, dependency ownership, build command, and rollback.
+- Preserve existing repository URLs or add redirects.
 
-- Minimum heading hierarchy consistency (no skipped levels)
-- Meaningful link text (avoid "click here")
-- Code blocks with language annotations
-- Table usage only when semantic and readable on mobile
-- Keep pages concise; move deep implementation detail to linked runbooks
+### Stage 3 — publish read-only community content
 
-## Editorial model
+- Serve the static output on a separate route or host.
+- Add local search, version/compatibility notes, and generated suggestion indexes.
+- Keep “Submit a suggestion” as a link to the existing GitHub issue form.
 
-Recommended lightweight roles:
+### Stage 4 — validate before adding dynamic features
 
-- **Docs maintainers**: curate structure and quality bar
-- **Domain maintainers**: approve technical correctness
-- **Community contributors**: submit and improve suggestions
+- Review search usage, broken-link trends, support-question repetition, and contributor feedback.
+- Add dynamic capabilities only for a demonstrated problem that static generation and GitHub cannot solve.
 
-## 60-day rollout plan
+## Acceptance criteria
 
-### Weeks 1-2
-- Pick framework (Docusaurus or MkDocs)
-- Create initial docs structure and migration map
+Stage 1:
 
-### Weeks 3-4
-- Migrate high-value existing docs
-- Publish suggestion template pages and review guide
+- A new contributor can reach the issue form, contribution checks, and current backlog from the canonical hub.
+- Every published suggestion links to its issue/decision/implementation source.
+- CI checks links in all canonical suggestion pages.
 
-### Weeks 5-8
-- Add CI checks (lint, links, spelling optional)
-- Enable search and auto-generated suggestion indexes
-- Publish contribution dashboard for transparency
+After metadata tooling exists:
+
+- CI rejects invalid lifecycle metadata, duplicate IDs, and missing required evidence.
+
+After a static site exists:
+
+- The site builds reproducibly from a clean checkout and serves as static files.
+- The docs route remains useful when helper, PostgreSQL, or the internet is unavailable.
+- No privileged runtime endpoint or secret is included in generated content.
+- Browser checks catch inaccessible core navigation and broken client-side routes.
