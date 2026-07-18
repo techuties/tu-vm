@@ -217,6 +217,6 @@ Start the metadata checks in warning mode on historical files. Enforce them only
 - Contributors have one obvious submission path and one canonical status source.
 - Every accepted or later website entry links to a GitHub issue.
 - Every shipped entry links to implementation and release evidence.
-- Duplicate IDs, invalid states, and broken local links fail before publication.
+- After the validator is implemented, duplicate IDs, invalid states, and broken local links fail before publication.
 - The generated website contains no write API, privileged helper endpoint, or private operator data.
 - Historical documents remain discoverable without appearing as active competing proposals.

@@ -23,7 +23,7 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Service dependency auto-start | Changelog potential improvement | Proposed | Add dependency map (e.g. Open WebUI + Ollama) in control layer. |
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
-| Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Community contribution standardization | GitHub issue/PR templates, `CONTRIBUTING.md`, stale automation, and Release Drafter | Implemented / partial | Keep GitHub as the intake source; finish owner identities and canonical lifecycle mapping. |
 
 ## Prioritization Framework
 
@@ -41,7 +41,7 @@ Prioritize by highest `(Impact + Risk Reduction + Community Leverage) - Complexi
 1. Quick action profiles.
 2. Battery status widget and endpoint.
 3. Auto-stop inactive Tier 2 services (configurable).
-4. Contribution workflow standardization.
+4. Canonical suggestion metadata and lifecycle mapping.
 
 ## Review Cadence
 

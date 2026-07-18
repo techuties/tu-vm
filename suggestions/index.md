@@ -50,8 +50,8 @@ Done on the GitHub-native path: suggestion + PR templates, [`CONTRIBUTING.md`](.
 Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
-- Explicit maintainer label/ownership conventions documented beside Issues
-- Canonical Markdown metadata and index validation
+- Replace placeholder CODEOWNERS identities with active maintainers
+- Map the canonical lifecycle to one documented GitHub Project field or label model
 
 ### Phase 2 (Acceleration, partially delivered)
 
