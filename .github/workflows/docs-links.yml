@@ -42,7 +42,13 @@ jobs:
             docs/playbooks/README.md
             suggestions/README.md
             suggestions/index.md
+            suggestions/community-system-framework.md
+            suggestions/website-and-docs-framework.md
+            suggestions/website-community-pages.md
+            suggestions/day-to-day-tooling.md
+            suggestions/extensions-and-integration-framework.md
             suggestions/implementation-backlog.md
+            suggestions/website-roadmap-from-historical-suggestions.md
 
       - name: Job summary — files checked
         if: always()
@@ -62,7 +68,13 @@ jobs:
             echo "| \`docs/playbooks/README.md\` | Operator playbooks |"
             echo "| \`suggestions/README.md\` | Suggestions hub index |"
             echo "| \`suggestions/index.md\` | Suggestion map |"
+            echo "| \`suggestions/community-system-framework.md\` | Community lifecycle |"
+            echo "| \`suggestions/website-and-docs-framework.md\` | Website architecture |"
+            echo "| \`suggestions/website-community-pages.md\` | Markdown publishing model |"
+            echo "| \`suggestions/day-to-day-tooling.md\` | Contributor tooling |"
+            echo "| \`suggestions/extensions-and-integration-framework.md\` | Extension contract |"
             echo "| \`suggestions/implementation-backlog.md\` | Backlog |"
+            echo "| \`suggestions/website-roadmap-from-historical-suggestions.md\` | Historical product roadmap |"
             echo ""
             echo "_Excluded URLs are listed in \`lychee.toml\` (same-repo \`/compare/\` templates and \`user-attachments\` assets). All other links in these files are checked, including same-repo URLs._"
           } >> "$GITHUB_STEP_SUMMARY"

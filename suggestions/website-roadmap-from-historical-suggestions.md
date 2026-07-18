@@ -2,6 +2,8 @@
 
 This roadmap converts recurring historical community-suggestion themes into a concrete implementation sequence for a community-based website and operations platform.
 
+This page preserves product direction and dependencies from historical branches. [`implementation-backlog.md`](./implementation-backlog.md) is the source for current execution priority and shipped status.
+
 It intentionally reuses existing assets:
 
 - `README.md`, `QUICK_REFERENCE.md`, `CHANGELOG.md`
@@ -44,13 +46,13 @@ Historical phases must be checked against the repository before being proposed a
 
 ## 3) Phase A: Curate the community website baseline
 
-## Goal
+### Goal
 
 Create a reliable community information layer where proposals and decisions are discoverable, linked, and maintainable.
 
-## Deliverables
+### Deliverables
 
-1. Curate a docs/site section with top-level navigation:
+1. Curate the current canonical pages under `suggestions/`; after framework adoption, publish them from `docs/community/` (or the configured content root) with redirects:
    - Home
    - Install
    - Operate
@@ -61,29 +63,34 @@ Create a reliable community information layer where proposals and decisions are 
    - historical baseline
    - active proposals
    - accepted/rejected items
-3. Apply the standardized proposal page contract from [`website-community-pages.md`](./website-community-pages.md):
-   - problem, current state, proposal, implementation, risk, metrics, ownership
-
+3. Apply the metadata, body, risk, evidence, and lifecycle contract from [`website-community-pages.md`](./website-community-pages.md).
 4. Mark overlapping historical files as historical or superseded instead of presenting all files as active.
 
-## Dependencies
+### Dependencies
 
 - Existing GitHub issue form, repository Markdown, and canonical-page ownership.
 
-## Success signals
+### Success signals
 
 - New contributor can find contribution and suggestion workflow in two clicks or fewer.
-- Existing operator docs become searchable by task rather than only by long-form README scanning.
+- Existing operator docs are navigable by task rather than only by long-form README scanning.
 
 ---
 
 ## 4) Phase B: Community framework and governance activation
 
-## Goal
+### Goal
 
 Make it easy for contributors to understand how work is owned, reviewed, and accepted.
 
-## Deliverables
+### Implemented foundation
+
+- GitHub issue/PR templates and the `CONTRIBUTING.md` workflow.
+- Security reporting policy.
+- Stale/needs-info automation and Release Drafter.
+- CODEOWNERS structure and documented label conventions.
+
+### Remaining deliverables
 
 1. Role and ownership model published:
    - maintainers
@@ -96,14 +103,14 @@ Make it easy for contributors to understand how work is owned, reviewed, and acc
    - nginx and network/security controls
    - monitoring and checkup scripts
    - document-processing pipeline
-3. Lightweight proposal workflow for major changes
-4. Pull request quality checklist and risk classification guidance
+3. Replace placeholder CODEOWNERS identities with active maintainers
+4. Align lifecycle labels or Project fields with the canonical website status model
 
-## Dependencies
+### Dependencies
 
 - Phase A community docs section.
 
-## Success signals
+### Success signals
 
 - Fewer duplicate issues.
 - Faster routing of work to relevant reviewers.
@@ -113,11 +120,11 @@ Make it easy for contributors to understand how work is owned, reviewed, and acc
 
 ## 5) Phase C: Contributor tooling for day-to-day operations
 
-## Goal
+### Goal
 
 Reduce friction for development, testing, and release preparation.
 
-## Deliverables
+### Deliverables
 
 Implemented foundations:
 
@@ -133,11 +140,11 @@ Remaining deliverables:
 3. optional task alias that wraps existing scripts without replacing `tu-vm.sh`,
 4. canonical suggestion metadata/link validator.
 
-## Dependencies
+### Dependencies
 
 - Phase B review expectations, so tooling aligns with accepted quality standards.
 
-## Success signals
+### Success signals
 
 - More issues resolved in first reproduction cycle.
 - Fewer runtime failures from missing or inconsistent configuration.
@@ -147,11 +154,11 @@ Remaining deliverables:
 
 ## 6) Phase D: Validated community extensions
 
-## Goal
+### Goal
 
 Let contributors add optional integrations without repeatedly modifying core Compose, Nginx, helper, and dashboard code.
 
-## Deliverables
+### Deliverables
 
 1. Extension metadata schema and capability declaration
 2. Validator for compatibility, security, routes, ports, networks, and secrets
@@ -159,11 +166,11 @@ Let contributors add optional integrations without repeatedly modifying core Com
 4. Read-only website compatibility and support catalog
 5. Dry-run list/validate CLI before enable/disable automation
 
-## Dependencies
+### Dependencies
 
 - Phase C validation conventions and explicit owner/security review.
 
-## Success signals
+### Success signals
 
 - Reference extension can be added and removed without changing Tier 1 behavior.
 - Reviewers see compatibility and risk in one machine-validated manifest.
@@ -173,11 +180,11 @@ Let contributors add optional integrations without repeatedly modifying core Com
 
 ## 7) Phase E: Profile-driven operations and startup behavior
 
-## Goal
+### Goal
 
 Operationalize historical profile and startup suggestions into predictable behavior for users and contributors.
 
-## Deliverables
+### Deliverables
 
 1. Profile presets:
    - Energy Save
@@ -190,11 +197,11 @@ Operationalize historical profile and startup suggestions into predictable behav
    - defer heavy services unless explicitly requested
 4. Transparent startup summary indicating what started and why
 
-## Dependencies
+### Dependencies
 
 - Phase C tooling to validate behavior and reduce rollout regressions.
 
-## Success signals
+### Success signals
 
 - Reduced startup resource spikes.
 - Better user understanding of active services and profile state.
@@ -203,11 +210,11 @@ Operationalize historical profile and startup suggestions into predictable behav
 
 ## 8) Phase F: Battery awareness, idle optimization, and usage history
 
-## Goal
+### Goal
 
 Deliver evidence-based optimization loops that are useful for a laptop/home-lab environment.
 
-## Deliverables
+### Deliverables
 
 1. Battery telemetry object in status surfaces
 2. Battery-aware recommendations and optional profile automation
@@ -215,11 +222,11 @@ Deliver evidence-based optimization loops that are useful for a laptop/home-lab 
 4. Resource usage history storage and retrieval endpoints
 5. Focused dashboard charts (CPU, memory, service activity timeline)
 
-## Dependencies
+### Dependencies
 
 - Phase E profiles and startup logic as control primitives.
 
-## Success signals
+### Success signals
 
 - Lower idle resource cost for typical users.
 - Better data-backed tuning discussions in community proposals.

@@ -59,7 +59,7 @@ Repository docs ── operational truth ───────┘               
 helper API ── runtime status/control ── existing operational dashboard only
 ```
 
-The static build must not require PostgreSQL, a new community API, or browser calls to GitHub. If recent issue/release data is shown, generate a cached JSON snapshot in CI with a safe empty-state fallback.
+The static build must not require PostgreSQL, a new community API, or browser calls to GitHub. If recent issue/release data is shown, generate a cached JSON snapshot in CI with a safe empty-state fallback. Use a read-only token with the minimum repository scope, export only reviewed fields (issue number, title, public labels/status, and public URLs), exclude author email/body/comment text by default, and discard the snapshot when generation fails rather than serving stale private data.
 
 ## Information architecture
 
@@ -76,7 +76,7 @@ Each page should name its canonical source and include an “Edit this page” l
 
 Implement automation incrementally:
 
-1. Extend link checking to the canonical suggestion pages.
+1. Keep link checking scoped to the canonical suggestion pages.
 2. Add a narrow markdownlint configuration for heading order, fenced code languages, and duplicate headings.
 3. Validate suggestion metadata and internal links with one repository script.
 4. Generate navigation and status indexes from metadata; fail if generated output is stale.
@@ -122,9 +122,19 @@ Automation should produce actionable file-and-line errors and run through the sa
 
 ## Acceptance criteria
 
-- A new contributor can reach the issue form, contribution checks, and current backlog in two navigation steps.
+Stage 1:
+
+- A new contributor can reach the issue form, contribution checks, and current backlog from the canonical hub.
 - Every published suggestion links to its issue/decision/implementation source.
+- CI checks links in all canonical suggestion pages.
+
+After metadata tooling exists:
+
+- CI rejects invalid lifecycle metadata, duplicate IDs, and missing required evidence.
+
+After a static site exists:
+
 - The site builds reproducibly from a clean checkout and serves as static files.
 - The docs route remains useful when helper, PostgreSQL, or the internet is unavailable.
 - No privileged runtime endpoint or secret is included in generated content.
-- CI catches broken internal links, invalid metadata, and inaccessible core navigation.
+- Browser checks catch inaccessible core navigation and broken client-side routes.

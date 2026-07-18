@@ -65,14 +65,16 @@ This allows maintainers to review risk and dependencies quickly.
 
 1. Add extension metadata schema (`extension.yaml` specification in docs)
 2. Add validation script (`scripts/validate-extension.sh`)
-3. Add activation/deactivation commands:
+3. Add a template and one reference extension; validate the contract and removal path
+4. Add read-only discovery and dry-run commands:
+   - `./tu-vm.sh extension list`
+   - `./tu-vm.sh extension validate <id>`
+5. After the pilot succeeds, add activation/deactivation commands:
    - `./tu-vm.sh extension enable <id>`
    - `./tu-vm.sh extension disable <id>`
-   - `./tu-vm.sh extension list`
-4. Add extension discovery endpoint to helper API
-5. Add extension directory convention:
+6. Add extension discovery endpoint to helper API only if static metadata is insufficient
+7. Add extension directory convention:
    - `/extensions/<id>/...`
-6. Add one reference extension as implementation template
 
 ## Developer workflow
 

@@ -31,11 +31,11 @@ Adopt repeatable local environments so contributors spend less time on setup iss
 - Task runner for common commands (`make` or `just`)
 - Standardized environment checks (`doctor` command)
 
-Suggested aliases (optional — the repository uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
+Potential future aliases (optional — the repository uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
 
 - `make setup` (bootstrap dependencies/config)
 - `make check` (lint + static checks)
-- `make test` (test suite)
+- `make test` (only after a project test suite exists)
 - `make docs` (validate documentation)
 
 If a `Makefile` or `justfile` is adopted, it should be an alias layer only. Contributors and CI must still be able to call the underlying scripts directly.
@@ -44,10 +44,9 @@ If a `Makefile` or `justfile` is adopted, it should be an alias layer only. Cont
 
 Use automated quality gates instead of manual policing:
 
-- Pre-commit hooks for basic hygiene
-  - trailing whitespace, EOF fix, YAML/JSON sanity checks
-  - markdown lint and broken link detection
-- CI pipeline stages:
+- Existing pre-commit hooks cover trailing whitespace, EOF fixes, YAML sanity, merge conflicts, and Bash syntax.
+- Proposed additions are narrow Markdown linting and an optional fast local link check; full link checking already runs in CI.
+- Target CI pipeline stages:
   1. Lint and formatting checks
   2. Unit/integration tests
   3. Security checks (dependency and secret scanning)
