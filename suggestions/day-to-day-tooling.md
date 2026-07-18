@@ -4,6 +4,23 @@
 
 Reduce daily operational friction for maintainers and contributors by standardizing proven tools for local development, validation, and collaboration.
 
+## Current baseline
+
+Do not recreate these capabilities:
+
+| Need | Existing command/config |
+|---|---|
+| Environment diagnosis | `./tu-vm.sh doctor` |
+| Configuration validation | `./scripts/check-config.sh` |
+| Static/live smoke checks | `./scripts/smoke-test.sh` |
+| Helper API contract | `./scripts/helper-contract-check.sh` and fixture validator |
+| Contributor check wrapper | `./scripts/pre-push-check.sh` |
+| Basic file hygiene | `.pre-commit-config.yaml` |
+| Link validation | `.github/workflows/docs-links.yml` |
+| Release note draft | `./scripts/release-note-helper.sh` |
+
+New tools should compose these entrypoints and preserve their flags and exit codes.
+
 ## Tooling pillars
 
 ### 1) Developer environment consistency
@@ -14,14 +31,14 @@ Adopt repeatable local environments so contributors spend less time on setup iss
 - Task runner for common commands (`make` or `just`)
 - Standardized environment checks (`doctor` command)
 
-Suggested starter commands (still optional — repo uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
+Suggested aliases (optional — the repository uses `./tu-vm.sh` + [`scripts/`](../scripts/) today):
 
 - `make setup` (bootstrap dependencies/config)
 - `make check` (lint + static checks)
 - `make test` (test suite)
 - `make docs` (validate documentation)
 
-Implemented baseline: `./tu-vm.sh doctor`, `./scripts/check-config.sh`, `./scripts/smoke-test.sh`, `./scripts/helper-contract-check.sh`, [`scripts/pre-push-check.sh`](../scripts/pre-push-check.sh), and GitHub Actions CI ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)).
+If a `Makefile` or `justfile` is adopted, it should be an alias layer only. Contributors and CI must still be able to call the underlying scripts directly.
 
 ### 2) Quality and safety automation
 
@@ -36,13 +53,21 @@ Use automated quality gates instead of manual policing:
   3. Security checks (dependency and secret scanning)
   4. Docs validation
 
+Next gaps, in priority order:
+
+1. run a live helper contract without the full Tier 1 stack,
+2. scan Compose images rather than configuration only,
+3. validate canonical suggestion metadata and local links,
+4. add browser/accessibility smoke tests after dashboard assets are modularized.
+
 ### 3) Operational toolchain reuse
 
-Lean on existing platform strengths and avoid custom one-off scripts where possible:
+Lean on existing platform strengths and avoid custom one-off services:
 
-- Use n8n for repeatable governance workflows (triage reminders, status updates)
-- Use AFFiNE for proposal notes, decision logs, and working-group summaries
-- Use helper API/dashboard announcements for visible project updates
+- Use GitHub Actions for repository gates and label-driven release automation.
+- Use n8n only for optional maintainer reminders or digests that do not gate contributions.
+- Use AFFiNE for working notes, while accepted decisions remain versioned in GitHub/repository docs.
+- Use helper API/dashboard announcements for local operator updates, not public issue storage.
 
 ### 4) Observability for contributors
 
@@ -53,7 +78,8 @@ Provide simple visibility into system health and CI quality:
   - median review time
   - failing CI categories
   - stale proposal alerts
-- Publish weekly automated summary to docs or dashboard
+- Publish aggregate summaries only when they drive a documented maintainer action.
+- Avoid individual contributor rankings and avoid exporting private operator data.
 
 ### 5) Reusable templates
 
@@ -65,39 +91,46 @@ Template-driven contribution reduces ambiguity:
 
 ## Suggested frameworks and tools
 
-- **Task orchestration**: Make or Just
+- **Task aliases**: Make (ubiquitous) or Just (clearer recipes), only if aliases materially improve discoverability
 - **Pre-commit framework**: pre-commit
 - **Markdown quality**: markdownlint + link checker
-- **Security scanning**: Trivy (containers), dependency audit in CI
-- **Workflow automation**: n8n
-- **Knowledge management**: AFFiNE
+- **Security scanning**: Trivy/Grype for container images, gitleaks for committed secrets
+- **Browser checks**: Playwright plus axe-core after a stable frontend fixture exists
+- **Workflow automation**: GitHub Actions first; n8n for optional local/community digests
+- **Knowledge management**: repository decisions first; AFFiNE for drafts
 
 These are mature ecosystems with strong community support, reducing maintenance burden.
 
-## Adoption plan
+## Adoption sequence
 
-### Phase 1: Baseline (2 weeks)
+### Stage 1: Close validation gaps
 
-Done: contribution templates, compose/script validation and smoke checks in CI, `doctor`/config/smoke tooling.
+- Add canonical suggestion metadata/link validation.
+- Add a minimal live helper contract job.
+- Add image-level vulnerability scanning in report mode, triage the baseline, then enforce agreed severities.
 
-Still open:
+### Stage 2: Improve contributor feedback
 
-- Optional task runner (`make`/`just`) wrapping the same scripts
-- Pre-commit hooks and markdown/link validation in CI
+- Add one documented `check` alias only if contributors repeatedly miss existing commands.
+- Make every CI failure reproduce with a repository-local command.
+- Add file/line diagnostics and machine-readable output to validators.
 
-### Phase 2: Automation (2-4 weeks)
-- Add n8n triage/reminder workflows
-- Add contributor metrics summary job
-- Standardize labels and status mapping
+### Stage 3: Expand community delivery
 
-### Phase 3: Optimization (ongoing)
-- Remove redundant custom scripts replaced by framework-native patterns
-- Track lead-time improvements
-- Collect contributor feedback quarterly and iterate
+- Pilot the extension manifest and validator.
+- Generate a read-only compatibility catalog from extension metadata.
+- Add Playwright/axe smoke coverage after frontend modularization.
+
+### Stage 4: Add optional workflow automation
+
+- Add digest/reminder workflows only for observed triage bottlenecks.
+- Keep automation advisory until false positives and ownership are understood.
+- Remove redundant steps when framework-native checks fully replace them.
 
 ## Success criteria
 
-- 30% reduction in setup-related contributor issues
+- Fewer setup-related contributor issues
 - Faster first review turnaround for suggestions
 - Lower duplicate proposal rate
 - Improved merge confidence through automated checks
+- Every CI failure has a documented local reproduction command
