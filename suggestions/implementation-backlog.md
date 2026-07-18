@@ -6,7 +6,7 @@ This backlog translates suggestions into implementation-ready work items with cl
 
 These directions are satisfied without a custom suggestions stack:
 
-- **Proposals & governance**: GitHub Issues (**Idea / suggestion** + **Bug report** templates), Discussions link, issue chooser security entry, [`CONTRIBUTING.md`](../CONTRIBUTING.md) (labels, `Fixes #` / Release publish notes), PR template with security/RFC checklist.
+- **Proposals & governance**: GitHub Issues (**Idea / suggestion** + **Bug report** templates), optional Discussions contact link when the repository feature is enabled, issue chooser security entry, [`CONTRIBUTING.md`](../CONTRIBUTING.md) (labels, `Fixes #` / Release publish notes), PR template with security/RFC checklist.
 - **Security reporting**: [`SECURITY.md`](../SECURITY.md) (private reporting path + fallback).
 - **Release ↔ issue linkage**: [Release Drafter](../.github/release-drafter.yml) + [workflow](../.github/workflows/release-drafter.yml) on `main`; draft releases grouped by PR labels (`skip-changelog` supported).
 - **Triage hygiene**: [Stale automation](../.github/workflows/stale.yml) (`needs-info` cadence + idle issues/PRs); documented labels (`stale`, `pinned`, etc.).
@@ -24,7 +24,6 @@ These directions are satisfied without a custom suggestions stack:
 
 ## Priority model
 
-- **P0**: High impact, low complexity, immediate quality gain
 - **P1**: Core community workflows
 - **P2**: Scale and polish
 
@@ -101,7 +100,7 @@ Complement the static `/status/full` fixture with a minimal live helper test:
 
 ### Acceptance criteria
 
-- Pull requests touching helper status/control behavior exercise a running endpoint.
+- CI runs the live job when `helper/uploader.py`, its contract script/fixture, or relevant Compose wiring changes; the workflow documents those path rules.
 - Response drift between code and fixture fails with a field-level message.
 - The job does not require the complete Tier 1 stack or privileged host operations.
 

@@ -31,6 +31,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 6. [Implementation Backlog](./implementation-backlog.md)
    Separates shipped foundations from the next implementation-ready recommendations.
 
+7. [Historical Product Roadmap](./website-roadmap-from-historical-suggestions.md)
+   Preserves long-range product direction; the implementation backlog controls current priority.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable

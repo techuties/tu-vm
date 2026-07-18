@@ -16,7 +16,9 @@ Website pages are curated, reviewable views. GitHub labels and linked artifacts 
 
 ## Recommended page set
 
-### 1) `community/suggestions/index.md`
+During Stage 1, the maintained source stays under `suggestions/`. When a static framework is adopted, map the canonical pages into `docs/community/` (or the framework's configured content root) without maintaining two editable copies. Preserve old links with redirects.
+
+### 1) `docs/community/suggestions/index.md`
 
 - Explain the lifecycle and reuse rule.
 - Link to the existing GitHub suggestion form.
@@ -24,7 +26,7 @@ Website pages are curated, reviewable views. GitHub labels and linked artifacts 
 - List recently updated, accepted, and good-first-contribution items.
 - Include a clear security-reporting warning beside the submit link.
 
-### 2) `community/suggestions/how-to-submit.md`
+### 2) `docs/community/suggestions/how-to-submit.md`
 
 - Search open/closed issues and canonical suggestion pages first.
 - State the user problem and current behavior.
@@ -32,27 +34,27 @@ Website pages are curated, reviewable views. GitHub labels and linked artifacts 
 - Define constraints, security impact, rollout/rollback, and acceptance criteria.
 - Show one strong example and one duplicate that should be added to an existing issue.
 
-### 3) `community/suggestions/status-board.md`
+### 3) `docs/community/suggestions/status-board.md`
 
 - Generate a read-only table from curated metadata.
 - Filter by lifecycle state, theme, and contribution readiness.
 - Show last verified date and canonical issue for every row.
 - Never infer `accepted` or `shipped` from free text; require explicit reviewed metadata.
 
-### 4) `community/suggestions/decisions.md`
+### 4) `docs/community/suggestions/decisions.md`
 
 - Record decision, rationale, alternatives, constraints, and decision date.
 - For deferred work, state the measurable reopen condition.
 - For superseded work, link the replacement.
 - Keep sensitive security reasoning in private channels and publish only safe conclusions.
 
-### 5) `community/suggestions/implemented.md`
+### 5) `docs/community/suggestions/implemented.md`
 
 - Summarize the operator-visible outcome rather than repeating release notes.
 - Link the originating issue, implementation PR, validation evidence, and release.
 - Include follow-up metrics or rollback notes when relevant.
 
-### 6) `community/integrations/index.md`
+### 6) `docs/community/integrations/index.md`
 
 - List reviewed extensions and MCP integrations using the contract in [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md).
 - Show owner, compatibility range, capabilities, network access, security review, and support status.
@@ -109,6 +111,13 @@ Required lifecycle values:
 
 `page_status` describes document maintenance (`maintained`, `historical`, or `superseded`) and must not be confused with proposal `status`.
 
+Recommended controlled values:
+
+- `theme`: `dashboard`, `docs`, `operations`, `security`, `integrations`, or `community`.
+- `impact`: `low`, `medium`, `high`, or `critical`.
+
+Add a value only through a reviewed schema change. Map `theme` to repository labels where a matching label exists; `impact` is a planning signal and must not override security or maintainer review.
+
 ## Curated suggestion body template
 
 ```markdown
@@ -139,13 +148,13 @@ List testable outcomes.
 Link issue discussion, decision, PRs, validation, and release.
 ```
 
-## Publishing workflow
+## Target publishing workflow
 
 1. A contributor submits the existing GitHub issue form after searching for duplicates.
 2. Triage links related issues and the nearest canonical suggestion page.
-3. Maintainers apply lifecycle labels in GitHub.
+3. Maintainers record lifecycle in the chosen GitHub Project field or documented label mapping.
 4. Once scope is accepted, a PR updates or adds one curated website page with the issue URL.
-5. CI validates metadata, lifecycle values, local links, and duplicate IDs.
+5. After the proposed validator exists, CI validates metadata, lifecycle values, local links, and duplicate IDs.
 6. A generator builds navigation/status pages from metadata; generated files must be reproducible.
 7. Implementation PRs link the issue and update evidence fields.
 8. Release automation marks the shipped version or opens a small docs follow-up.
@@ -166,7 +175,7 @@ An optional similarity report may suggest related pages, but it must never auto-
 
 ## Validation tooling
 
-A single repository command should support local and CI use:
+A future validator should expose one command for local and CI use:
 
 ```bash
 ./scripts/suggestions-lint.sh
