@@ -2,6 +2,8 @@
 
 This roadmap converts recurring historical community-suggestion themes into a concrete implementation sequence for a community-based website and operations platform.
 
+This page preserves product direction and dependencies from historical branches. [`implementation-backlog.md`](./implementation-backlog.md) is the source for current execution priority and shipped status.
+
 It intentionally reuses existing assets:
 
 - `README.md`, `QUICK_REFERENCE.md`, `CHANGELOG.md`
@@ -25,46 +27,70 @@ Roadmap design principle: sequence work so each phase creates reusable foundatio
 
 ---
 
-## 2) Phase A: Launch the community suggestions website baseline
+## 2) Current-state reconciliation
 
-## Goal
+Historical phases must be checked against the repository before being proposed again:
+
+| Historical direction | Current evidence | Status | Remaining work |
+|---|---|---|---|
+| Suggestion intake | [GitHub issue form](../.github/ISSUE_TEMPLATE/suggestion.yml) | Implemented | Keep one intake path; do not add a local queue/API. |
+| Contribution and review | [`CONTRIBUTING.md`](../CONTRIBUTING.md), PR template, CODEOWNERS | Implemented / partial | Replace placeholder owners and keep labels aligned. |
+| Triage and releases | stale workflow and Release Drafter | Implemented | Measure usefulness before adding more bots. |
+| Contributor diagnostics | `doctor`, config/smoke/pre-push scripts | Implemented | Add live helper CI coverage and one thin task alias only if needed. |
+| Community entrypoint | dashboard community strip and operator playbooks | Implemented | Publish curated Markdown navigation/status views. |
+| Static docs framework | Markdown is rendered by GitHub; no dedicated docs build | Proposed | Apply the adoption gate in [`website-and-docs-framework.md`](./website-and-docs-framework.md). |
+| Extension ecosystem | MCP tools exist; extension contract is documentation only | Proposed | Pilot schema, validator, reference extension, and catalog. |
+| Profiles and resource optimization | Mentioned in historical docs/CHANGELOG | Proposed | Define data contracts and safe opt-in behavior after test foundations. |
+
+---
+
+## 3) Phase A: Curate the community website baseline
+
+### Goal
 
 Create a reliable community information layer where proposals and decisions are discoverable, linked, and maintainable.
 
-## Deliverables
+### Deliverables
 
-1. Build a docs/site section with top-level navigation:
+1. Curate the current canonical pages under `suggestions/`; after framework adoption, publish them from `docs/community/` (or the configured content root) with redirects:
    - Home
    - Install
    - Operate
    - Security
    - Community
    - Suggestions
-2. Add a suggestions index with:
+2. Generate a suggestions index with:
    - historical baseline
    - active proposals
    - accepted/rejected items
-3. Add standardized proposal page template:
-   - problem, current state, proposal, implementation, risk, metrics, ownership
+3. Apply the metadata, body, risk, evidence, and lifecycle contract from [`website-community-pages.md`](./website-community-pages.md).
+4. Mark overlapping historical files as historical or superseded instead of presenting all files as active.
 
-## Dependencies
+### Dependencies
 
-- None beyond existing markdown docs and site shell.
+- Existing GitHub issue form, repository Markdown, and canonical-page ownership.
 
-## Success signals
+### Success signals
 
 - New contributor can find contribution and suggestion workflow in two clicks or fewer.
-- Existing operator docs become searchable by task rather than only by long-form README scanning.
+- Existing operator docs are navigable by task rather than only by long-form README scanning.
 
 ---
 
-## 3) Phase B: Community framework and governance activation
+## 4) Phase B: Community framework and governance activation
 
-## Goal
+### Goal
 
 Make it easy for contributors to understand how work is owned, reviewed, and accepted.
 
-## Deliverables
+### Implemented foundation
+
+- GitHub issue/PR templates and the `CONTRIBUTING.md` workflow.
+- Security reporting policy.
+- Stale/needs-info automation and Release Drafter.
+- CODEOWNERS structure and documented label conventions.
+
+### Remaining deliverables
 
 1. Role and ownership model published:
    - maintainers
@@ -77,14 +103,14 @@ Make it easy for contributors to understand how work is owned, reviewed, and acc
    - nginx and network/security controls
    - monitoring and checkup scripts
    - document-processing pipeline
-3. Lightweight proposal workflow for major changes
-4. Pull request quality checklist and risk classification guidance
+3. Replace placeholder CODEOWNERS identities with active maintainers
+4. Align lifecycle labels or Project fields with the canonical website status model
 
-## Dependencies
+### Dependencies
 
 - Phase A community docs section.
 
-## Success signals
+### Success signals
 
 - Fewer duplicate issues.
 - Faster routing of work to relevant reviewers.
@@ -92,25 +118,34 @@ Make it easy for contributors to understand how work is owned, reviewed, and acc
 
 ---
 
-## 4) Phase C: Contributor tooling for day-to-day operations
+## 5) Phase C: Contributor tooling for day-to-day operations
 
-## Goal
+### Goal
 
 Reduce friction for development, testing, and release preparation.
 
-## Deliverables
+### Deliverables
 
-1. `doctor` diagnostics flow (entrypoint command and report output)
-2. fast config validator script
-3. standard smoke test script (core + optional full mode)
-4. helper API contract checks for key endpoints
-5. changelog/release-note helper flow
+Implemented foundations:
 
-## Dependencies
+1. `doctor` diagnostics flow (entrypoint command and JSON output)
+2. config validator and static/live smoke modes
+3. pre-push wrapper and release-note helper
+4. static helper response contract validation
+
+Remaining deliverables:
+
+1. minimal live helper contract job in CI,
+2. image-level vulnerability scanning and an enforceable severity policy,
+3. optional task alias that wraps existing scripts without replacing `tu-vm.sh`,
+4. canonical suggestion metadata/link validator,
+5. semantic drift check for documented Compose services, helper routes, and CLI commands.
+
+### Dependencies
 
 - Phase B review expectations, so tooling aligns with accepted quality standards.
 
-## Success signals
+### Success signals
 
 - More issues resolved in first reproduction cycle.
 - Fewer runtime failures from missing or inconsistent configuration.
@@ -118,13 +153,39 @@ Reduce friction for development, testing, and release preparation.
 
 ---
 
-## 5) Phase D: Profile-driven operations and startup behavior
+## 6) Phase D: Validated community extensions
 
-## Goal
+### Goal
+
+Let contributors add optional integrations without repeatedly modifying core Compose, Nginx, helper, and dashboard code.
+
+### Deliverables
+
+1. Extension metadata schema and capability declaration
+2. Validator for compatibility, security, routes, ports, networks, and secrets
+3. Template plus one reference extension
+4. Read-only website compatibility and support catalog
+5. Dry-run list/validate CLI before enable/disable automation
+
+### Dependencies
+
+- Phase C validation conventions and explicit owner/security review.
+
+### Success signals
+
+- Reference extension can be added and removed without changing Tier 1 behavior.
+- Reviewers see compatibility and risk in one machine-validated manifest.
+- Community integrations have named ownership and support status.
+
+---
+
+## 7) Phase E: Profile-driven operations and startup behavior
+
+### Goal
 
 Operationalize historical profile and startup suggestions into predictable behavior for users and contributors.
 
-## Deliverables
+### Deliverables
 
 1. Profile presets:
    - Energy Save
@@ -136,25 +197,31 @@ Operationalize historical profile and startup suggestions into predictable behav
    - Tier 1 first
    - defer heavy services unless explicitly requested
 4. Transparent startup summary indicating what started and why
+5. Advisory service-dependency map:
+   - define user-facing dependencies in reviewed profile metadata and validate service IDs against Compose,
+   - distinguish required, recommended, and optional relationships,
+   - show missing dependencies before an action and offer an explicit grouped start,
+   - do not infer forced auto-start behavior from Compose `depends_on` alone.
 
-## Dependencies
+### Dependencies
 
 - Phase C tooling to validate behavior and reduce rollout regressions.
 
-## Success signals
+### Success signals
 
 - Reduced startup resource spikes.
 - Better user understanding of active services and profile state.
+- Fewer failed starts caused by missing companion services without silently expanding the active profile.
 
 ---
 
-## 6) Phase E: Battery awareness, idle optimization, and usage history
+## 8) Phase F: Battery awareness, idle optimization, and usage history
 
-## Goal
+### Goal
 
 Deliver evidence-based optimization loops that are useful for a laptop/home-lab environment.
 
-## Deliverables
+### Deliverables
 
 1. Battery telemetry object in status surfaces
 2. Battery-aware recommendations and optional profile automation
@@ -162,11 +229,11 @@ Deliver evidence-based optimization loops that are useful for a laptop/home-lab 
 4. Resource usage history storage and retrieval endpoints
 5. Focused dashboard charts (CPU, memory, service activity timeline)
 
-## Dependencies
+### Dependencies
 
-- Phase D profiles and startup logic as control primitives.
+- Phase E profiles and startup logic as control primitives.
 
-## Success signals
+### Success signals
 
 - Lower idle resource cost for typical users.
 - Better data-backed tuning discussions in community proposals.
@@ -174,7 +241,7 @@ Deliver evidence-based optimization loops that are useful for a laptop/home-lab 
 
 ---
 
-## 7) Cross-phase quality and security gates
+## 9) Cross-phase quality and security gates
 
 Apply these gates to all phases:
 
@@ -183,15 +250,18 @@ Apply these gates to all phases:
 3. Keep proposal and docs pages synchronized with behavior changes.
 4. Preserve backward-compatible defaults where possible.
 5. Include rollback or disable paths for new automation behavior.
+6. Keep GitHub as the proposal source of truth; publish read-only website views.
+7. Require extension manifests and generated pages to pass repository-local checks.
 
 ---
 
-## 8) Suggested implementation order
+## 10) Suggested implementation order
 
-1. Phase A - website baseline
-2. Phase B - governance activation
-3. Phase C - contributor tooling
-4. Phase D - profile and startup intelligence
-5. Phase E - battery/idle/history optimization
+1. Phase A — canonical website Markdown and de-duplication
+2. Phase B — finish ownership/label governance on the existing GitHub path
+3. Phase C — live contracts, supply-chain checks, and local validation
+4. Phase D — extension contract pilot and compatibility catalog
+5. Phase E — profile and startup intelligence
+6. Phase F — battery, idle, and history optimization
 
-This order minimizes reinvention by first establishing shared documentation and decision patterns, then incrementally adding operations intelligence.
+This order recognizes work that is already shipped, closes quality gaps, and then creates a safe extension path before adding more operational intelligence.
