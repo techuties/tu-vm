@@ -57,6 +57,7 @@ Still open:
 
 - Done: stale/needs-info automation, Release Drafter, playbook surfacing, and dashboard community links
 - Add a lightweight suggestions linter and generated canonical index
+- Add a static documentation/runtime drift check for service IDs, helper routes, and CLI commands
 - Pilot a validated community extension package
 - Lightweight adoption metrics (release cadence, time-to-close by label)
 
@@ -64,6 +65,7 @@ Still open:
 
 - Open community working groups
 - Curate extension compatibility and security review
+- Move dashboard service cards to a validated declarative registry after asset extraction
 - Publish quarterly roadmap and retrospective summaries
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.

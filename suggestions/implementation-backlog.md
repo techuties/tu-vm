@@ -106,6 +106,36 @@ Complement the static `/status/full` fixture with a minimal live helper test:
 
 ---
 
+## P1-5: Documentation-to-runtime drift validator
+
+### Scope
+
+Add one repository-local check that catches semantic drift which a Markdown link checker cannot detect:
+
+- derive the Compose service inventory from rendered `docker compose config`,
+- derive public helper routes from the Flask application,
+- compare documented service names, status routes, and supported `tu-vm.sh` commands in canonical pages and playbooks,
+- keep a small reviewed allowlist for intentional display names and historical examples,
+- emit file, line, unknown value, and nearest valid values in both human-readable and JSON output.
+
+Use format-aware parsers or application introspection instead of maintaining a second handwritten service/route registry. The default check must be static: it must not start containers, call the network, or require production secrets.
+
+### Rollout
+
+1. Report the existing mismatch baseline without failing.
+2. Correct or explicitly allow each baseline mismatch.
+3. Enforce changed canonical docs, playbooks, Compose service keys, helper routes, and CLI help.
+4. Expand scope only when false positives remain low and a maintainer owns the allowlist.
+
+### Acceptance criteria
+
+- A removed or renamed Compose service, helper status route, or documented CLI command produces an actionable local failure.
+- The same command runs in pre-push checks and CI with deterministic output.
+- Intentional aliases include a reason and canonical target; broad wildcard exclusions are rejected.
+- Historical files remain searchable without forcing obsolete examples into the active contract.
+
+---
+
 ## P2-1: Frontend modularization
 
 ### Scope
@@ -114,13 +144,18 @@ Refactor monolithic `nginx/html/index.html` into maintainable assets:
 
 - `assets/js/*`
 - `assets/css/*`
-- optional component abstraction
+- a declarative service-card registry for labels, status endpoints, tier, controls, and visibility
+- shared design tokens for contrast, focus, spacing, status text, and reduced motion
+- optional component abstraction only after repeated rendering behavior is visible
 
 ### Acceptance criteria
 
 - Existing UX is behaviorally equivalent after refactor.
 - Linting is active for extracted JS/CSS.
 - Build/deploy path remains compatible with current Docker/Nginx setup.
+- Adding a standard service card requires one validated registry entry instead of copied markup and request logic.
+- Registry validation rejects duplicate IDs, unknown status endpoints, invalid control capabilities, and missing accessible labels.
+- Status is communicated with text as well as color, keyboard focus remains visible, and reduced-motion behavior is preserved.
 
 ---
 
@@ -155,9 +190,9 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 ## Suggested implementation order
 
 1. **P1-2** — stop suggestion duplication before publishing more website pages.
-2. **P1-4** and image security scanning — strengthen contributor feedback and operator trust.
+2. **P1-4**, **P1-5**, and image security scanning — strengthen contributor feedback and operator trust.
 3. **P1-3** — pilot the community extension path on validated foundations.
-4. **P2-1** then **P2-2** — modularize the dashboard before browser coverage grows.
+4. **P2-1** then **P2-2** — introduce the validated card registry while modularizing, then grow browser coverage.
 5. **P1-1** and **P2-3** — optional polish and controlled experiments.
 
 ---
@@ -168,11 +203,11 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 
 1. **Canonical suggestion publishing** — metadata validation, generated index, and GitHub evidence links (**P1-2**).
 2. **Trivy (or Grype) image CVE scans** — iterate Compose images with actionable severity thresholds, separate from today’s config-only scan.
-3. **Live helper contract test** — minimal runtime check for status and control boundaries (**P1-4**).
-4. **Community extension pilot** — schema, validator, template, reference package, and compatibility catalog (**P1-3**).
-5. **Incremental dashboard asset extraction** — break CSS/JS out of [`nginx/html/index.html`](../nginx/html/index.html); add ESLint/stylelint (**P2-1**).
-6. **Playwright smoke tests** — Tier 1 flows against a headless Nginx fixture (**P2-2**).
-7. **Playbook version notes** — short TU-VM major-version/command-behavior matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md).
-8. **Tighten Trivy gate and export an SBOM** — fail on triaged HIGH/CRITICAL findings; attach CycloneDX/SPDX output to releases.
-9. **Markdown style lint** — use a narrow rule set for `docs/`, canonical suggestions, and root policy files.
-10. **Feature-flag pattern for dashboard experiments** — env-driven toggles before large UI changes (**P2-3**).
+3. **Documentation-to-runtime drift checks** — validate documented services, helper routes, and CLI commands against implementation inventories (**P1-5**).
+4. **Live helper contract test** — minimal runtime check for status and control boundaries (**P1-4**).
+5. **Community extension pilot** — schema, validator, template, reference package, and compatibility catalog (**P1-3**).
+6. **Declarative dashboard modularization** — extract CSS/JS, add design tokens, and validate a service-card registry (**P2-1**).
+7. **Playwright and axe smoke tests** — critical Tier 1 interactions against a headless Nginx fixture (**P2-2**).
+8. **Playbook version notes** — short TU-VM major-version/command-behavior matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md).
+9. **Tighten image security gates and export an SBOM** — fail on triaged HIGH/CRITICAL findings; attach CycloneDX/SPDX output to releases.
+10. **Markdown style lint** — use a narrow rule set for `docs/`, canonical suggestions, and root policy files.

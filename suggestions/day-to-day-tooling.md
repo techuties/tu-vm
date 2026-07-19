@@ -57,7 +57,20 @@ Next gaps, in priority order:
 1. run a live helper contract without the full Tier 1 stack,
 2. scan Compose images rather than configuration only,
 3. validate canonical suggestion metadata and local links,
-4. add browser/accessibility smoke tests after dashboard assets are modularized.
+4. detect drift between active docs and runtime service/route/command inventories,
+5. add browser/accessibility smoke tests after dashboard assets are modularized.
+
+#### Documentation/runtime contract check
+
+Broken-link checks prove that a target exists, not that a documented service, endpoint, or command is still valid. Extend the current validation chain with one static semantic check:
+
+- render Compose configuration and use its service keys as the runtime inventory,
+- introspect helper route registration rather than copying routes into another config file,
+- derive supported CLI commands from the same command/help definitions used by `tu-vm.sh`,
+- scan canonical docs and operator playbooks, while treating historical suggestions as non-enforced evidence,
+- report the source file and line, invalid name, and closest valid values.
+
+Run the check in warning mode while the baseline is reviewed, then enforce it on changed active docs and implementation inventories. Intentional aliases need an exact canonical target and a reason. The check should not start containers or call external services.
 
 ### 3) Operational toolchain reuse
 
@@ -105,6 +118,7 @@ These are mature ecosystems with strong community support, reducing maintenance 
 ### Stage 1: Close validation gaps
 
 - Add canonical suggestion metadata/link validation.
+- Add the documentation/runtime contract check defined above.
 - Add a minimal live helper contract job.
 - Add image-level vulnerability scanning in report mode, triage the baseline, then enforce agreed severities.
 

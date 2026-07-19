@@ -61,6 +61,20 @@ helper API ── runtime status/control ── existing operational dashboard o
 
 The static build must not require PostgreSQL, a new community API, or browser calls to GitHub. If recent issue/release data is shown, generate a cached JSON snapshot in CI with a safe empty-state fallback. Use a read-only token with the minimum repository scope, export only reviewed fields (issue number, title, public labels/status, and public URLs), exclude author email/body/comment text by default, and discard the snapshot when generation fails rather than serving stale private data.
 
+## Operational dashboard evolution boundary
+
+Modularizing the Nginx dashboard should not turn it into the documentation framework or a runtime plugin host. Keep its service UI data-driven and reviewable:
+
+1. Extract existing JavaScript and CSS without changing behavior.
+2. Define a small service-card registry with `id`, visible label, status endpoint, tier, visibility, supported controls, and accessible status text.
+3. Validate registry service IDs and endpoints against Compose/helper inventories using the documentation drift check in [`implementation-backlog.md`](./implementation-backlog.md#p1-5-documentation-to-runtime-drift-validator).
+4. Render repeated card behavior from the registry; retain explicit components for genuinely different workflows.
+5. Add shared CSS tokens for contrast, focus, spacing, status text, and reduced motion before adding themes.
+
+The registry is declarative data, not executable community code. It must not contain tokens, arbitrary URLs, inline scripts, or controls that are absent from the helper allowlist. Authentication and authorization remain enforced by the helper and Nginx boundaries, regardless of whether a control is visible.
+
+This pattern lowers the cost of reviewed integrations without adding React, a component marketplace, or client-side extension execution to the control plane.
+
 ## Information architecture
 
 1. **Get started** — install, architecture overview, first health check.
@@ -79,9 +93,10 @@ Implement automation incrementally:
 1. Keep link checking scoped to the canonical suggestion pages.
 2. Add a narrow markdownlint configuration for heading order, fenced code languages, and duplicate headings.
 3. Validate suggestion metadata and internal links with one repository script.
-4. Generate navigation and status indexes from metadata; fail if generated output is stale.
-5. Add build and accessibility checks only when the static site exists.
-6. Add browser smoke tests for navigation, search, mobile layout, and broken client-side routes.
+4. Detect drift between active docs and Compose service IDs, helper routes, and `tu-vm.sh` commands without starting the stack.
+5. Generate navigation and status indexes from metadata; fail if generated output is stale.
+6. Add build and accessibility checks only when the static site exists.
+7. Add browser smoke tests for navigation, search, mobile layout, and broken client-side routes.
 
 Automation should produce actionable file-and-line errors and run through the same command locally and in CI.
 

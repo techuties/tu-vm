@@ -138,7 +138,8 @@ Remaining deliverables:
 1. minimal live helper contract job in CI,
 2. image-level vulnerability scanning and an enforceable severity policy,
 3. optional task alias that wraps existing scripts without replacing `tu-vm.sh`,
-4. canonical suggestion metadata/link validator.
+4. canonical suggestion metadata/link validator,
+5. semantic drift check for documented Compose services, helper routes, and CLI commands.
 
 ### Dependencies
 
@@ -196,6 +197,11 @@ Operationalize historical profile and startup suggestions into predictable behav
    - Tier 1 first
    - defer heavy services unless explicitly requested
 4. Transparent startup summary indicating what started and why
+5. Advisory service-dependency map:
+   - define user-facing dependencies in reviewed profile metadata and validate service IDs against Compose,
+   - distinguish required, recommended, and optional relationships,
+   - show missing dependencies before an action and offer an explicit grouped start,
+   - do not infer forced auto-start behavior from Compose `depends_on` alone.
 
 ### Dependencies
 
@@ -205,6 +211,7 @@ Operationalize historical profile and startup suggestions into predictable behav
 
 - Reduced startup resource spikes.
 - Better user understanding of active services and profile state.
+- Fewer failed starts caused by missing companion services without silently expanding the active profile.
 
 ---
 
