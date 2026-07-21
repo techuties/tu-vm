@@ -28,7 +28,7 @@ Those capabilities would duplicate GitHub, add personal-data and moderation resp
 
 ## Proposal 1: Community knowledge-pack commons
 
-### Problem
+### Knowledge-pack problem
 
 The files in `helper/chat-context/` provide useful n8n and AFFiNE knowledge, and `scripts/seed-chat-context.sh` copies them into the Open WebUI uploads volume. There is no documented contract for community authors to add or update these assets. Reviewers currently have no standard way to answer:
 
@@ -37,7 +37,7 @@ The files in `helper/chat-context/` provide useful n8n and AFFiNE knowledge, and
 - Does it contain secrets, private URLs, unsafe instructions, or unlicensed content?
 - How can a reviewer test retrieval quality and safely remove the pack?
 
-### Existing systems to reuse
+### Existing knowledge-pack systems to reuse
 
 - Keep `helper/chat-context/` as the version-controlled source.
 - Keep `scripts/seed-chat-context.sh` as the installation path until a manifest is proven necessary.
@@ -45,7 +45,7 @@ The files in `helper/chat-context/` provide useful n8n and AFFiNE knowledge, and
 - Use the future static docs website only as a catalog and contributor guide.
 - Use MinIO/Open WebUI as runtime consumers; do not create another content store.
 
-### Website experience
+### Knowledge-pack website experience
 
 Publish a **Knowledge Packs** section with:
 
@@ -87,7 +87,7 @@ Required fields:
 - Require a clean seed into an isolated test volume and verify that removal restores the previous state.
 - Never fetch community pack content at runtime; releases must contain the reviewed version.
 
-### Rollout and rollback
+### Knowledge-pack rollout and rollback
 
 1. Inventory and document the existing three assets.
 2. Add the catalog page and contribution checklist.
@@ -97,7 +97,7 @@ Required fields:
 
 Rollback is documentation-first: remove a catalog entry, revert the pack commit, rerun the seed command, and document whether previously copied files need explicit deletion. Existing installations must continue to work when website publishing is unavailable.
 
-### Acceptance criteria
+### Knowledge-pack acceptance criteria
 
 - Every active pack has ownership, provenance, compatibility, and validation information.
 - A contributor can update a pack using only the documented GitHub workflow.
@@ -107,11 +107,11 @@ Rollback is documentation-first: remove a catalog entry, revert the pack commit,
 
 ## Proposal 2: Curated integration and recipe catalog
 
-### Problem
+### Integration catalog problem
 
 Integration knowledge is spread across the root README, Compose configuration, scripts, model context, and upstream documentation. Contributors can easily create a second setup path that conflicts with existing service names, security controls, or health checks.
 
-### Existing systems to reuse
+### Existing integration systems to reuse
 
 - Use Docker Compose service definitions as the runtime inventory.
 - Link to current `tu-vm.sh` commands rather than duplicating shell logic.
@@ -119,7 +119,7 @@ Integration knowledge is spread across the root README, Compose configuration, s
 - Treat [`extensions-and-integration-framework.md`](./extensions-and-integration-framework.md) as the future package contract, not a prerequisite for publishing useful recipes.
 - Use GitHub Issues and pull requests for submissions and review.
 
-### Website experience
+### Integration catalog website experience
 
 Publish an **Integrations and Recipes** catalog with filters for:
 
@@ -156,7 +156,7 @@ Score each recipe on:
 
 Do not accept catalog entries that require privileged containers, host Docker socket access, unpinned remote scripts, plaintext secrets, or undocumented outbound telemetry unless maintainers explicitly approve and label the risk.
 
-### Rollout and rollback
+### Integration catalog rollout and rollback
 
 1. Generate an inventory of bundled services from Compose.
 2. Manually publish three reference entries representing read-only, write-capable, and external-network integrations.
@@ -166,7 +166,7 @@ Do not accept catalog entries that require privileged containers, host Docker so
 
 The catalog is non-authoritative for execution. If publishing breaks, operators continue to use `README.md`, `tu-vm.sh`, and playbooks. Removing a bad recipe must not change running services.
 
-### Acceptance criteria
+### Integration catalog acceptance criteria
 
 - Every bundled catalog entry links to real commands and a current health check.
 - Security and data-flow fields are visible before setup instructions.
@@ -176,11 +176,11 @@ The catalog is non-authoritative for execution. If publishing breaks, operators 
 
 ## Proposal 3: Privacy-first community and release digest
 
-### Problem
+### Release-digest problem
 
 Static release and changelog links exist, but operators cannot see concise project highlights from the LAN dashboard without leaving TU-VM. Calling GitHub from each private installation would leak operator activity and introduce an availability dependency.
 
-### Existing systems to reuse
+### Existing release systems to reuse
 
 - Use GitHub Releases and `CHANGELOG.md` as the editorial sources.
 - Use Release Drafter labels and linked issues for community attribution.
@@ -208,7 +208,7 @@ Ship the generated file with TU-VM. The dashboard reads only that local artifact
 - Display the artifact timestamp and retain the current static links as fallback.
 - Do not expose private issue text, email addresses, or contributor data beyond public attribution already present in the release.
 
-### Rollout and rollback
+### Release-digest rollout and rollback
 
 1. Define and validate the JSON schema.
 2. Generate a fixture from the current `CHANGELOG.md`.
@@ -218,7 +218,7 @@ Ship the generated file with TU-VM. The dashboard reads only that local artifact
 
 Rollback disables the panel or removes the artifact; existing release and changelog links remain available.
 
-### Acceptance criteria
+### Release-digest acceptance criteria
 
 - Browser network inspection shows no third-party request from the digest.
 - Missing, stale, or malformed JSON degrades to the static links.
