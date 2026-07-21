@@ -30,6 +30,9 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+- `website-community-roadmap.md`
+  Focused proposals for community-curated knowledge packs, a reusable integration catalog, and a privacy-first local release digest.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
