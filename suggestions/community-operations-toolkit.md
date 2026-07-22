@@ -1,160 +1,204 @@
 # Suggestion: Community Operations Toolkit
 
-## Why this suggestion exists
+## Purpose
 
-A community-based project succeeds when support, documentation, and contribution workflows are predictable. Today, operational guidance exists, but community operations can be made much easier through standardized playbooks, triage mechanics, and contributor pathways.
+Turn the repository's existing issue, diagnostics, and playbook capabilities into
+a clear community support path that can later be published on a static website.
 
-This suggestion provides an operations toolkit that keeps maintainers efficient while helping contributors get productive quickly.
+GitHub Issues remain the system of record. The website is a discoverable,
+read-only guide and index; it is not a second support queue.
 
-## Problem statement
+## Historical baseline
 
-- Community work can become ad hoc without clear triage and ownership.
-- Repetitive support requests create maintainer fatigue.
-- New contributors may not know where to start or how to validate changes safely.
-- Valuable user feedback can be lost if issue-to-feature loops are not explicit.
+The repository already provides:
 
-## Goals
+- GitHub forms for bugs and suggestions;
+- documented labels such as `triage`, `needs-info`, and `good first issue`;
+- stale-item automation;
+- `CONTRIBUTING.md`, `SECURITY.md`, and operator playbooks;
+- `./tu-vm.sh doctor --json`, configuration checks, smoke tests, and helper
+  contract checks; and
+- Release Drafter and changelog linkage.
 
-1. Reduce mean time to triage for community issues.
-2. Improve first-time contributor success rates.
-3. Standardize support handling and escalation.
-4. Close the loop from user suggestion to tracked implementation.
+Do not recreate these as custom forms, a voting API, a support database, or a
+second label taxonomy. The remaining problems are discoverability, consistently
+safe diagnostic evidence, and keeping known resolutions connected to issues and
+releases.
 
-## Proposed toolkit components
+## Proposed website page set
 
-## 1) Structured triage workflow
+The future docs framework should render these pages from one editable Markdown
+source tree.
 
-### Intake categories
+### `community/support/index.md`
 
-Use a simple, fixed taxonomy:
+The support landing page should route people by intent:
 
-- Bug
-- Feature request
-- Documentation
-- Security
-- Support/question
-- Ecosystem integration
+- operational problem: open the relevant playbook first;
+- reproducible bug: search existing issues, gather safe evidence, then use the
+  bug form;
+- usage question: use the repository's configured discussion channel;
+- feature idea: use the suggestion form;
+- suspected vulnerability: use the private path in `SECURITY.md`.
 
-### Triage states
+The page should show the exact boundary between public and private reports and
+must not copy security contact details that could drift from `SECURITY.md`.
 
-- `needs-info`
-- `accepted`
-- `planned`
-- `in-progress`
-- `blocked`
-- `closed`
+### `community/support/gather-evidence.md`
 
-### Service-level expectations (internal target)
+This page should explain, in order:
 
-- New issue first response target: <= 48 hours
-- Security issue acknowledgement target: <= 24 hours
-- Suggestion status update cadence: at least once per release cycle
+1. how to record the TU-VM version or commit;
+2. how to run `doctor --json`, `check-config`, and the relevant smoke check;
+3. what must never be pasted into a public issue;
+4. how to generate and inspect a support bundle after that tool ships; and
+5. how to attach evidence while preserving reproducible steps in the issue body.
 
-## 2) Maintainer playbooks
+The detailed support-bundle contract is defined in
+[Contributor Tooling Framework](./contributor-tooling-framework.md). Until it is
+implemented, the page should recommend individual existing commands rather than
+claiming the bundle is available.
 
-Create and keep lightweight operational playbooks for:
+### `community/support/known-issues.md`
 
-- Release communication checklist
-- Incident communication flow (service breakage, regression, docs errors)
-- Security disclosure handling (private-to-public transition)
-- Community moderation and code-of-conduct enforcement paths
+Use a generated or tightly curated index, not copied troubleshooting prose. Each
+entry should contain:
 
-Each playbook should include:
+- a short symptom and affected release range;
+- subsystem and status;
+- a safe confirmation command;
+- a link to the canonical playbook or issue;
+- fixed-in release or workaround expiry; and
+- last verified date.
 
-- trigger conditions
-- accountable maintainer role
-- communication template
-- escalation rules
+Entries should disappear or move to an archive when their affected release is
+no longer supported. The linked issue or playbook remains the detailed source.
 
-## 3) Contributor onboarding lane
+### `community/support/triage-guide.md`
 
-### First-contribution path
+This maintainer-facing page should map the existing labels to actions:
 
-- Curate issues labeled `good-first-task` and `help-wanted`.
-- Provide task brief templates: context, expected change, acceptance criteria.
-- Offer a "local validation checklist" tied to existing project commands.
-
-### New contributor completion checklist
-
-- Can run `./tu-vm.sh status` and basic diagnostics.
-- Understands branch + commit expectations.
-- Knows where suggestions are tracked and how to avoid duplicates.
-
-## 4) Support operations knowledge base
-
-Build a repeatable support model using existing docs:
-
-- Link canonical answers from `README.md` and `QUICK_REFERENCE.md`.
-- Maintain a list of top recurring issues and fix paths.
-- Use "known problem -> validated command sequence -> expected output" format.
-
-This reduces duplicate answering and keeps support quality consistent.
-
-## 5) Suggestion lifecycle management
-
-Implement a suggestion lifecycle table maintained with each release:
-
-| Stage | Description |
+| Signal | Action |
 |---|---|
-| Proposed | Captured and documented |
-| Review | Maintainer + community feedback window |
-| Accepted | Added to roadmap/backlog |
-| Delivered | Implemented and documented |
-| Deferred | Valuable but postponed with rationale |
-| Rejected | Explicitly declined with rationale |
+| Security-sensitive content | Remove public exposure where possible and route to `SECURITY.md`; do not quote the sensitive value. |
+| Missing reproduction or version | Apply `needs-info` and request only the smallest missing evidence. |
+| Known issue | Link the canonical issue/playbook and record the duplicate relationship. |
+| Confirmed regression | Add subsystem and release labels, then link an implementation issue or pull request. |
+| Documentation gap | Fix the canonical page and link the change back to the report. |
+| Suitable first contribution | Add `good first issue` only when scope and acceptance checks are explicit. |
 
-Every delivered suggestion should link to:
+Avoid response-time promises until maintainers have measured capacity. Publish a
+review cadence only when an owner rotation exists.
 
-- implementation PR/commit
-- changelog entry
-- documentation update location
+### `community/support/resolution-index.md`
 
-## Implementation approach (incremental)
+Close the loop without creating a separate knowledge database. A resolution
+entry should link:
 
-## Phase 1: Operational baseline
+- original issue;
+- validating pull request or commit;
+- changelog or release;
+- affected and fixed versions; and
+- canonical playbook or documentation.
 
-- Add labels/milestones in issue tracking aligned to triage taxonomy.
-- Publish triage and maintainer playbook templates.
-- Start weekly issue triage rhythm.
+Generate this view from repository-owned metadata where practical. If generation
+is not reliable, keep the first version as a short curated index with a named
+owner and review date.
 
-## Phase 2: Contributor acceleration
+## Content and automation model
 
-- Curate first-task backlog.
-- Publish contributor runbook with minimal local setup + validation commands.
-- Add a "how to propose suggestions" template.
+### Single-source rules
 
-## Phase 3: Closed-loop governance
+- Commands are sourced from scripts or command inventories, not retyped across
+  several pages.
+- Security routing links to `SECURITY.md`.
+- Issue status and discussion stay on GitHub.
+- Operational steps link to `docs/playbooks/`.
+- Release state links to `CHANGELOG.md` or GitHub Releases.
+- Website pages never include submitted diagnostic archive contents.
 
-- Add suggestion lifecycle reporting into release notes process.
-- Track support metrics and recurring support topics.
-- Adjust onboarding and docs based on measured friction points.
+### Safe automation
+
+Start with pull-request-time validation:
+
+- required metadata for known-issue entries;
+- affected-version format and valid status values;
+- relative-link checks;
+- duplicate canonical issue URLs; and
+- stale `last_verified` dates as warnings.
+
+Do not scrape private reports, automatically publish issue bodies, or ingest
+support bundle contents into the website build.
+
+## Contributor path
+
+Support work should be easy to turn into a first contribution:
+
+1. a maintainer marks a confirmed documentation or playbook gap;
+2. the issue names one canonical file and a reproducible acceptance check;
+3. the contributor updates that source and links the issue;
+4. CI validates links and repository checks; and
+5. the resolution index links the shipped fix after release.
+
+This keeps contribution work scoped and prevents support answers from being
+copied into disconnected documents.
+
+## Rollout
+
+### Phase 1: connect existing assets
+
+- Publish the support landing and evidence pages using current commands.
+- Add stable links to existing playbooks, issue forms, and security policy.
+- Document the current label-to-action map without introducing new labels.
+
+### Phase 2: add privacy-safe evidence
+
+- Implement and security-test the support bundle.
+- Update the bug form and evidence page only after the command ships.
+- Pilot known-issue metadata with a small set of recurring problems.
+
+### Phase 3: generate indexes
+
+- Generate known-issue and resolution views from validated metadata.
+- Add search and filters in the selected static docs framework.
+- Review metrics before adding triage automation.
+
+Rollback is low risk: remove generated navigation and continue using GitHub
+Issues, current playbooks, and existing diagnostics directly.
 
 ## Risks and mitigations
 
-- **Risk:** Playbooks become stale.  
-  **Mitigation:** Tie updates to each release checklist.
+- **Stale website guidance:** validate links and dates; keep details in canonical
+  scripts, policies, issues, and playbooks.
+- **Accidental disclosure:** collect support data by allowlist, require local
+  review, and never auto-publish.
+- **Duplicate support queues:** make every website action route to the existing
+  GitHub channel.
+- **Maintainer burden:** start with routing pages and a small curated index;
+  automate only measured repetition.
+- **Metrics becoming surveillance:** use aggregate repository workflow data, not
+  local product telemetry or bundle contents.
 
-- **Risk:** Triage overhead increases.  
-  **Mitigation:** Keep taxonomy small and automate repetitive labeling where possible.
+## Acceptance criteria
 
-- **Risk:** New contributors still struggle with setup variability.  
-  **Mitigation:** Keep validation commands deterministic and documented with expected outcomes.
+- A user reaches the correct public or private reporting channel in two links or
+  fewer from the support landing page.
+- Every shown command exists and is covered by a documentation/runtime check or
+  a release review.
+- Known-issue entries have affected versions, status, canonical link, and
+  verification date.
+- No page duplicates issue discussion, security contact data, or full playbook
+  steps.
+- The support path works with JavaScript disabled and remains keyboard
+  navigable in the selected static framework.
+- Removing the website layer does not remove issue history or operational
+  guidance.
 
-## Success metrics
+## Success measures
 
-- Median first-response time for issues.
-- Percentage of issues triaged within 48 hours.
-- First-time contributor PR merge rate.
-- Reduction in repeated support questions after KB publication.
-- Ratio of accepted suggestions that reach delivered state.
-
-## Near-term tasks
-
-1. Define and apply triage labels/taxonomy.
-2. Publish maintainer playbook templates.
-3. Create contributor "first-task" template and checklist.
-4. Add suggestion lifecycle table to release process.
-
-## Long-term value
-
-This toolkit transforms community activity from ad hoc effort into a reliable operating system: clear intake, clear decisions, faster onboarding, and transparent delivery of community suggestions.
+- Fewer `needs-info` cycles per reproducible bug.
+- Fewer duplicate issues for indexed known problems.
+- Shorter time from confirmed docs gap to merged correction.
+- Higher first-time contributor completion rate on support-derived tasks.
+- Zero confirmed public secret disclosures caused by the recommended evidence
+  workflow.
