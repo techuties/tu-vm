@@ -13,6 +13,18 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+### Publishable website pages (start here)
+
+Detailed Stage 1 website markdown lives in [`website/`](./website/index.md):
+
+1. [Community Suggestions Website](./website/index.md)
+2. [How to Submit](./website/how-to-submit.md)
+3. [Status Board](./website/status-board.md)
+4. [Day-to-Day Community Tools](./website/day-to-day-community-tools.md)
+5. [MCP Tools Community Catalog](./website/mcp-tools-catalog.md) — distinct constructional focus
+
+### Planning frameworks (canonical)
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
@@ -39,17 +51,19 @@ Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Keep [`website/`](./website/index.md) as the single Stage 1 content set for community pages
 
 ### Phase 2 (Acceleration)
 
 - Automation for triage and stale-issue workflows (labels, bots)
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- MCP tools catalog metadata + CI schema validation ([`website/mcp-tools-catalog.md`](./website/mcp-tools-catalog.md))
 
 ### Phase 3 (Scale)
 
 - Open community working groups
-- Create plugin/integration curation process
+- Extension/MCP curation process grounded in the catalog contract
 - Publish quarterly roadmap and retrospective summaries
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.
