@@ -11,7 +11,9 @@ These are suggested markdown pages for a community-facing suggestions system on 
 
 ## Recommended page set
 
-### 1) `community/suggestions/index.md`
+Stage 1 sources are authored under [`website/`](./website/) so the community website has concrete markdown now. After static-framework adoption, map that folder into `docs/community/` (or the configured content root) without keeping two editable copies.
+
+### 1) `community/suggestions/index.md` → [`website/index.md`](./website/index.md)
 
 Purpose:
 
@@ -24,7 +26,7 @@ Suggested sections:
 - How suggestions are evaluated
 - Quick links (submit, status board, decisions, implemented ideas)
 
-### 2) `community/suggestions/how-to-submit.md`
+### 2) `community/suggestions/how-to-submit.md` → [`website/how-to-submit.md`](./website/how-to-submit.md)
 
 Purpose:
 
@@ -37,7 +39,7 @@ Suggested sections:
 - Example strong suggestion
 - Example extension (instead of duplicate)
 
-### 3) `community/suggestions/status-board.md`
+### 3) `community/suggestions/status-board.md` → [`website/status-board.md`](./website/status-board.md)
 
 Purpose:
 
@@ -62,6 +64,8 @@ Suggested sections:
 - Deferred with re-open conditions
 - Rejected with alternatives
 
+Add this page once the first triage cycle under the Stage 1 board completes (do not invent a second tracker).
+
 ### 5) `community/suggestions/implemented.md`
 
 Purpose:
@@ -74,6 +78,11 @@ Suggested sections:
 - What changed in product/operations
 - Validation evidence
 - Link to release/changelog entry
+
+### 6) Tools pages (Stage 1 detailed)
+
+- [`website/day-to-day-community-tools.md`](./website/day-to-day-community-tools.md) — frameworks and daily commands
+- [`website/mcp-tools-catalog.md`](./website/mcp-tools-catalog.md) — community MCP contribution contract (distinct constructional focus)
 
 ## Suggested metadata format (front matter)
 
@@ -113,6 +122,8 @@ updated_at: YYYY-MM-DD
 
 ## Rollout recommendation
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+1. Stage 1 drafts now exist under [`website/`](./website/index.md) (`index`, `how-to-submit`, `status-board`, day-to-day tools, MCP catalog).
+2. Link the hub from CONTRIBUTING / landing community strip when ready for wider visibility.
+3. Add `decisions.md` once first triage cycle completes.
+4. Add `implemented.md` when first suggestion ships under this framework.
+5. On docs-framework adoption, move or mount `website/` as the community content root once.
