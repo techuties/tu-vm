@@ -111,8 +111,21 @@ updated_at: YYYY-MM-DD
 - Ensure link text is descriptive (avoid generic "click here").
 - Use explicit dates and statuses to avoid ambiguity.
 
+## Stage 2 publishable pages (added under `website/`)
+
+In addition to the Stage 1 page set above, keep these living artifacts in [`website/`](./website/index.md):
+
+| Page | Purpose |
+|---|---|
+| [`website/hardware-compatibility-matrix.md`](./website/hardware-compatibility-matrix.md) | Host class → service guidance with `doctor` evidence |
+| [`website/persona-entry-paths.md`](./website/persona-entry-paths.md) | Operator / docs / integration first-hour routes |
+| [`website/operator-service-profiles.md`](./website/operator-service-profiles.md) | Named energy/AI/automation/knowledge profiles |
+
+These pages must stay read-only catalogs that link existing commands. They are not a second intake queue.
+
 ## Rollout recommendation
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+1. Publish `website/index.md` plus Stage 2 living artifacts (matrix, personas, profiles).
+2. Keep Stage 1 `how-to-submit.md` and `status-board.md` as siblings when that proposal merges.
+3. Add `decisions.md` once first triage cycle completes.
+4. Add `implemented.md` when first suggestion ships under this framework.
