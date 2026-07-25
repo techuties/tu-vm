@@ -13,6 +13,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Website markdown (Stage 2)](./website/index.md)
+   Publishable community pages: hardware matrix, persona entry paths, and operator service profiles.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
@@ -39,12 +42,14 @@ Still open:
 
 - Dedicated docs site structure and navigation (optional static site later)
 - Explicit maintainer label/ownership conventions documented beside Issues
+- Stage 2 website living artifacts under [`website/`](./website/index.md) (hardware matrix, personas, service profiles)
 
 ### Phase 2 (Acceleration)
 
 - Automation for triage and stale-issue workflows (labels, bots)
 - Playbook surfacing from the dashboard with clear anchors
 - Lightweight adoption metrics (release cadence, time-to-close by label)
+- Profile apply helpers that only wrap existing `tu-vm.sh` service commands
 
 ### Phase 3 (Scale)
 

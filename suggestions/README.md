@@ -13,29 +13,43 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
-## Files in this folder
+## Canonical reading path
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
+Start here (avoid the overlapping historical drafts elsewhere in this folder):
 
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
+1. [`index.md`](./index.md) — community system overview
+2. [`website/`](./website/index.md) — **publishable website markdown** (Stage 2 living artifacts)
+3. [`community-system-framework.md`](./community-system-framework.md) — lifecycle and decision scorecard
+4. [`website-and-docs-framework.md`](./website-and-docs-framework.md) — static docs framework gates
+5. [`day-to-day-tooling.md`](./day-to-day-tooling.md) — operator/contributor tooling pillars
+6. [`implementation-backlog.md`](./implementation-backlog.md) — trimmed execution backlog
 
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
+## Website markdown (Stage 2)
 
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
+Publishable community pages live under [`website/`](./website/index.md):
 
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+| Page | Focus |
+|---|---|
+| [`website/index.md`](./website/index.md) | Community suggestions hub and boundaries |
+| [`website/hardware-compatibility-matrix.md`](./website/hardware-compatibility-matrix.md) | Living host/RAM/GPU/storage fit artifact |
+| [`website/persona-entry-paths.md`](./website/persona-entry-paths.md) | First-hour routes that only link existing commands/docs |
+| [`website/operator-service-profiles.md`](./website/operator-service-profiles.md) | Named Tier 1/Tier 2 profiles for day-to-day ops |
+
+Stage 1 siblings (submit guide, status board, day-to-day tools hub, MCP catalog) are proposed on a parallel branch under the same folder naming; keep one content root after merge. Vocabulary source: [`website-community-pages.md`](./website-community-pages.md).
+
+After a static docs framework is adopted, map `website/` into the docs content root once—do not maintain two editable copies.
+
+## Historical planning files (reference only)
+
+Older overlapping drafts remain for archaeology (`website-*-framework.md`, numbered `0x-*.md`, etc.). Prefer the canonical path above and the `website/` pages when proposing new work.
 
 ## Design principles for all suggestions
 
-1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
+1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page, `mcp-gateway`, `mcp-tools/`).
 2. Add modular improvements over deep rewrites.
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
+5. Keep suggestion intake GitHub-native; website pages are read-only guides and catalogs.
 
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
