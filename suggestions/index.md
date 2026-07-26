@@ -13,14 +13,10 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
-   Defines how suggestions are proposed, reviewed, accepted, and implemented.
-
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
-   Recommends a docs website stack and contribution model for clear public communication.
-
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
-   Covers operational tooling, automation, quality gates, and contributor productivity.
+1. [Community System Framework](./community-system-framework.md) — Defines how suggestions are proposed, reviewed, accepted, and implemented.
+2. [Website and Documentation Framework](./website-and-docs-framework.md) — Recommends a docs website stack and contribution model for clear public communication.
+3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md) — Covers operational tooling, automation, quality gates, and contributor productivity.
+4. [Publishable website pages](./website/index.md) — Stage 3 constructional Markdown for decision transparency, docs adoption, quality gates, extension pilots, and hardware-class intake (GitHub remains sole proposal intake).
 
 ## Working principles
 
@@ -49,7 +45,7 @@ Still open:
 ### Phase 3 (Scale)
 
 - Open community working groups
-- Create plugin/integration curation process
-- Publish quarterly roadmap and retrospective summaries
+- Create plugin/integration curation process (start from [`website/extension-pilot-contract.md`](./website/extension-pilot-contract.md))
+- Publish quarterly roadmap and retrospective summaries via [`website/decision-log.md`](./website/decision-log.md) + [`website/implemented-showcase.md`](./website/implemented-showcase.md)
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.

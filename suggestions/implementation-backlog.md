@@ -101,13 +101,15 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
+_Stage 3 website drafts (docs only): [`website/decision-log.md`](./website/decision-log.md), [`website/implemented-showcase.md`](./website/implemented-showcase.md), [`website/docs-framework-adoption.md`](./website/docs-framework-adoption.md), [`website/community-quality-gates.md`](./website/community-quality-gates.md), [`website/extension-pilot-contract.md`](./website/extension-pilot-contract.md), [`website/hardware-class-intake.md`](./website/hardware-class-intake.md)._
+
+1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan). See [`website/community-quality-gates.md`](./website/community-quality-gates.md).
 2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
 3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
+5. **Optional Issue-form `class_id`** — Implement [`website/hardware-class-intake.md`](./website/hardware-class-intake.md) after Stage 2 matrix vocabulary merges.
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
+7. **Extension pilot scaffold** — Land `extensions/<id>/extension.yaml` + validator warned in CI per [`website/extension-pilot-contract.md`](./website/extension-pilot-contract.md).
+8. **Docs framework adoption (gated)** — Follow [`website/docs-framework-adoption.md`](./website/docs-framework-adoption.md); default Astro Starlight only after gates pass.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+10. **Reconcile Stage 1–3 `suggestions/website/` hubs** — Merge sibling pages from open website PRs into one `website/index.md` without duplicating editable trees.
