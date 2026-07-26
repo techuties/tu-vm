@@ -15,20 +15,13 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
-
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
-
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+- `website/` (**publishable website markdown**) — Stage 3 constructional pages: decision log, implemented showcase, docs-framework adoption, quality gates, extension pilot contract, and hardware-class intake. Expected Stage 1/2 siblings are documented in `website/index.md`.
+- `website-historical-baseline.md` — Historical suggestion patterns and how they were merged into a single framework.
+- `website-information-architecture.md` — Detailed website structure, content model, and docs framework recommendation.
+- `website-community-framework.md` — Community operating model, governance, ownership, and review standards.
+- `website-contributor-tooling.md` — Concrete tooling proposals that improve day-to-day contributor productivity.
+- `website-roadmap-from-historical-suggestions.md` — Sequenced roadmap that maps historical suggestions to implementation milestones.
+- `website-community-pages.md` — Lifecycle vocabulary and metadata for website suggestion pages.
 
 ## Design principles for all suggestions
 

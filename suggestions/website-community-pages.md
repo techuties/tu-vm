@@ -11,7 +11,9 @@ These are suggested markdown pages for a community-facing suggestions system on 
 
 ## Recommended page set
 
-### 1) `community/suggestions/index.md`
+Publishable drafts live under [`website/`](./website/) (mapped later to `docs/community/` after docs-framework adoption). Stage 1/2 sibling pages may land from parallel PRs; Stage 3 fills the lifecycle and construction gaps below.
+
+### 1) `website/index.md`
 
 Purpose:
 
@@ -24,7 +26,7 @@ Suggested sections:
 - How suggestions are evaluated
 - Quick links (submit, status board, decisions, implemented ideas)
 
-### 2) `community/suggestions/how-to-submit.md`
+### 2) `website/how-to-submit.md` (Stage 1 sibling)
 
 Purpose:
 
@@ -37,7 +39,7 @@ Suggested sections:
 - Example strong suggestion
 - Example extension (instead of duplicate)
 
-### 3) `community/suggestions/status-board.md`
+### 3) `website/status-board.md` (Stage 1 sibling)
 
 Purpose:
 
@@ -49,31 +51,30 @@ Suggested sections:
 - Last-updated timestamp
 - Links to decision records
 
-### 4) `community/suggestions/decisions.md`
+### 4) `website/decision-log.md` (Stage 3)
 
 Purpose:
 
 - Decision log with rationale for accepted/rejected/deferred items.
 
-Suggested sections:
+Draft: [`website/decision-log.md`](./website/decision-log.md).
 
-- Decision entry format
-- Accepted with tradeoffs
-- Deferred with re-open conditions
-- Rejected with alternatives
-
-### 5) `community/suggestions/implemented.md`
+### 5) `website/implemented-showcase.md` (Stage 3)
 
 Purpose:
 
 - Changelog-adjacent showcase of suggestions that shipped.
 
-Suggested sections:
+Draft: [`website/implemented-showcase.md`](./website/implemented-showcase.md).
 
-- Implemented suggestion summary
-- What changed in product/operations
-- Validation evidence
-- Link to release/changelog entry
+### 6) Stage 3 constructional pages
+
+Additional publishable pages for frameworks and day-to-day community operations:
+
+- [`website/docs-framework-adoption.md`](./website/docs-framework-adoption.md) — static docs framework adoption gates (Starlight default)
+- [`website/community-quality-gates.md`](./website/community-quality-gates.md) — change-type → evidence matrix
+- [`website/extension-pilot-contract.md`](./website/extension-pilot-contract.md) — Compose-backed extension pilot (not a marketplace)
+- [`website/hardware-class-intake.md`](./website/hardware-class-intake.md) — optional Issue-form `class_id` tied to the hardware matrix
 
 ## Suggested metadata format (front matter)
 
@@ -113,6 +114,8 @@ updated_at: YYYY-MM-DD
 
 ## Rollout recommendation
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+1. Publish Stage 1 pages (`how-to-submit`, `status-board`, day-to-day tools, MCP catalog) when that PR merges.
+2. Publish Stage 2 living artifacts (hardware matrix, personas, profiles) when that PR merges.
+3. Publish Stage 3 decision log, implemented showcase, docs adoption, quality gates, extension pilot, and hardware-class intake (this folder).
+4. Reconcile shared `website/index.md` carefully across Stage 1–3 so one hub remains.
+5. After static-framework gates pass, map `suggestions/website/` into the docs content root without two editable copies.
