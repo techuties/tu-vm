@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Publishable website markdown](./website/index.md)
+   Stage 4 implementation contracts (MCP catalog CI, profile CLI, extension scaffold, supply-chain gates, dashboard smoke, stage-merge playbook), with expected Stage 1–3 siblings listed for merge.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
@@ -51,5 +54,9 @@ Still open:
 - Open community working groups
 - Create plugin/integration curation process
 - Publish quarterly roadmap and retrospective summaries
+
+### Phase 4 (Implementation contracts)
+
+Publishable contracts under [`website/`](./website/index.md) that turn Stage 1–3 frameworks into executable day-to-day work: MCP catalog CI, profile CLI, extension scaffold, supply-chain gates, and dashboard Playwright smoke—without inventing parallel platforms.
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.

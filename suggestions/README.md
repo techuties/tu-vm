@@ -15,20 +15,13 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
-
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
-
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+- `website/` (**publishable website markdown**) — Stage 4 implementation contracts: MCP catalog CI, operator profile CLI, extension pilot scaffold, supply-chain gates, dashboard modularization/smoke, and Stage 1–3 merge playbook. Expected Stage 1–3 siblings are documented in `website/index.md`.
+- `website-historical-baseline.md` — Historical suggestion patterns and how they were merged into a single framework.
+- `website-information-architecture.md` — Detailed website structure, content model, and docs framework recommendation.
+- `website-community-framework.md` — Community operating model, governance, ownership, and review standards.
+- `website-contributor-tooling.md` — Concrete tooling proposals that improve day-to-day contributor productivity.
+- `website-roadmap-from-historical-suggestions.md` — Sequenced roadmap that maps historical suggestions to implementation milestones.
+- `website-community-pages.md` — Lifecycle vocabulary and metadata for website suggestion pages.
 
 ## Design principles for all suggestions
 

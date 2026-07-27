@@ -101,13 +101,15 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
-1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
-2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
-4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+_Stage 4 website drafts (docs only): [`website/mcp-catalog-ci-contract.md`](./website/mcp-catalog-ci-contract.md), [`website/operator-profile-cli.md`](./website/operator-profile-cli.md), [`website/extension-pilot-scaffold.md`](./website/extension-pilot-scaffold.md), [`website/supply-chain-community-gates.md`](./website/supply-chain-community-gates.md), [`website/dashboard-modularization-smoke.md`](./website/dashboard-modularization-smoke.md), [`website/stage-merge-playbook.md`](./website/stage-merge-playbook.md)._
+
+1. **MCP catalog YAML + CI** — Implement [`website/mcp-catalog-ci-contract.md`](./website/mcp-catalog-ci-contract.md) after Stage 1 catalog guidance merges.
+2. **Trivy (or Grype) image CVE scans** — Follow [`website/supply-chain-community-gates.md`](./website/supply-chain-community-gates.md); iterate pinned Compose images with severity thresholds.
+3. **Operator profile CLI** — `./tu-vm.sh profile list|show|apply --plan` per [`website/operator-profile-cli.md`](./website/operator-profile-cli.md) after Stage 2 profiles stabilize.
+4. **Extension pilot scaffold** — Land `extensions/<id>/` + `validate-extension.sh` per [`website/extension-pilot-scaffold.md`](./website/extension-pilot-scaffold.md).
+5. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); see [`website/dashboard-modularization-smoke.md`](./website/dashboard-modularization-smoke.md) (**P2-1**).
+6. **Playwright smoke tests** — Tier-1 flows against fixture or `tu.lan` (**P2-2**, same Stage 4 page).
+7. **Tighten Trivy gate** — Fail on CRITICAL/HIGH once Phase A noise is triaged (supply-chain page Phase B).
+8. **Reconcile Stage 1–4 `suggestions/website/` hubs** — Follow [`website/stage-merge-playbook.md`](./website/stage-merge-playbook.md).
+9. **Optional Issue-form `class_id`** — After Stage 2 matrix + Stage 3 hardware-class intake merge.
+10. **SBOM export (optional)** — CycloneDX/SPDX on Release per supply-chain Phase C.

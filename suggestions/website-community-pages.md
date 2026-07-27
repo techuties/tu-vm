@@ -111,8 +111,22 @@ updated_at: YYYY-MM-DD
 - Ensure link text is descriptive (avoid generic "click here").
 - Use explicit dates and statuses to avoid ambiguity.
 
+## Publishable website directory
+
+Curated, read-only pages live under [`website/`](./website/index.md) for a future static docs mount:
+
+| Stage | Focus | Representative pages |
+|---|---|---|
+| 1 (open PR) | Intake and daily tools | `how-to-submit`, `status-board`, `day-to-day-community-tools`, `mcp-tools-catalog` |
+| 2 (open PR) | Living ops artifacts | `hardware-compatibility-matrix`, `persona-entry-paths`, `operator-service-profiles` |
+| 3 (open PR) | Lifecycle + constructional contracts | `decision-log`, `implemented-showcase`, `docs-framework-adoption`, `community-quality-gates`, `extension-pilot-contract`, `hardware-class-intake` |
+| 4 (this branch) | Implementation contracts | `mcp-catalog-ci-contract`, `operator-profile-cli`, `extension-pilot-scaffold`, `supply-chain-community-gates`, `dashboard-modularization-smoke`, `stage-merge-playbook` |
+
+Use [`website/stage-merge-playbook.md`](./website/stage-merge-playbook.md) when reconciling Stage hubs so only one editable `website/index.md` remains.
+
 ## Rollout recommendation
 
-1. Publish `index.md`, `how-to-submit.md`, and `status-board.md` first.
-2. Add `decisions.md` once first triage cycle completes.
-3. Add `implemented.md` when first suggestion ships under this framework.
+1. Publish Stage 1 `index.md`, `how-to-submit.md`, and `status-board.md` first.
+2. Add decision log / implemented showcase (Stage 3) once triage produces outcomes.
+3. Land Stage 4 implementation contracts before coding MCP CI, profile CLI, or extension scaffolds.
+4. Merge Stage 1–4 with the stage-merge playbook; then mount to `docs/community/` after docs-framework gates pass.
