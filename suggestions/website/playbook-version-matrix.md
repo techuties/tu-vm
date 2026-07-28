@@ -77,7 +77,7 @@ When a PR touches `tu-vm.sh` operator flows, Compose service names used in recip
 1. Insert the matrix stub with “verify on current `dev`” as the baseline.
 2. Backfill notes only for known breaks from recent CHANGELOG entries (do not invent history).
 3. Mention the checklist in CONTRIBUTING under operations docs.
-4. Optionally surface "Playbooks last verified: &lt;release-tag&gt;" on the landing operator hub as plain text (no new API).
+4. Optionally surface a plain-text "Playbooks last verified" release tag on the landing operator hub (no new API).
 
 ## Acceptance criteria
 
