@@ -2,6 +2,12 @@
 
 This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
 
+## Publishable website markdown (start here)
+
+Curated, read-only pages for a future static docs site live in [`website/`](./website/index.md).
+
+**Stage 5** (current) adds day-to-day operating contracts: Dev Containers, Compose CI live profile, playbook version matrix, GitHub label/board taxonomy, community health digest, task-runner wrappers, and control-plane contribution rules. Stages 1–4 sibling pages are expected from open PRs #27–#30; merge hubs using the Stage 4 `stage-merge-playbook.md` rather than rewriting those contracts here.
+
 ## Historical baseline used
 
 These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.
@@ -15,20 +21,12 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
-
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
-
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+- [`website/`](./website/index.md) — Publishable website markdown (canonical community site content root until docs-framework adoption).
+- `website-historical-baseline.md` — Historical suggestion patterns and how they were merged into a single framework.
+- `website-information-architecture.md` — Detailed website structure, content model, and docs framework recommendation.
+- `website-community-framework.md` — Community operating model, governance, ownership, and review standards.
+- `website-contributor-tooling.md` — Concrete tooling proposals that improve day-to-day contributor productivity.
+- `website-roadmap-from-historical-suggestions.md` — Sequenced roadmap that maps historical suggestions to implementation milestones.
 
 ## Design principles for all suggestions
 

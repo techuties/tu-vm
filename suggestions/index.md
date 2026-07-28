@@ -13,14 +13,13 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
-   Defines how suggestions are proposed, reviewed, accepted, and implemented.
+0. [Publishable website markdown (`website/`)](./website/index.md) — Stage 5 day-to-day operating contracts (Dev Containers, CI live profile, labels/board, health digest, task runner, control-plane rules), with Stage 1–4 siblings expected from open PRs.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
-   Recommends a docs website stack and contribution model for clear public communication.
+1. [Community System Framework](./community-system-framework.md) — Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
-   Covers operational tooling, automation, quality gates, and contributor productivity.
+2. [Website and Documentation Framework](./website-and-docs-framework.md) — Recommends a docs website stack and contribution model for clear public communication.
+
+3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md) — Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
 
