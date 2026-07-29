@@ -2,6 +2,22 @@
 
 This folder contains detailed, implementation-oriented suggestions for building a community-driven website and contributor system without reinventing existing work.
 
+## Publishable website markdown (start here)
+
+Curated, read-only pages for a future static docs site live in [`website/`](./website/index.md).
+
+**Stage 6** (current) adds content integrity, operator reliability, and non-MCP community catalogs:
+
+- Suggestion corpus registry (stop duplicate reinvention)
+- Website frontmatter / link CI contract
+- n8n workflow catalog
+- Observability contribution contract (Prometheus/Grafana)
+- Backup/restore community drill
+- Air-gapped docs mirror
+- Deprecation notice framework
+
+Stages 1–5 sibling pages are expected from open PRs #27–#31; merge hubs using the Stage 4 `stage-merge-playbook.md` (extend merge order through Stage 6) rather than rewriting those contracts here.
+
 ## Historical baseline used
 
 These suggestions are consolidated from previous `community-suggestions-*` branches so repeated ideas are reused instead of reauthored from scratch.
@@ -15,20 +31,12 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
-  Historical suggestion patterns and how they were merged into a single framework.
-
-- `website-information-architecture.md`  
-  Detailed website structure, content model, and docs framework recommendation.
-
-- `website-community-framework.md`  
-  Community operating model, governance, ownership, and review standards.
-
-- `website-contributor-tooling.md`  
-  Concrete tooling proposals that improve day-to-day contributor productivity.
-
-- `website-roadmap-from-historical-suggestions.md`  
-  Sequenced roadmap that maps historical suggestions to implementation milestones.
+- [`website/`](./website/index.md) — Publishable website markdown (canonical community site content root until docs-framework adoption).
+- `website-historical-baseline.md` — Historical suggestion patterns and how they were merged into a single framework.
+- `website-information-architecture.md` — Detailed website structure, content model, and docs framework recommendation.
+- `website-community-framework.md` — Community operating model, governance, ownership, and review standards.
+- `website-contributor-tooling.md` — Concrete tooling proposals that improve day-to-day contributor productivity.
+- `website-roadmap-from-historical-suggestions.md` — Sequenced roadmap that maps historical suggestions to implementation milestones.
 
 ## Design principles for all suggestions
 
