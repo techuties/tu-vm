@@ -94,6 +94,7 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
 2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
 3. **P2-1**, **P2-2**, **P2-3**
+4. **Stage 6 website contracts** (see [`website/`](./website/index.md)) — after Stages 1–5 merge: corpus registry + frontmatter CI, then n8n catalog / observability / backup drills / air-gap docs / deprecations as capacity allows.
 
 ---
 
