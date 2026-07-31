@@ -13,6 +13,8 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Publishable website markdown (`website/`)](./website/index.md) — Stage 7 product and day-to-day operator contracts (helper API, idle auto-stop, battery/power signals, local resource history, service dependencies, dashboard a11y/mobile, AI pipeline), with Stage 1–6 siblings expected from open PRs #27–#32.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 

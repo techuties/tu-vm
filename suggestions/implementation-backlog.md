@@ -94,6 +94,8 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
 2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
 3. **P2-1**, **P2-2**, **P2-3**
+4. **Stage 6 website contracts** (open PR #32) — corpus registry + frontmatter CI, then n8n catalog / observability / backup drills / air-gap docs / deprecations as capacity allows.
+5. **Stage 7 website contracts** (see [`website/`](./website/index.md)) — after helper/profile foundations: dependency map + idle policy, then battery/history widgets, a11y baseline, AI pipeline contribution path.
 
 ---
 
@@ -103,11 +105,11 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 
 1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
 2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
-3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
+3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**), including one mobile viewport case (Stage 7 a11y baseline).
 4. **Compose profile for CI integration** — Minimal service set (or mocks) to curl `/status/full` against a live helper response shape, complementing the static fixture.
-5. **Playbook version notes** — Short matrix in [`docs/playbooks/README.md`](../docs/playbooks/README.md): TU-VM major tag / compose behaviours that change commands.
-6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
-7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
-8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
+5. **Service dependency map + `--with-deps`** — YAML map validated against Compose; plan/apply via `tu-vm.sh` (Stage 7).
+6. **Opt-in Tier 2 idle auto-stop** — Default off; dry-run before enable; never_stop Tier 1 (Stage 7).
+7. **Helper-contract battery + local resource history** — Optional `/status` slices; local retention only; fixture-additive (Stage 7).
+8. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
+9. **AI pipeline contribution path** — Documented lanes for `mcp-gateway` / `langgraph-supervisor` / MCP catalog CI (Stage 7 + Stage 4).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
