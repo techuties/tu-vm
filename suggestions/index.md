@@ -13,6 +13,8 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Publishable website markdown (`website/`)](./website/index.md) — Stage 8 lifecycle and knowledge-plane contracts (smart startup, secret hygiene, Compose overrides, update channels, RAG packs, release canary, e2e scenario catalog), with Stage 1–7 siblings expected from open PRs #27–#33.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
