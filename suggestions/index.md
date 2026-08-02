@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Publishable website markdown (Stage 9)](./website/index.md)
+   Constructional community website pages for usage analytics, model/AFFiNE/Pi-hole/rclone contracts, and dashboard experiment contracts.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
