@@ -92,8 +92,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 ## Suggested implementation order
 
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
-2. **P1-1** — only if operators want inline release bullets without clicking GitHub.
-3. **P2-1**, **P2-2**, **P2-3**
+2. **P1-1** — only if operators want inline release bullets without clicking GitHub; see Stage 9 [`website/dashboard-release-highlights-contract.md`](./website/dashboard-release-highlights-contract.md).
+3. **P2-1**, **P2-2**, **P2-3** — modularization/smoke plus Stage 9 [`website/dashboard-feature-flag-experiments.md`](./website/dashboard-feature-flag-experiments.md).
+
+Publishable Stage 9 website contracts (usage analytics, Ollama catalog, AFFiNE, Pi-hole hygiene, offsite rclone, flags, release highlights) live under [`website/index.md`](./website/index.md). Prefer implementing those contracts over drafting parallel suggestion files.
 
 ---
 
@@ -109,5 +111,5 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 6. **Tighten Trivy gate** — Switch from `exit-code: 0` to failing on HIGH/CRITICAL once noise is triaged.
 7. **Markdown style lint** — markdownlint on `docs/` + root policy files with a narrow rule set.
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
-9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
-10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**; Stage 9 contract).
+10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs and Stage 9 AFFiNE contract, if the team adopts them.
