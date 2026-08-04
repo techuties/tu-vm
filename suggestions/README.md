@@ -13,6 +13,11 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown (preferred entry)
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 11** adds Tailscale LAN bridge, host cron maintenance, browserless automation, Workflow Operator, autonomous write-guard policy, container log retention, and privileged host-ops contracts (extends Stages 1–10 without duplicating them).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
