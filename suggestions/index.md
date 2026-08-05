@@ -13,6 +13,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
+0. [Publishable website markdown (`website/`)](./website/index.md)
+   Stage-based community website pages. Stage 12 covers edge-access, diagnostics, and operator-communication day-to-day contracts.
+
 1. [Community System Framework](./community-system-framework.md)  
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
