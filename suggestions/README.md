@@ -13,6 +13,11 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown (preferred entry)
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 12** adds access-mode/firewall, Nginx edge routing, env schema, diagnostics/triage, dashboard announcements, LAN DNS client onboarding, and host port-binding contracts (extends Stages 1–11 without duplicating them).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
