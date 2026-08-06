@@ -13,6 +13,11 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown (preferred entry)
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 13** adds Open WebUI audio/STT, web-search, PDF day-2 ops, IP allowlist day-2, fixture/contract-test, Compose healthcheck, and host cleanup/prune contracts (extends Stages 1–12 without duplicating them).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
