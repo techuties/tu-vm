@@ -13,6 +13,12 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 14** (current): CLI subcommand contract, changelog/release-notes, rollout gates / proof store, n8n-mcp sidecar, Open WebUI↔MinIO sync day-2, seed chat context, PDF loader switch day-2.
+  Stages 1–13 live on sibling `community-suggestions-system-*` PRs; merge via `website/stage-merge-playbook.md` when those land.
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  

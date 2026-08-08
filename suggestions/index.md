@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Publishable website pages](./website/index.md)
+   Stage 14 constructional contracts (CLI, release notes, proof-store gates, n8n-mcp, sync/seed/loader day-2) plus expected Stage 1–13 siblings.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
