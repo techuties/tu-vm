@@ -13,6 +13,12 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 15** (current): safe-update contribution, n8n node-types extraction, Open WebUI init/first-boot, LangGraph supervisor smoke, MCP gateway ops, docs-link CI, MinIO bucket lifecycle.
+  Stages 1–14 live on sibling `community-suggestions-system-*` PRs (#27–#40); merge via `website/stage-merge-playbook.md` when those land (extend the playbook through Stage 15).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  

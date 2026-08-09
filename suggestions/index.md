@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Publishable website pages](./website/index.md)
+   Stage 15 constructional contracts (safe-update, n8n node-types, Open WebUI init, LangGraph smoke, MCP gateway ops, docs-link CI, MinIO lifecycle) plus expected Stage 1–14 siblings.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
