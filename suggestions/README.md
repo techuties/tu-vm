@@ -13,6 +13,12 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 16** (current): daily checkup, pre-push check, smoke test, CI workflow, GitHub community automation, CODEOWNERS review routing, Dependabot Actions maintenance.
+  Stages 1–15 live on sibling `community-suggestions-system-*` PRs (#27–#41); merge via `website/stage-merge-playbook.md` when those land (extend the playbook through Stage 16).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
