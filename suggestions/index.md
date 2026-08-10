@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Publishable website pages](./website/index.md)
+   Stage 16 constructional contracts (daily checkup, pre-push, smoke, CI, GitHub automation, CODEOWNERS, Dependabot Actions) plus expected Stage 1–15 siblings.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
