@@ -13,6 +13,12 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown
+
+- [`website/`](./website/) — curated, read-only Stage pages for a future static docs site.
+  **Stage 17** (current): weekly stack update, check-config, helper-contract-check, pre-commit hooks, Release Drafter, security reporting, changelog-refresh.
+  Stages 1–16 live on sibling `community-suggestions-system-*` PRs (#27–#42); merge via `website/stage-merge-playbook.md` when those land (extend the playbook through Stage 17).
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
