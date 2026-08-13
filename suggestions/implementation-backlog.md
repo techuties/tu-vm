@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 18 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **IPAM uniqueness CI** — Fail PRs that repeat `ipv4_address` in `docker-compose.yml` (motivated by the `n8n_mcp` / `mcp-playwright` `.30` collision).
+2. **Resource-limit lint** — Warn when a new Compose service omits `deploy.resources.limits.memory`.
+3. **MCP sandbox guards** — CI grep against docker.sock / home-directory mounts under `mcp-tools/`.
+4. **Backup volume prefix + keep-N** — Honor compose project name; optional `TU_VM_BACKUP_KEEP` defaulting to 1.
+5. **Control-auth header path** — Dashboard and new helper clients send `X-Control-Token`; contract-check every mutating route.
+6. **Additive hardening** — `no-new-privileges` on new/low-risk services; forbid extra docker.sock mounts.
+7. **Keep quickstart portable-default** — Treat silent `--server` default changes as breaking.
