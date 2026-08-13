@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 18 adds Compose IPAM, resource budgets, MCP sandboxes, beginner quickstart, local backup/restore, helper control-auth, and container hardening contracts. Stages 1–17 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
