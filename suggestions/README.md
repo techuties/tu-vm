@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 19 adds Tika XML config, Prometheus exporter opt-in, native Compose profiles, Grafana dashboard-as-code, Nginx login rate-limit, AFFiNE backup volume coverage, and MCP Fetch CIDR deny. Stages 1–18 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 

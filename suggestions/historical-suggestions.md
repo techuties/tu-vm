@@ -23,7 +23,14 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Service dependency auto-start | Changelog potential improvement | Proposed | Add dependency map (e.g. Open WebUI + Ollama) in control layer. |
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
-| Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Community contribution standardization | Implicit gap across docs | Partial | GitHub Issue/PR templates + CONTRIBUTING exist; publishable contracts live in `suggestions/website/`. |
+| Tika XML contribution surface | `tika-config/tika-config.xml` timeouts only | Proposed | Stage 19 Tika XML contract—parsers/OCR stay in the bind mount. |
+| Prometheus exporters vs energy | Commented jobs in `monitoring/prometheus.yml` | Proposed | Stage 19 opt-in profile; do not start exporters on default boot. |
+| Native Compose `profiles:` vs shell tiers | `TIER1_SERVICES` / no `profiles:` key | Proposed | Stage 19 sync contract; reconcile CHANGELOG 2.2 drift. |
+| Grafana dashboard-as-code | Datasource file only | Proposed | Stage 19 provisioned JSON under `monitoring/grafana/`. |
+| Unused Nginx `login` zone | `nginx.conf` defines it; no `limit_req` | Proposed | Stage 19 attach to verified auth locations only. |
+| AFFiNE volumes omitted from backup | `create_backup()` loop | Proposed | Stage 19 extend existing archive, no second backup product. |
+| MCP Fetch SSRF on `172.20.0.0/16` | `mcp-tools/fetch` unbounded | Proposed | Stage 19 CIDR deny for Compose + RFC1918/link-local. |
 
 ## Prioritization Framework
 
