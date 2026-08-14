@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 19 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **Tika XML well-formedness** — Comment allowed keys; optional `xmllint --noout` on `tika-config/tika-config.xml`; keep task/OCR timeouts paired.
+2. **Observability Compose profile** — Exporters stay off default `tu-vm.sh start`; pair uncommented scrape jobs with profile-gated services and resource limits.
+3. **Tier array / `profiles:` sync** — If native Compose profiles are added, CI-compare them to `TIER1_SERVICES` / `TIER2_SERVICES` and fix CHANGELOG 2.2 drift.
+4. **Grafana dashboard provider** — `monitoring/grafana/dashboards/` JSON + provider YAML; no secrets; datasource name `Prometheus`.
+5. **Apply `zone=login`** — Attach the unused Nginx zone to verified auth locations only (not `location /`).
+6. **AFFiNE backup volumes** — Add `affine_storage`, `affine_config`, `affine_postgres_data` to `create_backup()`; keep `database.sql` as `ai_platform` only.
+7. **Fetch CIDR deny** — Block `172.20.0.0/16` plus RFC1918/link-local from `mcp-tools/fetch`; fail closed; CI case for `.10` / `.16`.
