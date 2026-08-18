@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 20 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **Processor Python compile gate** — `python3 -m py_compile tika-minio-processor/*.py` in CI/smoke; stop shipping unused `tika_processor.py` / `auto_processor.py` after deprecation.
+2. **Internal stub_status + exporter** — Internal listener (not 443), `allow` exporter / `deny all`, profile-gated nginx-prometheus-exporter, uncomment the nginx scrape job in the same PR.
+3. **AFFiNE Redis durability** — `affine_redis_data:/data` plus `--appendonly yes --appendfsync everysec` (or an explicit ephemeral comment); include the volume in `create_backup()` once it exists.
+4. **IPv6 dual-stack (only if needed)** — Compose `enable_ipv6` + Nginx IPv4 and `[::]` listens + Fetch ULA/link-local deny together; never IPv6-only.
+5. **systemd user unit** — `Type=oneshot RemainAfterExit=yes` template and enable/disable helpers; do not treat `tu-vm.sh start` as `Type=simple`.
+6. **WSL2 contributor path** — CONTRIBUTING subsection + `.gitattributes` `eol=lf` for `*.sh`; clone on the Linux filesystem.
+7. **n8n location split** — Add `/webhook/` and `/webhook-test/` before attaching `zone=login` to a version-verified login path; never put `zone=login` on n8n `location /`.
