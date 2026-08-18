@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 20 adds tika-minio-processor Python, Nginx stub_status pairing, AFFiNE Redis durability, IPv6 dual-stack policy, systemd user-unit install, WSL2 contributor path, and n8n webhook versus login-zone split. Stages 1–19 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 

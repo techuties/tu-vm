@@ -23,7 +23,14 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Service dependency auto-start | Changelog potential improvement | Proposed | Add dependency map (e.g. Open WebUI + Ollama) in control layer. |
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
-| Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Community contribution standardization | Implicit gap across docs | Partial | GitHub Issue/PR templates + CONTRIBUTING exist; publishable contracts live in `suggestions/website/`. |
+| Processor Python vs second worker | `tika-minio-processor/` universal modules | Proposed | Stage 20 Python contract—watch/retry/status stay in the Alpine image. |
+| Nginx stub_status vs public metrics | Commented nginx scrape job; no stub_status | Proposed | Stage 20 internal stub_status paired with opt-in exporter. |
+| AFFiNE Redis ephemeral | `--save "" --appendonly no`; no volume | Proposed | Stage 20 named volume + explicit AOF/RDB policy. |
+| IPv6 dual-stack | IPv4-only IPAM and Nginx listens | Proposed | Stage 20 IPv4-first; dual-stack is all-or-nothing. |
+| Start on login / reboot | Manual `tu-vm.sh start` | Proposed | Stage 20 systemd `--user` oneshot unit. |
+| Windows contributor path | CONTRIBUTING is Linux-oriented | Proposed | Stage 20 WSL2 + same bash scripts; no `/mnt/c` clones. |
+| n8n login vs webhooks | Single `location /` on n8n.tu.lan | Proposed | Stage 20 prefix split before applying `zone=login`. |
 
 ## Prioritization Framework
 
