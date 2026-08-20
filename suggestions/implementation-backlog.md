@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 21 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **Nginx Docker-DNS upstreams** — Add `resolver 127.0.0.11 valid=10s ipv6=off;` and convert one vhost from `172.20.0.x` to the Compose service name with a variable `proxy_pass`. Keep Stage 18 IPAM.
+2. **Platform Redis durability** — On service `redis` only, `--appendonly yes --appendfsync everysec` (or an explicit ephemeral comment). Do not share `affine_redis`.
+3. **Helper modules** — Extract one concern from `uploader.py` (docker client first) and `python3 -m py_compile helper/*.py` in CI/smoke. Keep Flask + `/status/full`.
+4. **Multi-arch pins** — Prefer multi-arch index digests on the next image bump; record arch coverage in the safe-update pin map. No `docker-compose.arm64.yml`.
+5. **Podman / rootless docs** — CONTRIBUTING subsection + `DOCKER_HOST` comment; helper must use the same socket. Distinct from WSL2.
+6. **AppArmor / seccomp** — After Stage 18 `no-new-privileges` / `cap_drop`, opt into `apparmor:docker-default`. Never merge `unconfined`.
+7. **restic / borg backend** — After Stage 18 keep-count/volume-name follow-ups, add opt-in `TU_VM_BACKUP_BACKEND` behind `tu-vm.sh backup` / `restore`. Tar remains default.
