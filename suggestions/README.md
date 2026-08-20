@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 21 adds Nginx Docker-DNS upstreams, platform Redis durability, helper uploader modules, multi-arch image policy, Podman/rootless path, AppArmor/seccomp profiles, and restic/borg backup backends. Stages 1–20 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 

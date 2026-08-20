@@ -23,7 +23,14 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Service dependency auto-start | Changelog potential improvement | Proposed | Add dependency map (e.g. Open WebUI + Ollama) in control layer. |
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
-| Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Community contribution standardization | Implicit gap across docs | Partial | GitHub Issue/PR templates + CONTRIBUTING exist; publishable contracts live in `suggestions/website/`. |
+| Nginx hardcoded upstream IPs | Product vhosts use `172.20.0.x`; landing uses `helper_index` | Proposed | Stage 21 Docker-DNS `proxy_pass` with `resolver 127.0.0.11`. |
+| Platform Redis volume unused | `redis_data` mounted; `--appendonly no --save ""` | Proposed | Stage 21 explicit AOF/RDB policy for `ai_redis` only. |
+| Helper is one Flask file | `helper/uploader.py` ~1000 lines | Proposed | Stage 21 in-tree modules; keep one Flask entrypoint. |
+| ARM64 / multi-arch pins | Digest pins; checkup already maps `uname -m` | Proposed | Stage 21 multi-arch index digests; no second compose file. |
+| Podman / rootless Docker | Scripts assume Docker Engine + compose v2 | Proposed | Stage 21 `DOCKER_HOST` shim; distinct from WSL2. |
+| No LSM profiles | Compose has limits, no `security_opt` | Proposed | Stage 21 AppArmor/seccomp on top of Stage 18 cap_drop. |
+| Incremental encrypted backups | `create_backup()` tar.gz + rclone offsite | Proposed | Stage 21 optional restic/borg behind `tu-vm.sh backup`. |
 
 ## Prioritization Framework
 
