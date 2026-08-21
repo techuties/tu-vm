@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 22 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **Helper image bake** — Add `helper/Dockerfile` (Alpine + apk + pip at build time, processor pattern). Switch `helper_index` to `build: ./helper`. Drop apk/pip from `command:`. Keep `./helper:/app`.
+2. **Platform Postgres WAL/PITR** — Comment dump-plus-volume as the default. If WAL is added, gate it with an env flag defaulting off and wrap it in `tu-vm.sh backup` / `restore`. Do not share `affine_postgres`.
+3. **Image provenance** — `scripts/verify-image-provenance.sh` that `cosign verify`s the signed subset of Compose digests. Distinct from Trivy and `safe-update`. Fail CI only for the signed allowlist.
+4. **Compose secrets** — Keep `.env` + `generate-secrets`. Opt-in `secrets:` + `POSTGRES_PASSWORD_FILE` first. Gitignore secret files.
+5. **Qdrant snapshots** — Keep `docker_qdrant_data` tar. Optional `tu-vm.sh` wrapper around `POST /snapshots`. Do not publish 6333.
+6. **Logging driver** — json-file remains default. Optional Compose `x-logging` journald anchor. Document host `SystemMaxUse`. No Loki in Tier 1.
+7. **Helper Compose watch** — Document the bind-mount in CONTRIBUTING. Optional `develop.watch` sync+restart for `helper/*.py`. Do not enable Flask debug.

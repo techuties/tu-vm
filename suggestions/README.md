@@ -15,7 +15,10 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
-- `website-historical-baseline.md`  
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 22 adds helper image bake, platform Postgres WAL/PITR, image provenance/cosign, Compose secrets, Qdrant snapshots, journald logging, and helper Compose watch. Stages 1–21 live on sibling PRs; do not duplicate those pages here.
+
+- `website-historical-baseline.md`
   Historical suggestion patterns and how they were merged into a single framework.
 
 - `website-information-architecture.md`  
