@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 23 adds Nginx snippet configs, MinIO versioning/ILM, read-only proxy rootfs, Postgres GUCs/pooling, Qdrant HNSW/quantization, host timezone/NTP, and inter-service network isolation. Stages 1–22 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 

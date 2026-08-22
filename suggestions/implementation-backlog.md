@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 23 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file:
+
+1. **Nginx snippets** — Add `nginx/snippets/ssl-params.conf` and `proxy-headers.conf`. Replace copied TLS/header blocks in `default.conf`. Bind-mount `./nginx/snippets`. Optional Compose `configs:` later. Distinct from Stage 12 routing and Stage 21 Docker DNS.
+2. **MinIO versioning / ILM** — Opt-in `mc version` and `mc ilm` in `setup_minio_buckets`. Expire noncurrent versions only. Distinct from Stage 15 bucket naming.
+3. **Read-only Nginx rootfs** — `read_only: true` plus tmpfs for `/var/run`, `/var/cache/nginx`, `/tmp`. Keep `nginx_logs`. Distinct from Stage 18 caps and Stage 21 AppArmor.
+4. **Postgres GUCs** — Pass advertised `shared_buffers` / `max_connections` as `postgres -c` (they are ignored as `POSTGRES_*` env today). Add `statement_timeout`. Defer PgBouncer. Distinct from Stage 22 WAL/PITR. Do not touch `affine_postgres`.
+5. **Qdrant memory** — Checked-in `qdrant/config.yaml` or `QDRANT__` env for HNSW / optional quantization. Keep the 1G limit. Distinct from Stage 22 snapshots.
+6. **Timezone** — One `TU_VM_TZ` for n8n `GENERIC_TIMEZONE` and weekly cron. Document host `timedatectl`. No chrony container.
+7. **Role networks** — Add `data` / `tools` (and later `edge` / `app`) Compose bridges. Attach extra networks first; drop `ai_network` from stores last. Register subnets in the Stage 18 IPAM list. Distinct from Fetch CIDR deny.
