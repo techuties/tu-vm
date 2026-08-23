@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Advertised Nginx worker env is unused | `env.example` `NGINX_WORKER_*` vs hardcoded `nginx.conf` | Proposed | Stage 24 wire-or-delete; `check-config` unused-key guard. |
+| Redis is a single shared `requirepass` | `default` user has `+@all`; no ACL file | Proposed | Stage 24 opt-in `--aclfile`; keep requirepass default. |
+| MinIO objects are plaintext at rest | `minio_data` has no SSE/KMS | Proposed | Stage 24 opt-in SSE-S3 / local KMS via `mc encrypt`. |
+| Host inotify/swappiness are undocumented | Watchers and swap fight laptop energy defaults | Proposed | Stage 24 opt-in `sysctl.d` + `tu-vm.sh`; doctor stays read-only. |
+| Compose `depends_on` ignores existing probes | Open WebUI/processor use `service_started` for healthy services | Proposed | Stage 24 `service_healthy` when a healthcheck exists. |
+| Backup archives are not encrypted | README claims encryption; `create_backup` writes plaintext tar.gz | Proposed | Stage 24 README honesty + opt-in `age` wrap. |
+| Advertised `HEALTH_CHECK_*` is unused | Example `30s` vs live Compose `180s` energy probes | Proposed | Stage 24 wire-or-delete with 180s defaults. |
 
 ## Prioritization Framework
 

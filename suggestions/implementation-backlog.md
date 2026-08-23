@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 24 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 23 snippets/ILM/rootfs/GUC/Qdrant/timezone/networks (PR #49).
+
+1. **Nginx worker env honesty** — Delete unused `NGINX_WORKER_*` / `NGINX_KEEPALIVE_TIMEOUT` from `env.example`, or include one workers snippet that Compose actually mounts. Add a `check-config` unused-key guard. Distinct from Stage 12 routing and Stage 23 TLS includes.
+2. **Redis ACL users** — Keep `--requirepass` as the clone path. Add opt-in `--aclfile` only when a second client needs a narrower user. Do not introduce Redis Cluster/Stack. Distinct from Stage 20 AFFiNE Redis and Stage 21 AOF/RDB.
+3. **MinIO SSE / KMS** — Opt-in SSE-S3 via existing `mc encrypt`, or one local `MINIO_KMS_SECRET_KEY`. No Vault/KES cluster. Distinct from Stage 15 bucket naming and Stage 23 versioning/ILM.
+4. **Host sysctl drop-in** — Opt-in `/etc/sysctl.d/99-tu-vm.conf` for inotify watches/instances and `vm.swappiness`, applied by `tu-vm.sh`; `doctor` stays read-only. No privileged sysctl sidecar. Distinct from Stage 11 sudoers/cron.
+5. **Compose `depends_on` health** — Use `service_healthy` where redis/qdrant/tika/minio already have probes (`open-webui`, `tika_minio_processor`). Keep Tier 2 without fake probes. Distinct from Stage 7 CLI maps and Stage 13 probe commands.
+6. **Backup archive wrap** — Fix the README “encrypted storage” claim. Opt-in `age` (or documented `openssl enc`) wrap of the existing tar after `create_backup`. Distinct from Stage 9 rclone, Stage 18 format/rotation, and Stage 21 restic/borg.
+7. **Healthcheck interval env honesty** — Delete unused `HEALTH_CHECK_*` or interpolate with **180s** energy defaults (not the example `30`). Leave qdrant/minio/tika on faster local intervals. Distinct from Stage 13 probe design.
