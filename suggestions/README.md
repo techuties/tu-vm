@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/)
+  **Publishable website markdown** (canonical). Stage 24 adds Nginx worker env wiring, Redis ACL users, MinIO SSE/KMS, host sysctl tuning, Compose `depends_on` health conditions, backup archive encryption, and healthcheck interval env honesty. Stages 1–23 live on sibling PRs; do not duplicate those pages here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
