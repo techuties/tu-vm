@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 25 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 23 snippets/ILM/rootfs/GUC/Qdrant/timezone/networks (PR #49) or Stage 24 env-honesty/ACL/SSE/sysctl/depends_on/backup-wrap/HEALTH_CHECK_* (PR #50).
+
+1. **Stop grace / SIGTERM drain** — Set `stop_grace_period` on postgres, qdrant, minio, tika, and open-webui (30–90s). No shutdown sidecar. Distinct from Stage 7 idle-stop and Stage 21/22 snapshots.
+2. **Compose `init: true`** — tini on `helper_index` and `tika_minio_processor` so Python is not PID 1. Keep after Stage 22 helper bake. No supervisord.
+3. **Non-root `user:`** — Numeric UID on processor and MCP fetch/memory. Helper stays root or uses a doctor-documented docker GID. Do not chown vendor volumes. Distinct from Stage 18 cap_drop and Stage 23 read-only rootfs.
+4. **Processor `CHECK_INTERVAL` energy** — Interpolate `${CHECK_INTERVAL:-60}`, document in `env.example`. Keep the poller; no Kafka/Redis streams. Distinct from Stage 24 unused `HEALTH_CHECK_*`.
+5. **MCP `pids_limit`** — Fork caps on `mcp-*` tools (64–128) and Playwright/browserless (256–512). No gVisor. Distinct from Stage 18 CPU/memory and Stage 19 CIDR deny.
+6. **Per-container `mem_swappiness`** — Low values on postgres/redis/pihole/nginx; leave Ollama/Tika at default. Distinct from Stage 24 host `vm.swappiness`.
+7. **Tika HTTP healthcheck** — Probe official `/tika` so Stage 24 `service_healthy` can apply. Fix the false "Tier 2 healthcheck disabled" comment. No dummy `exit 0`.
