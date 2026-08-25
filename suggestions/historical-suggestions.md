@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Chromium /dev/shm is 64MB | browserless and mcp-playwright omit `shm_size` | Proposed | Stage 26 `shm_size: 1gb` on Chromium services. |
+| n8n-mcp image is `:latest` | Only official sidecar still unpinned | Proposed | Stage 26 digest pin via existing `tu-vm.sh update` map. |
+| MCP tools auto-start on reboot | filesystem/fetch/memory use `unless-stopped` | Proposed | Stage 26 `restart: "no"` to match Tier 2. |
+| Tika and MinIO have no cgroup limits | Other Tier 1 services set `deploy.resources` | Proposed | Stage 26 limits; keep Tika `-Xmx1536m` under 2G. |
+| Processor scratch uses host `/tmp` | Shared bind with helper status JSON | Proposed | Stage 26 relocate `STATUS_FILE` then processor tmpfs. |
+| Postgres/MinIO inherit 1024 fds | Only nginx sets `ulimits.nofile` | Proposed | Stage 26 copy Nginx 65535 block to datastores. |
+| OOM killer treats Ollama and Pi-hole as peers | No `oom_score_adj` | Proposed | Stage 26 sacrifice Ollama/Tika before DNS/DB. |
 
 ## Prioritization Framework
 

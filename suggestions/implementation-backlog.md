@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 26 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 23–25 (PRs #49–#51).
+
+1. **Chromium `shm_size`** — Set `shm_size: 1gb` on `browserless` and `mcp-playwright`. No host `/dev/shm` bind. Distinct from Stage 25 `pids_limit`.
+2. **n8n-mcp digest pin** — Replace `ghcr.io/czlonkowski/n8n-mcp:latest` with `@sha256:…`. Keep `OFFICIAL_UPDATE_IMAGE_PAIRS`. No second updater.
+3. **MCP Tier-2 restart honesty** — `restart: "no"` on `mcp-filesystem`, `mcp-fetch`, `mcp-memory`. Keep `mcp_memory_data`. Distinct from Stage 7 idle-stop.
+4. **Tika/MinIO resource limits** — Add `deploy.resources` (Tika ≥ 2G so `-Xmx1536m` fits; MinIO ~1G). Distinct from Stage 18's "how to budget" page.
+5. **Processor tmpfs + status share** — Relocate `STATUS_FILE` off `/tmp` on helper and processor, then `tmpfs: /tmp` on the processor only. Do not overlay `/tmp` first.
+6. **Datastore `ulimits.nofile`** — Copy Nginx 65535/65535 onto postgres and minio. Do not add host PAM.
+7. **OOM score order** — Negative `oom_score_adj` on pihole/nginx/postgres; `+200` or more on ollama/tika/browserless. No `oom_kill_disable`. Distinct from Stage 24/25 swappiness.

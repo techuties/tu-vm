@@ -13,6 +13,10 @@ Recurring themes identified across historical branches:
 3. Practical contributor tooling for day-to-day operations
 4. A phased roadmap built from already proposed feature directions
 
+## Publishable website markdown
+
+Canonical constructional contracts for a future static docs site live in [`website/`](./website/index.md) (Stage 26 on this branch). Stages 1–25 remain on open sibling PRs (#27–#51) and should be merged as siblings, not rewritten.
+
 ## Files in this folder
 
 - `website-historical-baseline.md`  
