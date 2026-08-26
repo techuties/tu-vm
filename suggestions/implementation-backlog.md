@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 27 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 23–26 (PRs #49–#52).
+
+1. **Helper Python image pin** — Replace `python:3-alpine` with `@sha256:…`. Add `helper_index` to `OFFICIAL_UPDATE_IMAGE_PAIRS`. Leave apk/pip for Stage 22.
+2. **Helper healthcheck honesty** — Compose probe `curl` to existing `/health`. Then `nginx.depends_on.helper_index: service_healthy`. Do not probe `/status`.
+3. **CPU shares and blkio weight** — `cpu_shares: 2048` on pihole/nginx/postgres; `256` on ollama/tika/browserless. Distinct from Stage 26 `oom_score_adj`.
+4. **Helper host `/tmp` isolation** — Move `tu-vm-update-status.json` and `tu-vm-log-status.json` to `state/` (or `TU_VM_STATUS_DIR`). Drop helper `/tmp:/tmp` only after Stage 26 relocates the Tika file.
+5. **Helper docker GID** — `DOCKER_GID` in `env.example` + `group_add` so Stage 25 numeric `user:` can open the socket. No `chmod 666`.
+6. **Helper resource limits** — `deploy.resources` 512M / 0.50 until Stage 22 bake, then 256M / 0.25 like Nginx.
+7. **Docker socket proxy** — Digest-pinned Tecnativa proxy (CONTAINERS/POST/INFO). Helper drops the raw socket bind. No custom Flask ACL.
