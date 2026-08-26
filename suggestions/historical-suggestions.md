@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Helper image is floating `python:3-alpine` | Only always-on official image still unpinned | Proposed | Stage 27 digest pin via existing `tu-vm.sh update` map until Stage 22 bake. |
+| Helper has `/health` but no Compose probe | nginx `depends_on` helper without `service_healthy` | Proposed | Stage 27 probe `/health`; do not probe `/status`. |
+| Hard CPU limits do not pick a winner | Ollama/Tika can stall Pi-hole and Postgres | Proposed | Stage 27 `cpu_shares` / `blkio_weight` (distinct from OOM). |
+| Host cron JSON lives on `/tmp` | helper bind-mounts host `/tmp` | Proposed | Stage 27 dedicated `state/` bind; distinct from Stage 26 Tika file. |
+| Non-root helper cannot open docker.sock | Stage 25 leftover; socket is `root:docker` 660 | Proposed | Stage 27 `group_add` + `DOCKER_GID`. |
+| Helper has no cgroup budget | Nginx/Pi-hole already 256M; helper unbounded | Proposed | Stage 27 `deploy.resources` (512M until bake). |
+| Helper mounts the raw Docker socket | Flask only needs container list/start/stop | Proposed | Stage 27 Tecnativa docker-socket-proxy. |
 
 ## Prioritization Framework
 
