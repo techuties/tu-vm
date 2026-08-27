@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 28 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 22 journald, or Stage 23–27 (PRs #49–#53).
+
+1. **Pull policy on digest pins** — `pull_policy: missing` on every `@sha256:` official image. Leave `build:` services alone. `./tu-vm.sh update` remains the pull channel.
+2. **Unbounded Tier 2 resource limits** — `deploy.resources` on `n8n` (768M / 0.40 from CHANGELOG 2.0), `n8n_mcp`, `affine*`, `mcp_gateway`, `langgraph_supervisor`. Distinct from Stage 26 Tika/MinIO and Stage 27 helper.
+3. **n8n healthz when started** — Uncomment the existing `/healthz` probe. Keep `restart: "no"`. Point `n8n_mcp` / `mcp_gateway` at `service_healthy`.
+4. **Compose extension fields DRY** — Top-level `x-dns-pihole` (and later `x-pull-digest`) with YAML merge. No Jinja/Jsonnet preprocessor.
+5. **AFFiNE Redis requirepass** — Dedicated `AFFINE_REDIS_PASSWORD` + `--requirepass`. Do not reuse `REDIS_PASSWORD` or share `ai_redis`. Distinct from Stage 20 durability.
+6. **n8n Postgres service DNS** — `DB_POSTGRESDB_HOST: postgres`. Do not embed `172.20.0.10`. Distinct from Stage 21 Nginx resolver.
+7. **Compose include split** — Keep `docker-compose.yml` as the include root; move services under `compose/*.yml`. Land DRY anchors first. No custom splitter.

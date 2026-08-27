@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Digest-pinned images still pull on daily `up` | Compose default pull vs laptop/air-gap | Proposed | Stage 28 `pull_policy: missing`; update stays the pull channel. |
+| Leftover unbounded Tier 2 services | n8n/AFFiNE/MCP/LangGraph lack `deploy.resources` | Proposed | Stage 28 budgets; n8n starts from CHANGELOG 2.0 768M/0.40. |
+| n8n `/healthz` probe is commented | Dependents race editor boot | Proposed | Stage 28 uncomment official probe; keep `restart: "no"`. |
+| Repeated Compose `dns:` blocks | Twenty copies of `127.0.0.11` + Pi-hole | Proposed | Stage 28 official `x-*` anchors; no preprocessor. |
+| `affine_redis` has no password | Platform Redis uses `requirepass` | Proposed | Stage 28 dedicated `AFFINE_REDIS_PASSWORD` (not Stage 20 AOF). |
+| n8n embeds `172.20.0.10` | Only first-party client skipping Compose DNS | Proposed | Stage 28 `DB_POSTGRESDB_HOST: postgres`. |
+| 880-line Compose monolith | Community PRs and CODEOWNERS collide | Proposed | Stage 28 official `include:` under `compose/*.yml`. |
 
 ## Prioritization Framework
 

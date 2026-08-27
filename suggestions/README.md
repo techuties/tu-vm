@@ -30,6 +30,10 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+## Publishable website markdown
+
+Canonical constructional contracts for a future static docs site live in [`website/`](./website/index.md) (Stage 28 on this branch). Stages 1–27 remain on open sibling PRs (#27–#53) and should be merged as siblings, not rewritten.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
