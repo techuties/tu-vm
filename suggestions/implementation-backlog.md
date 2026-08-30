@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 29 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 22 journald, Stage 23–27 (PRs #49–#53), or Stage 28 (PR #54).
+
+1. **Healthcheck start interval** — Compose-native `start_interval` (5s–15s) plus missing `start_period` on probed Tier 1 services. Keep 180s/60s/30s `interval`. Distinct from Stage 24 `HEALTH_CHECK_*` env keys.
+2. **Nginx tmpfs runtime** — `tmpfs` for `/run`, `/var/run`, `/tmp`, `/var/cache/nginx` so Stage 23 `read_only: true` can land. Keep `nginx_logs` on a volume.
+3. **n8n binary data volume** — Keep `N8N_BINARY_DATA_MODE=filesystem`. Set `N8N_DEFAULT_BINARY_DATA_FILESYSTEM_DIRECTORY` under `n8n_data` and enable `EXECUTIONS_DATA_PRUNE`. No second object store.
+4. **Compose service label catalog** — `tu-vm.tier` and `tu-vm.role` on every service. README tables must match. Distinct from Stage 19 `profiles:`.
+5. **Open WebUI Tika service DNS** — `TIKA_SERVER_URL=http://tika:9998`; processor `tika` / `minio`. Leave `container_name`. Distinct from Stage 28 n8n→Postgres.
+6. **Postgres shm size** — `shm_size: 256mb` on `postgres` (matches `shared_buffers`); `128mb` on `affine_postgres`. Distinct from Stage 26 Chromium 1G shm.
+7. **Redis healthcheck auth env** — `REDISCLI_AUTH` instead of `redis-cli -a`. Apply the same pattern to `affine_redis` after Stage 28 requirepass. Distinct from Stage 24 ACL users.

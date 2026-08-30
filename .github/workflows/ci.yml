@@ -49,7 +49,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: |
           set -euo pipefail
-          mkdir -p ssl
+          mkdir -p ssl nginx/dynamic
+          # Gitignored runtime file; --strict treats a missing allowlist as a failure.
+          printf 'allow 127.0.0.1;\ndeny all;\n' > nginx/dynamic/control_allowlist.conf
           openssl req -x509 -nodes -newkey rsa:2048 \
             -keyout ssl/nginx.key -out ssl/nginx.crt \
             -days 1 -subj '/CN=localhost' 2>/dev/null
