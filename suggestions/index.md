@@ -13,13 +13,16 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Publishable website pages](./website/index.md)
+   Canonical constructional contracts for a future static docs site. Stage 29 covers Compose `start_interval`, Nginx tmpfs runtime, n8n binary-data volume honesty, `tu-vm.*` service labels, leftover Tika/MinIO service DNS, Postgres `shm_size`, and Redis `REDISCLI_AUTH` probes.
+
+2. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles

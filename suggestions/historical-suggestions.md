@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| First-boot health waits a full `interval` | Compose `interval: 180s` without `start_interval` | Proposed | Stage 29 native `start_interval`; keep energy-aware interval. |
+| Nginx cannot go read-only yet | Official image writes `/run` and `/var/cache/nginx` | Proposed | Stage 29 tmpfs runtime; then Stage 23 `read_only`. |
+| n8n filesystem binary path is implicit | `N8N_BINARY_DATA_MODE=filesystem` and no prune | Proposed | Stage 29 named directory + `EXECUTIONS_DATA_PRUNE`. |
+| No Compose service catalog labels | Tier tables live in README / comments / scripts | Proposed | Stage 29 `tu-vm.tier` / `tu-vm.role` labels. |
+| Open WebUI / processor use `ai_tika` | Service DNS already used for ollama/postgres | Proposed | Stage 29 `tika` / `minio` hosts; keep `container_name`. |
+| Postgres `/dev/shm` stays 64MB | `shared_buffers` default 256MB | Proposed | Stage 29 `shm_size` on both Postgres services. |
+| Redis probe puts password on argv | `redis-cli -a` in healthcheck | Proposed | Stage 29 `REDISCLI_AUTH`; not Stage 24 ACL. |
 
 ## Prioritization Framework
 
