@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 30 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 22 journald, Stage 23–28 (PRs #49–#54), or Stage 29 (PR #55).
+
+1. **Pi-hole v6 FTLCONF** — Replace `WEBPASSWORD` / `PIHOLE_DNS_` / `ServerIP` (and leftover lighttpd / DNSMASQ_* names) with official `FTLCONF_*`. Keep `PIHOLE_PASSWORD` in `.env`.
+2. **MinIO root user env** — Interpolate `${MINIO_ROOT_USER}` on `minio`, processor `MINIO_ACCESS_KEY`, KB default, and `tu-vm.sh` `mc` helpers. Distinct from Stage 23 ILM and Stage 24 SSE.
+3. **Leftover MCP / processor service DNS** — Defaults to `n8n` / `affine` / `n8n_mcp` / `tika` / `minio` after Stage 28/29. Keep `container_name`.
+4. **n8n proxy hops and cookies** — `N8N_PROXY_HOPS=1` and `N8N_SECURE_COOKIE=true` behind the existing Nginx vhost. Distinct from Stage 20 rate-limit zones.
+5. **Qdrant / MinIO healthcheck binaries** — Use a binary the pinned digest ships (`wget` / `mc ready`). Do not derive images just to add `curl`. Distinct from Stage 13/25/29.
+6. **Compose project name** — Top-level `name: tu-vm` so clone path does not change volume prefixes. Distinct from Stage 28 `include:`.
+7. **n8n auth env honesty** — `N8N_USER` / `N8N_PASSWORD` are MCP gateway → n8n API only. Do not revive deprecated n8n basic auth.

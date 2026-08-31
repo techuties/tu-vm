@@ -13,13 +13,16 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 
 ## Suggestion map
 
-1. [Community System Framework](./community-system-framework.md)  
+1. [Publishable website pages](./website/index.md)
+   Canonical constructional contracts for a future static docs site. Stage 30 covers Pi-hole v6 `FTLCONF_*`, `MINIO_ROOT_USER` interpolation, leftover MCP/processor service DNS, n8n proxy hops and secure cookies, Qdrant/MinIO healthcheck binaries, Compose `name:`, and n8n auth env honesty.
+
+2. [Community System Framework](./community-system-framework.md)
    Defines how suggestions are proposed, reviewed, accepted, and implemented.
 
-2. [Website and Documentation Framework](./website-and-docs-framework.md)  
+3. [Website and Documentation Framework](./website-and-docs-framework.md)
    Recommends a docs website stack and contribution model for clear public communication.
 
-3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
+4. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
 ## Working principles
