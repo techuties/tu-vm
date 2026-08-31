@@ -37,6 +37,10 @@ Recurring themes identified across historical branches:
 3. Keep secure defaults and LAN-first behavior as non-negotiable.
 4. Prioritize contribution quality, reproducibility, and maintainability.
 
+## Publishable website markdown
+
+Canonical constructional contracts for a future static docs site live in [`website/`](./website/index.md) (Stage 30 on this branch). Stages 1–29 remain on open sibling PRs (#27–#55) and should be merged as siblings, not rewritten.
+
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
 For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).

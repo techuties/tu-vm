@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| Pi-hole v6 ignores v5 env names | Compose still sets `WEBPASSWORD` / `PIHOLE_DNS_` / `ServerIP` | Proposed | Stage 30 official `FTLCONF_*`; keep `PIHOLE_PASSWORD`. |
+| `MINIO_ROOT_USER` is documentation-only | Compose and processor hardcode `admin` | Proposed | Stage 30 interpolate the env key everywhere. |
+| MCP / processor still default to `ai_*` hosts | Stage 28/29 moved Postgres and Open WebUI Tika | Proposed | Stage 30 leftover service-DNS defaults. |
+| n8n behind Nginx without hop/cookie env | Vhost already sets `X-Forwarded-*` | Proposed | Stage 30 `N8N_PROXY_HOPS` + `N8N_SECURE_COOKIE`. |
+| Qdrant / MinIO probes assume `curl` | Minimal vendor images | Proposed | Stage 30 image-honest `wget` / `mc ready`. |
+| Compose project follows clone directory | No top-level `name:` | Proposed | Stage 30 `name: tu-vm`. |
+| `N8N_PASSWORD` looks like editor login | Keys only reach `mcp_gateway` | Proposed | Stage 30 rename or annotate; no deprecated basic auth. |
 
 ## Prioritization Framework
 
