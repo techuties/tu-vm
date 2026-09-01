@@ -24,6 +24,13 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Usage analytics and recommendations | Changelog potential improvement | Proposed | Add privacy-preserving local-only telemetry summary. |
 | Expanded mobile dashboard UX | Changelog potential improvement | Partial | Define responsive layout acceptance tests and improve touch targets. |
 | Community contribution standardization | Implicit gap across docs | Proposed | Introduce shared suggestion + proposal workflow and templates. |
+| n8n Compose ships a public encryption default | `N8N_ENCRYPTION_KEY:-1e2f3a4b…` in Compose | Proposed | Stage 31 fail-closed or no published hex default. |
+| Open WebUI has no public origin env | Nginx is `oweb.tu.lan`; Compose omits `WEBUI_URL` | Proposed | Stage 31 official `WEBUI_URL`. |
+| Decorative `WEBUI_*` keys | `WEBUI_AUTH_SECRET` / rate-limit env vs upstream list | Proposed | Stage 31 wire-or-delete after citing official docs. |
+| MinIO console URLs ignore `.env` | `env.example` has keys; Compose hardcodes `*.tu.lan` | Proposed | Stage 31 interpolate official MinIO URL env. |
+| Helper TCP probes mix `ai_*` hosts | `/status/*` uses container names for sockets | Proposed | Stage 31 service DNS for probes; keep `container_name` for Docker API. |
+| n8n / Pi-hole TZ still hardcoded | Stage 23 policy; Compose still `Europe/Zurich` | Proposed | Stage 31 `TU_VM_TZ` leftovers only. |
+| Qdrant has no API key | Open listener on `ai_network` | Proposed | Stage 31 official Qdrant + Open WebUI key. |
 
 ## Prioritization Framework
 

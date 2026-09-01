@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 31 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 22 journald, Stage 23–29 (PRs #49–#55), or Stage 30 (PR #56).
+
+1. **n8n encryption key honesty** — Remove the published hex Compose default. Fail closed or interpolate without a literal. Keep `generate-secrets` as the only writer.
+2. **Open WebUI public URL** — Set official `WEBUI_URL` to `https://oweb.${DOMAIN}`. Distinct from Stage 29 Tika DNS and Stage 12 host ports.
+3. **Open WebUI official env honesty** — Cite upstream env docs; delete unused `WEBUI_AUTH_SECRET` / rate-limit keys from Compose and `generate-secrets`.
+4. **MinIO public URL env** — Interpolate `MINIO_SERVER_URL` and `MINIO_BROWSER_REDIRECT_URL`. Distinct from Stage 30 `MINIO_ROOT_USER`.
+5. **Helper status probe DNS** — TCP probes use service names; Docker inspect/start keep `container_name`. Distinct from Stage 30 Compose URL defaults.
+6. **Leftover timezone literals** — Wire n8n `GENERIC_TIMEZONE` and Pi-hole `TZ` to Stage 23 `TU_VM_TZ`. Do not add a time container.
+7. **Qdrant service API key** — Official `QDRANT__SERVICE__API_KEY` + Open WebUI `QDRANT_API_KEY`. Distinct from Stage 23 HNSW.
