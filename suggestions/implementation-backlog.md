@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 31 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c`, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 29 Tika DNS / shm / REDISCLI_AUTH, or Stage 30 (PR #56).
+
+1. **n8n encryption key honesty** — Drop Compose default `1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b`; require `${N8N_ENCRYPTION_KEY:?…}`. Distinct from Stage 30 gateway `N8N_USER` / `N8N_PASSWORD`.
+2. **Dead Postgres env honesty** — Remove ignored `POSTGRES_SHARED_BUFFERS` and sibling keys from Compose/`env.example`. Do not write another GUC essay; Stage 23 is the `-c` code path.
+3. **Open WebUI public URL** — Official `WEBUI_URL` default `https://oweb.${DOMAIN:-tu.lan}`. Distinct from Stage 29 Tika DNS.
+4. **Public origin DOMAIN** — Interpolate `DOMAIN` into n8n / AFFiNE / MinIO public URL env. Nginx `server_name` stays a documented follow-up. Distinct from Stage 30 `MINIO_ROOT_USER`.
+5. **Env example dead keys** — Delete or mark `POSTGRES_MEMORY`, `ENABLE_METRICS`, `BACKUP_*`, `ENABLE_CORS`, `TIKA_LOG_LEVEL`, and similar unused knobs.
+6. **Helper DOMAIN wiring** — Pass `DOMAIN=${DOMAIN:-tu.lan}` into `helper_index` only (no `env_file: .env`). Helper has no leftover MinIO credentials this run.
+7. **Check-config secret coverage** — `--strict` flags published defaults already listed in `generate-secrets`; `--ci` stays fixture-friendly.
