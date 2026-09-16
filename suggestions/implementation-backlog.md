@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 32 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c` / timezone, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 26 Chromium shm, Stage 29 Tika DNS / shm / REDISCLI_AUTH, Stage 30 (PR #56), or Stage 31 (PR #57).
+
+1. **Nginx DOMAIN server_name** — Rewrite static `*.tu.lan` vhosts from existing `DOMAIN` using the `tu-vm.sh` cert/start path. Stage 31 already interpolates app URL env and deferred this step.
+2. **Open WebUI signup / first user** — Official `ENABLE_SIGNUP` after the first admin. Distinct from Stage 15 Tika `init-openwebui.sh`.
+3. **n8n settings-file permissions** — Official `N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true`. Distinct from Stage 30 hops/cookies and Stage 31 encryption key.
+4. **Qdrant API key** — Official `QDRANT__SERVICE__API_KEY` + Open WebUI `QDRANT_API_KEY`. Distinct from Stage 23 HNSW and Stage 30 healthcheck binaries.
+5. **n8n official task runners** — `N8N_RUNNERS_ENABLED` on the existing n8n service. Distinct from Stage 5 Justfile/`make` wrappers.
+6. **Open WebUI Compose env honesty** — Remove unofficial `WEBUI_JWT_SECRET_KEY` / `WEBUI_AUTH_SECRET` / `WEBUI_RATE_LIMIT*`. Keep official `WEBUI_SECRET_KEY`. Distinct from Stage 31 example-only dead keys.
+7. **Browserless token required** — `${BROWSERLESS_TOKEN:?…}` so Chromium is not anonymous on the compose network. Extends Stage 11 contribution rules; do not rewrite Stage 26 shm.

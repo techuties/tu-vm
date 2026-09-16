@@ -49,3 +49,7 @@ Prioritize by highest `(Impact + Risk Reduction + Community Leverage) - Complexi
   - Mark shipped items as complete.
   - Move partial items to a concrete acceptance checklist.
   - Add new suggestions discovered in issues/discussions.
+
+## Publishable constructional contracts
+
+Historical product ideas in the table above stay here. **Implementation-ready Compose/env/tooling contracts** for a future docs site live in [`website/index.md`](./website/index.md) (Stage 32 on this branch; Stages 1–31 on PRs #27–#57). Prefer implementing those contracts in code over adding another parallel framework file.
