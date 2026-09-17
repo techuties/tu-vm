@@ -49,3 +49,7 @@ Prioritize by highest `(Impact + Risk Reduction + Community Leverage) - Complexi
   - Mark shipped items as complete.
   - Move partial items to a concrete acceptance checklist.
   - Add new suggestions discovered in issues/discussions.
+
+## Stage 33 website contracts
+
+Publishable pages for leftover official-product keys and host-debug ports live under [`website/`](./website/index.md). They reuse n8n / Open WebUI / Ollama / Compose profile machinery and do not replace this historical product backlog (profiles, battery widget, idle container autostop).
