@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 33 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c` / timezone, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 26 Chromium shm, Stage 29 Tika DNS / shm / REDISCLI_AUTH / n8n binary volume, Stage 30 (PR #56), Stage 31 (PR #57), or Stage 32 (PR #58).
+
+1. **n8n block env in Code nodes** — Official `N8N_BLOCK_ENV_ACCESS_IN_NODE=true`. Distinct from Stage 31 encryption-key honesty and Stage 32 runners / settings-file permissions.
+2. **n8n Git bare-repo disable** — Official `N8N_GIT_NODE_DISABLE_BARE_REPOS=true`. Distinct from Stage 19 MCP fetch CIDR deny.
+3. **Debug loopback publish opt-in** — Move `127.0.0.1:8080/9000/9001/8081` behind a Compose profile. Distinct from Stage 12 host-port 53/80/443 and Stage 19 Tier `profiles:` sync.
+4. **Open WebUI offline embeddings** — Named HF cache volume + official `HF_HUB_OFFLINE` / `TRANSFORMERS_OFFLINE`. Distinct from Stage 6 docs airgap and Stage 8 RAG knowledge packs.
+5. **n8n executions prune** — Official `EXECUTIONS_DATA_PRUNE*`. Distinct from Stage 11 container logs and Stage 29 binary-data volume.
+6. **Ollama keep-alive unload** — Official `OLLAMA_KEEP_ALIVE` / `OLLAMA_MAX_LOADED_MODELS`. Distinct from Stage 7 container idle autostop.
+7. **Open WebUI community sharing** — Official `ENABLE_COMMUNITY_SHARING=false`. Distinct from Stage 32 `ENABLE_SIGNUP` and unofficial `WEBUI_*` cleanup.
