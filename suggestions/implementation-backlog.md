@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 34 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c` / timezone, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 26 Chromium shm, Stage 29 Tika DNS / shm / REDISCLI_AUTH / n8n binary volume, Stage 30 (PR #56), Stage 31 (PR #57), Stage 32 (PR #58), or Stage 33 (PR #59).
+
+1. **n8n templates disabled** — Official `N8N_TEMPLATES_ENABLED=false` (optional later `N8N_TEMPLATES_HOST`). Distinct from Stage 33 Open WebUI community-sharing and Stage 34 community packages.
+2. **n8n restrict file access** — Official `N8N_RESTRICT_FILE_ACCESS_TO` plus a dedicated volume. Distinct from Stage 29 binary-data volume and Stage 33 env-block.
+3. **n8n community packages** — Official `N8N_COMMUNITY_PACKAGES_ENABLED=false` (or 2.21+ env-managed allowlist). Distinct from templates and Stage 26 n8n-mcp pin.
+4. **n8n execution timeout** — Official `EXECUTIONS_TIMEOUT` / `EXECUTIONS_TIMEOUT_MAX`. Distinct from Stage 33 `EXECUTIONS_DATA_PRUNE*`.
+5. **Open WebUI CORS origin** — Official `CORS_ALLOW_ORIGIN=https://oweb.${DOMAIN}`. Distinct from Stage 31 `WEBUI_URL` / public origins.
+6. **Open WebUI API key endpoints** — Official `ENABLE_API_KEYS` + endpoint restrictions. Distinct from helper `CONTROL_TOKEN` and Stage 32 Browserless `TOKEN`.
+7. **n8n personal-space sharing** — Official security-policy lock + publish/share false. Distinct from Stage 33 `ENABLE_COMMUNITY_SHARING`.
