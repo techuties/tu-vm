@@ -49,3 +49,7 @@ Prioritize by highest `(Impact + Risk Reduction + Community Leverage) - Complexi
   - Mark shipped items as complete.
   - Move partial items to a concrete acceptance checklist.
   - Add new suggestions discovered in issues/discussions.
+
+## Stage 35 website contracts
+
+Publishable pages for leftover community-governance and day-to-day official keys live under [`website/`](./website/index.md). They reuse Pi-hole / n8n / Open WebUI environment machinery and do not replace this historical product backlog (profiles, battery widget, idle container autostop).
