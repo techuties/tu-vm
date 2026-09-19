@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 35 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c` / timezone, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 26 Chromium shm, Stage 29 Tika DNS / shm / REDISCLI_AUTH / n8n binary volume, Stage 30 (PR #56), Stage 31 (PR #57), Stage 32 (PR #58), Stage 33 (PR #59), or Stage 34 (PR #60).
+
+1. **Pi-hole published password honesty** — Required `PIHOLE_PASSWORD` (`:?`); delete published `SwissPiHole2024!` fallback. Distinct from Stage 30 FTLCONF *names*.
+2. **n8n MFA enforced** — Official `N8N_MFA_ENFORCED_ENABLED=true` on the shared `N8N_SECURITY_POLICY_MANAGED_BY_ENV` lock. Distinct from Stage 34 personal-space publish/share.
+3. **n8n concurrency production limit** — Official `N8N_CONCURRENCY_PRODUCTION_LIMIT` (suggested default 5). Distinct from Stage 34 `EXECUTIONS_TIMEOUT*` and Stage 28 Compose RAM.
+4. **Open WebUI Scarf analytics** — Official `SCARF_NO_ANALYTICS=true`. Distinct from existing `DO_NOT_TRACK` and Stage 33 community-sharing.
+5. **n8n version notifications** — Official `N8N_VERSION_NOTIFICATIONS_ENABLED=false`. Distinct from Stage 34 `N8N_TEMPLATES_ENABLED`.
+6. **Open WebUI version update check** — Official `ENABLE_VERSION_UPDATE_CHECK=false`. Distinct from Stage 33 HF offline and from full `OFFLINE_MODE`.
+7. **n8n public API Swagger disabled** — Official `N8N_PUBLIC_API_SWAGGERUI_DISABLED=true`. Do **not** set `N8N_PUBLIC_API_DISABLED` (MCP / n8n-mcp need the API).
