@@ -111,3 +111,17 @@ _Shipped from the prior round: playbook shortcuts + operator hub, static “What
 8. **SBOM export (optional)** — CycloneDX/SPDX artifact on release for regulated operators.
 9. **Feature-flag pattern for dashboard experiments** — Env-driven toggles before large UI changes (**P2-3**).
 10. **n8n / AFFiNE maintainer workflows** — Lightweight triage reminders (behind Tier-2 services) per day-to-day-tooling docs, if the team adopts them.
+
+---
+
+## Stage 36 constructional follow-ups (prefer code)
+
+Contracts live in [`website/`](./website/index.md). Implement these instead of writing another parallel framework file. Do not repeat Stage 11 logging, Stage 18 `no-new-privileges` (code only), Stage 20 IPv6, Stage 22 journald, Stage 23 GUC `-c` / timezone, Stage 24 unused `HEALTH_CHECK_*` / `NGINX_WORKER_*`, Stage 26 Chromium shm, Stage 29 Tika DNS / shm / REDISCLI_AUTH / n8n binary volume, Stage 30 (PR #56), Stage 31 (PR #57), Stage 32 (PR #58), Stage 33 (PR #59), Stage 34 (PR #60), or Stage 35 (PR #61).
+
+1. **n8n hiring banner** — Official `N8N_HIRING_BANNER_ENABLED=false`. Distinct from Stage 35 version notifications.
+2. **n8n personalization** — Official `N8N_PERSONALIZATION_ENABLED=false`. Distinct from Stage 34 personal-space sharing.
+3. **n8n SameSite cookie** — Official `N8N_SAMESITE_COOKIE=strict`. Stage 30 owns hops + `N8N_SECURE_COOKIE` (do not rewrite).
+4. **n8n hide usage page** — Official `N8N_HIDE_USAGE_PAGE=true`. Distinct from Stage 34 templates.
+5. **Open WebUI admin analytics** — Official `ENABLE_ADMIN_ANALYTICS=false`. Distinct from Stage 35 Scarf.
+6. **Open WebUI session cookies** — Official `WEBUI_SESSION_COOKIE_*` / `WEBUI_AUTH_COOKIE_*` (`strict` + `Secure`). Distinct from n8n cookies.
+7. **Open WebUI PersistentConfig honesty** — Official `ENABLE_PERSISTENT_CONFIG=false` so Compose/env wins. Do not add a settings-sync sidecar.
