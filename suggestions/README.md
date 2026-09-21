@@ -15,6 +15,9 @@ Recurring themes identified across historical branches:
 
 ## Files in this folder
 
+- [`website/`](./website/index.md)
+  Publishable Stage 37 website markdown (official n8n / Open WebUI constructional contracts). Stage 1–36 pages live on open PRs #27–#62 as expected siblings—do not stub-duplicate them here.
+
 - `website-historical-baseline.md`  
   Historical suggestion patterns and how they were merged into a single framework.
 
