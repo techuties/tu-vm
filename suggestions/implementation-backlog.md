@@ -101,6 +101,8 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
 
+Prefer **code** for already-drafted Stage 1–38 official-key contracts over more parallel suggestion markdown. Stage 38 website pages (this folder’s [`website/`](./website/index.md)) name the next unused product keys: Open WebUI profile-image forwarding, artifact iframe CSP, `DEFAULT_USER_ROLE=pending`, admin export, admin chat access, `N8N_METRICS=false`, and `N8N_PAYLOAD_SIZE_MAX=16`. Implement Stage 36 PersistentConfig honesty in **code** so ConfigVar pins such as `DEFAULT_USER_ROLE` stick.
+
 1. **Trivy (or Grype) image CVE scans** — Iterate pinned Compose images with actionable severity thresholds (separate from today’s config-only scan).
 2. **Incremental dashboard asset extraction** — Break out CSS/JS from [`nginx/html/index.html`](../nginx/html/index.html); introduce ESLint/stylelint on extracted files (**P2-1**).
 3. **Playwright smoke tests** — Tier-1 flows against `tu.lan` or headless nginx fixture (**P2-2**).
