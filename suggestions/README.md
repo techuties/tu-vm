@@ -30,6 +30,9 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+- [`website/index.md`](./website/index.md)
+  Publishable Stage 39 pages: Open WebUI upload limits, inline avatar size, identity headers, OpenAI passthrough, redirect following, n8n form-data size, and the n8n node exclude list. Stages 1–38 stay on open PRs #27–#64.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
