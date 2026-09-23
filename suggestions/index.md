@@ -11,6 +11,10 @@ The recommendations focus on:
 
 To avoid reinventing the wheel, we should standardize on proven open-source patterns, then customize only where the project has unique needs.
 
+## Publishable website (Stage 39)
+
+Curated pages for a future static docs site live in [`website/index.md`](./website/index.md). They pin official Open WebUI and n8n keys that the current Compose file leaves unset. GitHub Issues stay the only proposal intake. Stages 1–38 are expected siblings on open PRs #27–#64 and are not copied here.
+
 ## Suggestion map
 
 1. [Community System Framework](./community-system-framework.md)  
