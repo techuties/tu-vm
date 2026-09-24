@@ -22,6 +22,10 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+## Publishable website pages
+
+Stage 40 constructional contracts are in [`website/index.md`](./website/index.md). They reuse official Open WebUI and n8n settings. Stages 1–39 remain on open PRs #27–#65 and are not copied onto this branch.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable

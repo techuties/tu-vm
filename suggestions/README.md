@@ -30,6 +30,8 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+- [`website/index.md`](./website/index.md) — publishable Stage 40 pages: Open WebUI chunk env names, local-only OpenAI toggle, fetch-url length, active-user privacy, JWT expiry, n8n SSRF with the Compose mesh allow, and n8n runner payload size. Stages 1–39 stay on open PRs #27–#65.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
