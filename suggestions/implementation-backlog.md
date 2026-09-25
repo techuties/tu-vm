@@ -97,6 +97,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ---
 
+## Stage 41 proposed contracts (2026-09-25)
+
+Publishable pages are in [`website/index.md`](./website/index.md). They are suggestions. Compose and Python defaults are unchanged until a follow-up implementation PR.
+
 ## Next high-value recommendations (10)
 
 _Shipped from the prior round: playbook shortcuts + operator hub, static “What is new” links, pre-commit config, Dependabot, CODEOWNERS template, docs-links + Trivy config workflows, release-note-helper, `/status/full` fixture validator._
