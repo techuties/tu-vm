@@ -40,3 +40,7 @@ Recurring themes identified across historical branches:
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
 For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).
+
+## Stage 41 publishable pages
+
+[`website/index.md`](./website/index.md) holds the Stage 41 contracts: Open WebUI tool-call cap, HTTP client timeout, SQLAlchemy pool, n8n execution save mode, document-watcher paging, document-watcher attempt cap, and knowledge-base public read. Stages 1–40 stay on open PRs #27–#66 and are not copied onto this branch.

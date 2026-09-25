@@ -53,3 +53,5 @@ Still open:
 - Publish quarterly roadmap and retrospective summaries
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.
+
+Stage 41 constructional contracts are in [`website/index.md`](./website/index.md). They reuse official Open WebUI and n8n settings, plus two loops that already exist in the document watcher and the MCP gateway. Stages 1–40 remain on open PRs #27–#66 and are not copied onto this branch.
