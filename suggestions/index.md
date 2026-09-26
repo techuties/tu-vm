@@ -22,6 +22,9 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Stage 42 website contracts](./website/index.md)
+   Publishable pages for the next constructional gaps: control-name allowlist, Nginx `add_header` inheritance, document byte budgets, and MCP build/listener honesty. Stage 1–41 pages remain on open PRs #27–#67.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable

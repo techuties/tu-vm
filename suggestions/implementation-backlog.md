@@ -89,6 +89,18 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ---
 
+## Stage 42 website contracts (proposed)
+
+Checked on 2026-09-26 against `dev`. Implement these in **code**. Do not open another page that repeats them. Stage 1–41 remain on open PRs #27–#67.
+
+1. [Helper control allowlist](./website/helper-control-service-allowlist-contract.md) — unknown `/control` names return 400 and never reach the Docker socket.
+2. [Nginx header inheritance](./website/nginx-add-header-inheritance-contract.md) — locations keep the security headers their server block already sets.
+3. [Watcher object budget](./website/processor-object-byte-budget-contract.md) — `PROCESSOR_MAX_OBJECT_BYTES=67108864` before `Body.read()`.
+4. [Archive expansion budget](./website/processor-archive-expansion-budget-contract.md) — member, byte, and ratio caps before zip/tar reads.
+5. [MCP build pins](./website/mcp-tool-build-pin-contract.md) — replace `@latest` with the 2026-09-26 registry versions.
+6. [MCP listener honesty](./website/mcp-tool-listener-auth-contract.md) — no host ports, and supergateway `--oauth2Bearer` is not inbound auth.
+7. [AFFiNE MCP command fallback](./website/affine-mcp-command-fallback-contract.md) — code default `affine-mcp`, matching the npm bin.
+
 ## Suggested implementation order
 
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.
