@@ -22,6 +22,8 @@ To avoid reinventing the wheel, we should standardize on proven open-source patt
 3. [Day-to-Day Tooling Framework](./day-to-day-tooling.md)  
    Covers operational tooling, automation, quality gates, and contributor productivity.
 
+4. [Stage 43 website pages](./website/index.md) — two verified contracts: bootstrap must use the Nginx peer address, and the landing page must render log samples and filenames as text. Stages 1–42 remain on open PRs #27–#68.
+
 ## Working principles
 
 - **Community-first**: proposals are public, discussable, and traceable
