@@ -22,6 +22,15 @@ These directions are satisfied without a custom suggestions stack:
 
 ---
 
+## Verified next defects (2026-09-27)
+
+Checked against `dev` after Stages 1–42 (open PRs #27–#68). These are code follow-ups, not new products. Detail is in [`website/index.md`](./website/index.md).
+
+1. **Client IP trust for `/whitelist/auto`** — [`helper-client-ip-trust-contract.md`](./website/helper-client-ip-trust-contract.md). Prefer `X-Real-IP`. Do not return `ips` to anonymous callers.
+2. **Dashboard text insertion** — [`dashboard-untrusted-text-contract.md`](./website/dashboard-untrusted-text-contract.md). Stop assigning announcement text, object keys, and control error bodies with `innerHTML`.
+
+Do not open another page for Stage 42 keys (unknown control names, Nginx `add_header` inheritance, processor byte caps, MCP build pins, MCP listener auth, AFFiNE MCP command fallback).
+
 ## Priority model
 
 - **P0**: High impact, low complexity, immediate quality gain

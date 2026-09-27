@@ -30,6 +30,8 @@ Recurring themes identified across historical branches:
 - `website-roadmap-from-historical-suggestions.md`  
   Sequenced roadmap that maps historical suggestions to implementation milestones.
 
+- [`website/index.md`](./website/index.md) — Stage 43 publishable pages. Earlier stage pages stay on open PRs #27–#68 and are not copied here.
+
 ## Design principles for all suggestions
 
 1. Reuse existing project surfaces first (`README.md`, `CHANGELOG.md`, `tu-vm.sh`, helper API, nginx landing page).
