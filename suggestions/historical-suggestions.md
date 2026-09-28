@@ -17,7 +17,7 @@ This page tracks ideas already mentioned in project documentation and changelog 
 | Suggestion | Existing Evidence | Suggested Status | Next Action |
 |---|---|---|---|
 | Quick action profiles (Work/AI/Energy modes) | Changelog planned feature | Proposed | Design profile schema in `tu-vm.sh` and dashboard API. |
-| Battery status surfaced in dashboard | Changelog planned feature + battery guidance in docs | Proposed | Add helper API endpoint for battery info and UI widget. |
+| Battery status surfaced in dashboard | Changelog planned feature + battery guidance in docs. `helper/uploader.py` already reads `BAT0`, but `helper_index` does not mount those sysfs files. | Partial | Follow [`website/host-metrics-source-contract.md`](./website/host-metrics-source-contract.md). Do not add a second battery API. |
 | Auto-stop inactive heavy services | Changelog planned feature | Proposed | Implement idle timeout policy for Tier 2 services (opt-in). |
 | Resource usage history charts | Changelog planned feature | Proposed | Persist daily snapshots and expose trend endpoint. |
 | Service dependency auto-start | Changelog potential improvement | Proposed | Add dependency map (e.g. Open WebUI + Ollama) in control layer. |

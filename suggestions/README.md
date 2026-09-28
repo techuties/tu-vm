@@ -40,3 +40,5 @@ Recurring themes identified across historical branches:
 To submit an idea via GitHub only, see [CONTRIBUTING.md](../CONTRIBUTING.md) at the repository root (Issues + PR templates).
 
 For the **trimmed backlog** (implemented items removed) and **ten prioritized next recommendations**, see [`implementation-backlog.md`](./implementation-backlog.md).
+
+Stage 44 publishable pages, checked against the tree on 2026-09-28, live in [`website/index.md`](./website/index.md). They cover the helper project mount, the helper image build, update-status files, the image digest compare, and host metric sources. Earlier stage pages stay on their open pull requests.
