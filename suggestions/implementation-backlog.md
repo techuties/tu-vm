@@ -89,6 +89,10 @@ Roll out major dashboard or experimental UI behavior behind flags (example: opti
 
 ---
 
+## Stage 44 verified defects (2026-09-28)
+
+Code-level notes for the next implementation pass are in [`website/index.md`](./website/index.md): unused helper repository mount, helper packages installed on start, update-status file clobber, image digest compare, and host metric sources. Those pages are contracts for the existing helper, checkup script, and Compose file.
+
 ## Suggested implementation order
 
 1. **Next high-value recommendations** — supply-chain depth, frontend modularization, browser smoke tests, richer dashboard content.

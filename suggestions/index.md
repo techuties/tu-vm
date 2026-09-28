@@ -53,3 +53,5 @@ Still open:
 - Publish quarterly roadmap and retrospective summaries
 
 See [`implementation-backlog.md`](./implementation-backlog.md) for the trimmed backlog and the next ten prioritized recommendations.
+
+Stage 44 website pages (2026-09-28) are the current constructional set: [`website/index.md`](./website/index.md). They do not replace the framework notes above.
